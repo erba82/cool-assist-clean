@@ -1,0 +1,22 @@
+# CFD Service Requirements
+# Simplified 2D CFD with heat transfer modeling
+
+# Core numerical computing
+numpy==1.24.3
+scipy==1.11.4
+
+# Visualization
+matplotlib==3.8.2
+
+# API framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Mesh generation
+meshio==5.3.5
+
+# Optional: OpenFOAM wrapper (for Phase 3.2)
+# pyFoam==2023.1
+
+# Already installed
+# CoolProp==6.6.0

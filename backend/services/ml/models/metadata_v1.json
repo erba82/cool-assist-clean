@@ -1,0 +1,92 @@
+{
+  "capacity_predictor": {
+    "type": "RandomForestRegressor",
+    "train_r2": 0.9987859843399264,
+    "test_r2": 0.9953648778599656,
+    "train_mape": 0.49954747395492166,
+    "test_mape": 0.9119112513289849,
+    "n_samples_train": 2648,
+    "n_samples_test": 662,
+    "feature_importance": [
+      {
+        "feature": "refrigerant_encoded",
+        "importance": 0.6248181720295891
+      },
+      {
+        "feature": "cooling_capacity",
+        "importance": 0.367751604402231
+      },
+      {
+        "feature": "mass_flow",
+        "importance": 0.003962150580640025
+      },
+      {
+        "feature": "safety_factor",
+        "importance": 0.002744241941595869
+      },
+      {
+        "feature": "heat_rejection",
+        "importance": 0.00024672220515179193
+      },
+      {
+        "feature": "displacement_required",
+        "importance": 0.00024613152642963195
+      },
+      {
+        "feature": "cond_temp",
+        "importance": 0.00015376621900741814
+      },
+      {
+        "feature": "evap_temp",
+        "importance": 2.8605477391162742e-05
+      },
+      {
+        "feature": "pressure_ratio",
+        "importance": 2.6552568295220147e-05
+      },
+      {
+        "feature": "application_encoded",
+        "importance": 1.1177458820060182e-05
+      },
+      {
+        "feature": "cop",
+        "importance": 1.0875590848747705e-05
+      }
+    ]
+  },
+  "equipment_classifier": {
+    "type": "SVC",
+    "train_accuracy": 0.9969788519637462,
+    "test_accuracy": 0.9848942598187311,
+    "n_samples_train": 2648,
+    "n_samples_test": 662,
+    "classes": [
+      "reciprocating",
+      "screw"
+    ]
+  },
+  "power_predictor": {
+    "type": "GradientBoostingRegressor",
+    "train_r2": 0.9999782522069692,
+    "test_r2": 0.9948719812603305,
+    "train_mape": 0.17760026475040042,
+    "test_mape": 1.0987246194694233,
+    "n_samples_train": 2648,
+    "n_samples_test": 662
+  },
+  "training_date": "2025-12-04T10:13:12.457386",
+  "n_samples": 3310,
+  "feature_cols": [
+    "cooling_capacity",
+    "evap_temp",
+    "cond_temp",
+    "cop",
+    "pressure_ratio",
+    "safety_factor",
+    "mass_flow",
+    "displacement_required",
+    "heat_rejection",
+    "refrigerant_encoded",
+    "application_encoded"
+  ]
+}

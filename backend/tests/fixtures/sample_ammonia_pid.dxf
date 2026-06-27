@@ -1,0 +1,411 @@
+999
+Sample P&ID for Ammonia Refrigeration System
+Created for GFDDE DXF Parser Testing
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+     4
+  0
+ENDSEC
+  0
+SECTION
+  2
+TABLES
+  0
+TABLE
+  2
+LAYER
+ 70
+     3
+  0
+LAYER
+  2
+EQUIPMENT
+ 62
+     1
+ 70
+     0
+  0
+LAYER
+  2
+PIPING
+ 62
+     2
+ 70
+     0
+  0
+LAYER
+  2
+NOTES
+ 62
+     7
+ 70
+     0
+  0
+ENDTAB
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  8
+0
+  2
+COMP_N320
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  0
+CIRCLE
+  8
+EQUIPMENT
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+ 40
+15.0
+  0
+ENDBLK
+  0
+BLOCK
+  8
+0
+  2
+COND_VXC
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  0
+LWPOLYLINE
+  8
+EQUIPMENT
+ 90
+        4
+ 70
+     1
+ 10
+-20.0
+ 20
+-10.0
+ 10
+20.0
+ 20
+-10.0
+ 10
+20.0
+ 20
+10.0
+ 10
+-20.0
+ 20
+10.0
+  0
+ENDBLK
+  0
+BLOCK
+  8
+0
+  2
+EVAP_OPTIGO
+ 70
+     0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  0
+LWPOLYLINE
+  8
+EQUIPMENT
+ 90
+        4
+ 70
+     1
+ 10
+-15.0
+ 20
+-8.0
+ 10
+15.0
+ 20
+-8.0
+ 10
+15.0
+ 20
+8.0
+ 10
+-15.0
+ 20
+8.0
+  0
+ENDBLK
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+INSERT
+  8
+EQUIPMENT
+  2
+COMP_N320
+ 10
+100.0
+ 20
+200.0
+ 30
+0.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+0.0
+  0
+TEXT
+  8
+NOTES
+ 10
+100.0
+ 20
+230.0
+ 30
+0.0
+ 40
+2.5
+  1
+CMP-B-1
+  0
+INSERT
+  8
+EQUIPMENT
+  2
+COMP_N320
+ 10
+200.0
+ 20
+200.0
+ 30
+0.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+0.0
+  0
+TEXT
+  8
+NOTES
+ 10
+200.0
+ 20
+230.0
+ 30
+0.0
+ 40
+2.5
+  1
+CMP-H-1
+  0
+INSERT
+  8
+EQUIPMENT
+  2
+COND_VXC
+ 10
+300.0
+ 20
+100.0
+ 30
+0.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+0.0
+  0
+TEXT
+  8
+NOTES
+ 10
+300.0
+ 20
+130.0
+ 30
+0.0
+ 40
+2.5
+  1
+COND-01
+  0
+INSERT
+  8
+EQUIPMENT
+  2
+EVAP_OPTIGO
+ 10
+100.0
+ 20
+400.0
+ 30
+0.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+0.0
+  0
+TEXT
+  8
+NOTES
+ 10
+100.0
+ 20
+425.0
+ 30
+0.0
+ 40
+2.5
+  1
+EVP-01
+  0
+INSERT
+  8
+EQUIPMENT
+  2
+EVAP_OPTIGO
+ 10
+200.0
+ 20
+400.0
+ 30
+0.0
+ 41
+1.0
+ 42
+1.0
+ 43
+1.0
+ 50
+0.0
+  0
+TEXT
+  8
+NOTES
+ 10
+200.0
+ 20
+425.0
+ 30
+0.0
+ 40
+2.5
+  1
+EVP-02
+  0
+LINE
+  8
+PIPING
+ 10
+100.0
+ 20
+215.0
+ 30
+0.0
+ 11
+100.0
+ 21
+385.0
+ 31
+0.0
+  0
+LINE
+  8
+PIPING
+ 10
+100.0
+ 20
+215.0
+ 30
+0.0
+ 11
+300.0
+ 21
+110.0
+ 31
+0.0
+  0
+LINE
+  8
+PIPING
+ 10
+200.0
+ 20
+215.0
+ 30
+0.0
+ 11
+300.0
+ 21
+110.0
+ 31
+0.0
+  0
+LINE
+  8
+PIPING
+ 10
+300.0
+ 20
+90.0
+ 30
+0.0
+ 11
+100.0
+ 21
+385.0
+ 31
+0.0
+  0
+ENDSEC
+  0
+EOF

@@ -1,0 +1,141 @@
+/**
+ * GFDDE Advanced P&ID Generator v2.1
+ * Fixed: Crash bugs + Proper Node Formatting
+ */
+
+const { EquipmentPositioner } = require('./PIDLayoutEngine');
+const AIServiceRouter = require('../AIServiceRouter');
+
+class AdvancedPIDGenerator {
+    constructor() {
+        this.aiRouter = new AIServiceRouter();
+    }
+
+    async generate(results, project) {
+        console.log('🎨 GFDDE P&ID: Generating with Layout Engine...');
+
+        // Format proposal properly
+        const calc = results.calculations || {};
+        const proposal = {
+            compressors: calc.compressors || [],
+            condenser: (calc.condensers && calc.condensers.length > 0) ? calc.condensers[0] : null,
+            evaporators: calc.evaporators || []
+        };
+
+        const nodes = [];
+        const edges = [];
+        let nodeId = 1;
+        let edgeId = 1;
+
+        const positioner = new EquipmentPositioner();
+
+        // 1. CONDENSER
+        const condenserId = `node-${nodeId++}`;
+        const condPos = positioner.placeCondenser(condenserId, {});
+        nodes.push({
+            id: condenserId,
+            type: 'industrial',
+            position: condPos.position,
+            data: { label: proposal.condenser?.model || 'Evaporative Condenser', componentType: 'evaporative_condenser', tag: 'COND-01' }
+        });
+
+        // 2. HP RECEIVER
+        const hpReceiverId = `node-${nodeId++}`;
+        const hpRecPos = positioner.placeReceiver(hpReceiverId, { volume: '500L' }, 'HP');
+        nodes.push({
+            id: hpReceiverId,
+            type: 'industrial',
+            position: hpRecPos.position,
+            data: { label: 'HP Receiver', componentType: 'horizontal_vessel', tag: 'REC-HP-01' }
+        });
+
+        // 3. SERVICE VALVE
+        const hpValveId = `node-${nodeId++}`;
+        nodes.push({
+            id: hpValveId,
+            type: 'industrial',
+            position: { x: hpRecPos.position.x + 100, y: hpRecPos.position.y + 100 },
+            data: { label: 'Liquid Service', componentType: 'globe_valve', tag: 'HV-01', details: 'DN80' }
+        });
+
+        // 4. COMPRESSORS
+        let compIds = [];
+        (proposal.compressors || []).forEach((comp, i) => {
+            const id = `node-${nodeId++}`;
+            compIds.push(id);
+            const compPos = positioner.placeCompressor(id, {}, i);
+
+            nodes.push({
+                id: id,
+                type: 'industrial',
+                position: compPos.position,
+                data: { label: comp.model || `Compressor ${i+1}`, componentType: comp.type === 'Screw' ? 'screw_compressor' : 'reciprocating_compressor', tag: comp.tag || `CMP-0${i+1}` }
+            });
+        });
+
+        // 5. EVAPORATORS
+        let evapIds = [];
+        (proposal.evaporators || []).forEach((evap, i) => {
+            const id = `node-${nodeId++}`;
+            evapIds.push(id);
+
+            const evapPos = positioner.placeEvaporator(id, {}, i, proposal.evaporators.length);
+            
+            // TEV Valve
+            const tevId = `node-${nodeId++}`;
+            const tevPos = positioner.placeValve(tevId, {}, id, { row: -2, col: 0 });
+            nodes.push({ id: tevId, type: 'industrial', position: tevPos.position, data: { label: 'TEV', componentType: 'tev', tag: `TEV-0${i+1}` } });
+
+            // Evaporator
+            nodes.push({
+                id: id,
+                type: 'industrial',
+                position: evapPos.position,
+                data: { label: evap.model || 'Evaporator', componentType: 'evaporator', tag: `EVP-0${i+1}` }
+            });
+
+            // Suction Valve 🚨 FIX: Replaced undefined variables with correct object properties
+            const suctionValveId = `node-${nodeId++}`;
+            nodes.push({
+                id: suctionValveId,
+                type: 'industrial',
+                position: { x: evapPos.position.x - 50, y: evapPos.position.y + 80 },
+                data: { label: 'Suction', componentType: 'globe_valve', tag: `SV-0${i+1}` }
+            });
+
+            // Distribution Piping
+            edges.push({ id: `edge-${edgeId++}`, source: hpValveId, target: tevId, type: 'smoothstep', style: { stroke: '#43a047', strokeWidth: 2.5 } });
+            edges.push({ id: `edge-${edgeId++}`, source: tevId, target: id, type: 'smoothstep', style: { stroke: '#66bb6a', strokeWidth: 2 } });
+            edges.push({ id: `edge-${edgeId++}`, source: id, target: suctionValveId, type: 'smoothstep', style: { stroke: '#1e88e5', strokeWidth: 2.5, strokeDasharray: '6,3' } });
+            
+            if (compIds.length > 0) {
+                edges.push({ id: `edge-${edgeId++}`, source: suctionValveId, target: compIds[0], type: 'smoothstep', style: { stroke: '#1565c0', strokeWidth: 3.5, strokeDasharray: '8,4' } });
+            }
+        });
+
+        // Main Piping
+        compIds.forEach(compId => {
+            edges.push({ id: `edge-${edgeId++}`, source: compId, target: condenserId, type: 'smoothstep', animated: true, style: { stroke: '#c62828', strokeWidth: 4 } });
+        });
+
+        edges.push({ id: `edge-${edgeId++}`, source: condenserId, target: hpReceiverId, type: 'smoothstep', style: { stroke: '#2e7d32', strokeWidth: 3.5 } });
+        edges.push({ id: `edge-${edgeId++}`, source: hpReceiverId, target: hpValveId, type: 'smoothstep', style: { stroke: '#388e3c', strokeWidth: 3 } });
+
+        // Optional AI Metadata
+        let aiMetadata = "Standard Generation";
+        try {
+            const prompt = `Recommend standard pipe material for ${project.refrigerant} refrigeration system. Answer in 1 short sentence.`;
+            const aiRes = await this.aiRouter.chat(prompt, 'pid_generation');
+            if (aiRes.success) aiMetadata = aiRes.message;
+        } catch (e) { /* ignore */ }
+
+        console.log(`✅ P&ID Done: ${nodes.length} nodes, ${edges.length} edges`);
+
+        return {
+            nodes, edges,
+            metadata: { generator: 'GFDDE Layout', ai_note: aiMetadata, timestamp: new Date().toISOString() }
+        };
+    }
+}
+
+module.exports = AdvancedPIDGenerator;

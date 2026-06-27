@@ -1,0 +1,996 @@
+/**
+ * DesignOrchestrator - AI Operator for Core Engine
+ * 
+ * Orchestrates the design workflow:
+ * 1. Classifies user intent (design vs question)
+ * 2. Validates required information
+ * 3. Generates smart recommendations
+ * 4. Runs Core Engine calculations
+ * 5. Generates output (reports, diagrams)
+ * 
+ * @author GFDDE AI Engine
+ * @version 3.0.0 - Intelligent Conversation
+ */
+
+const RefrigerationEngine = require('../RefrigerationEngine');
+const InputParser = require('./InputParser');
+const IntentClassifier = require('./IntentClassifier');
+const RequiredInfoValidator = require('./RequiredInfoValidator');
+const GlobalDataFetcher = require('../../services/data/GlobalDataFetcher');
+const InnovativeEnergyStrategies = require('../modules/InnovativeEnergyStrategies');
+const RefrigerantRecommender = require('../modules/RefrigerantRecommender');
+const MaterialRecommender = require('../modules/MaterialRecommender');
+const { getStandardsForLocation } = require('../../data/standards/RegionalStandardsDB');
+const GeminiService = require('../../services/GeminiService');
+
+class DesignOrchestrator {
+    constructor() {
+        this.engine = new RefrigerationEngine();
+        this.parser = new InputParser();
+        this.intentClassifier = new IntentClassifier();
+        this.infoValidator = new RequiredInfoValidator();
+        this.refrigerantRecommender = new RefrigerantRecommender();
+        this.materialRecommender = new MaterialRecommender();
+        this.gemini = new GeminiService();
+
+        // Conversation state for multi-turn interactions
+        this.conversationState = new Map();
+
+        console.log('🎯 DesignOrchestrator v4.0 initialized with AI Captain');
+    }
+
+    /**
+     * Process a design request from user
+     * @param {string} userMessage - User's natural language input
+     * @param {boolean} skipParsing - If true, use preParsedData instead of parsing
+     * @param {Object} preParsedData - Pre-parsed project data (optional)
+     * @returns {Object} Structured design results
+     */
+    async processRequest(userMessage, skipParsing = false, preParsedData = null) {
+        const startTime = Date.now();
+
+        try {
+            // Step 1: Parse natural language to structured project OR use pre-parsed data
+            let project;
+            if (skipParsing && preParsedData) {
+                console.log('📝 Using pre-parsed project data...');
+                // Ensure rooms array exists and is properly structured
+                project = {
+                    name: preParsedData.name || preParsedData.projectName || 'New Project',
+                    location: preParsedData.location || { city: 'Dubai', country: 'UAE' },
+                    refrigerant: preParsedData.refrigerant || 'R717',
+                    product: preParsedData.product || { type: 'chicken' },
+                    rooms: preParsedData.rooms || [],
+                    requirements: preParsedData.requirements || [],
+                    wallMaterial: preParsedData.wallMaterial,
+                    parsedAt: new Date().toISOString()
+                };
+                console.log(`   ✓ Pre-parsed: ${project.rooms.length} rooms`);
+            } else {
+                console.log('🧠 AI Captain is analyzing your request...');
+                // AI Parsing taking the lead
+                project = await this._parseWithAI(userMessage);
+
+                // Fallback to regex if AI fails (safety net)
+                if (!project || !project.rooms || project.rooms.length === 0) {
+                    console.log('⚠️ AI Parsing inconclusive, falling back to Regex Parser...');
+                    project = await this.parser.parse(userMessage);
+                }
+
+                console.log(`   ✓ Parsed: ${project.rooms.length} rooms`);
+            }
+
+            // Step 2: Run Core Engine calculations
+            console.log('⚙️ Running calculations...');
+            const results = await this.engine.calculate(project);
+
+            // Step 3: Fetch regional data
+            console.log('🌍 Fetching regional data...');
+            const regionalData = await GlobalDataFetcher.fetchRegionalData(project.location);
+            console.log(`   ✓ Location: ${regionalData.location}, Data from: ${regionalData.dataSource}`);
+
+            // Step 4: Analyze innovative energy strategies
+            console.log('⚡ Analyzing innovative energy strategies...');
+            const energyStrategies = await InnovativeEnergyStrategies.analyzeStrategies(
+                {
+                    summary: results.summary,
+                    loads: results.calculations?.loads || [],
+                    equipment: {
+                        compressors: results.calculations?.compressors || [],
+                        condensers: results.calculations?.condensers || [],
+                        evaporators: results.calculations?.evaporators || []
+                    }
+                },
+                regionalData
+            );
+            console.log(`   ✓ Found ${energyStrategies.length} applicable strategies`);
+
+            // Step 5: Run standard energy optimization
+            console.log('⚙️ Running energy optimization...');
+            const energyModule = this.engine.getModule('energy');
+            const energyAnalysis = energyModule ?
+                await energyModule.analyze(results, project) : null;
+
+            // Step 6: Get regional standards
+            console.log('📜 Checking regional standards...');
+            const regionalModule = this.engine.getModule('regional');
+            const standards = regionalModule ?
+                regionalModule.getStandards(project) : null;
+
+            // Step 7: Generate response
+            const response = this._generateResponse(results, energyAnalysis, standards, project, regionalData, energyStrategies);
+
+            response.executionTime = Date.now() - startTime;
+
+            return response;
+
+        } catch (error) {
+            console.error('❌ Design error:', error.message);
+            return {
+                success: false,
+                error: error.message,
+                executionTime: Date.now() - startTime
+            };
+        }
+    }
+
+    /**
+     * Generate structured response
+     */
+    _generateResponse(results, energyAnalysis, standards, project, regionalData, energyStrategies) {
+        return {
+            success: true,
+            project: {
+                name: project.name,
+                location: project.location,
+                refrigerant: project.refrigerant,
+                roomCount: project.rooms?.length || 0
+            },
+
+            summary: {
+                totalCoolingLoad: results.summary?.totalCoolingLoad || 0,
+                totalCoolingLoadTR: results.summary?.totalCoolingLoadTR || 0,
+                temperatureLevels: results.summary?.temperatureLevels || [],
+                equipmentCount: results.summary?.equipmentCount || 0,
+                totalCost: results.summary?.totalCost || 0,
+                currency: results.summary?.currency || 'USD'
+            },
+
+            loads: (results.calculations?.loads || []).map(l => ({
+                room: l.roomName,
+                temperature: l.temperature,
+                load: l.total,
+                breakdown: {
+                    transmission: l.transmission?.total || 0,
+                    product: l.product?.total || 0,
+                    infiltration: l.infiltration?.total || 0,
+                    internal: l.internal?.total || 0
+                }
+            })),
+
+            equipment: {
+                evaporators: (results.calculations?.evaporators || []).map(e => ({
+                    tag: e.tag,
+                    model: e.model,
+                    capacity: e.capacityPerUnit,
+                    count: e.count,
+                    fanCount: e.fanCount,
+                    evapTemp: e.evaporatingTemp,
+                    defrost: e.defrostType
+                })),
+
+                compressors: (results.calculations?.compressors || []).map(c => ({
+                    tag: c.tag,
+                    model: c.model,
+                    type: c.type,
+                    capacity: c.designLoad,
+                    power: c.electricalPower,
+                    cop: c.cop,
+                    units: c.totalUnits,
+                    configuration: c.configuration
+                })),
+
+                condensers: results.calculations?.condensers ? [{
+                    tag: results.calculations.condensers.tag,
+                    model: results.calculations.condensers.model,
+                    type: results.calculations.condensers.type,
+                    capacity: results.calculations.condensers.totalCapacity,
+                    count: results.calculations.condensers.count
+                }] : [],
+
+                separators: (results.calculations?.separators || []).map(s => ({
+                    tag: s.tag,
+                    temperatureLevel: s.temperatureLevel,
+                    evaporatingTemp: s.evaporatingTemp,
+                    volume: s.volume,
+                    dimensions: s.dimensions,
+                    designPressure: s.designPressure,
+                    testPressure: s.testPressure,
+                    material: s.material || 'Carbon Steel',
+                    refrigerant: s.refrigerant,
+                    liquidFlowRate: s.liquidFlowRate,
+                    pumps: s.pumps,
+                    connections: s.connections
+                })),
+
+                // High Pressure Receiver
+                receiver: results.calculations?.receiver || null,
+
+                // Thermosiphon (oil cooling)
+                thermosiphon: results.calculations?.thermosiphon || null,
+
+                // Oil separators (from compressor selection)
+                oilSeparators: (results.calculations?.compressors || [])
+                    .filter(c => c.oilSeparator?.required)
+                    .map((c, i) => ({
+                        tag: `OS-0${i + 1}`,
+                        forCompressor: c.tag,
+                        type: c.oilSeparator.type || 'coalescent',
+                        efficiency: c.oilSeparator.efficiency || 99.9,
+                        volume: c.oilSeparator.volume,
+                        pressureDrop: c.oilSeparator.pressureDrop
+                    }))
+            },
+
+            piping: results.calculations?.piping?.summary || {},
+
+            // Regional data
+            regionalData: regionalData ? {
+                location: regionalData.location,
+                dataSource: regionalData.dataSource,
+                dataDate: regionalData.dataDate,
+                climate: regionalData.climate,
+                energyCosts: regionalData.energy,
+                incentives: regionalData.incentives
+            } : null,
+
+            // Innovative energy strategies
+            innovativeEnergyStrategies: energyStrategies ? {
+                strategiesCount: energyStrategies.length,
+                strategies: energyStrategies.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    category: s.category,
+                    description: s.description,
+                    priority: s.priority,
+                    energySavings: s.energySavings,
+                    financialImpact: s.financialImpact,
+                    co2Reduction: s.co2Reduction,
+                    technicalDetails: s.technicalDetails,
+                    regionalNotes: s.regionalNotes
+                })),
+                totalAnnualSavings: energyStrategies.reduce((sum, s) =>
+                    sum + (s.financialImpact?.annualCostSavings || s.financialImpact?.annualBenefit || s.financialImpact?.netAnnualSavings || 0), 0),
+                totalEnergySavings: energyStrategies.reduce((sum, s) =>
+                    sum + (s.energySavings?.kWhPerYear || 0), 0),
+                totalCO2Reduction: energyStrategies.reduce((sum, s) =>
+                    sum + (s.co2Reduction?.tonsPerYear || 0), 0)
+            } : null,
+
+            energy: energyAnalysis ? {
+                annualConsumption: energyAnalysis.currentConsumption?.annualConsumption || 0,
+                annualCost: energyAnalysis.currentConsumption?.annualCost || 0,
+                savingsPercent: energyAnalysis.potentialSavings?.totalPercent || 0,
+                annualSavings: energyAnalysis.potentialSavings?.annualSavings || 0,
+                paybackYears: energyAnalysis.potentialSavings?.simplePayback || 0,
+                recommendations: (energyAnalysis.recommendations || []).map(r => ({
+                    title: r.title,
+                    description: r.description,
+                    savings: r.savingsPercent,
+                    priority: r.priority
+                }))
+            } : null,
+
+            standards: standards ? {
+                primary: standards.primaryStandard,
+                design: standards.applicableStandards?.design || [],
+                safety: standards.applicableStandards?.safety || [],
+                refrigerantStatus: standards.refrigerantStatus,
+                certifications: standards.certifications || []
+            } : null,
+
+            safety: results.safety || {},
+
+            // For P&ID generation
+            pidData: this._generatePIDData(results, project),
+
+            // Full results for detailed view
+            fullResults: results
+        };
+    }
+
+    /**
+     * Generate data structure for P&ID diagram
+     * Using PIDAutoGenerator (stable)
+     */
+    _generatePIDData(results, project) {
+        try {
+            const PIDAutoGenerator = require('../rendering/PIDAutoGenerator');
+            const generator = new PIDAutoGenerator();
+            const layout = generator.generate(results, project);
+
+            return {
+                equipment: layout.equipment,
+                pipes: layout.pipes,
+                valves: layout.valves || [],
+                instruments: layout.instruments || [],
+                annotations: layout.annotations || [],
+                metadata: layout.metadata,
+                refrigerant: project.refrigerant,
+                projectName: project.name
+            };
+        } catch (error) {
+            console.error('❌ PIDAutoGenerator failed:', error.message);
+            return {
+                equipment: [],
+                pipes: [],
+                refrigerant: project.refrigerant,
+                projectName: project.name,
+                error: error.message
+            };
+        }
+    }
+
+
+    /**
+     * Generate human-readable summary text
+     */
+    generateSummaryText(response) {
+        if (!response.success) {
+            return `❌ خطا در محاسبات: ${response.error}`;
+        }
+
+        let text = `# نتایج طراحی ${response.project.name}\n\n`;
+
+        text += `## خلاصه\n`;
+        text += `- **بار برودتی کل:** ${response.summary.totalCoolingLoad.toFixed(0)} kW (${response.summary.totalCoolingLoadTR.toFixed(0)} TR)\n`;
+        text += `- **تعداد اتاق:** ${response.project.roomCount}\n`;
+        text += `- **مبرد:** ${response.project.refrigerant}\n`;
+        text += `- **سطوح دمایی:** ${response.summary.temperatureLevels.join(', ')}\n\n`;
+
+        text += `## بار برودتی هر اتاق\n`;
+        for (const load of response.loads) {
+            text += `- **${load.room}:** ${load.load.toFixed(0)} kW @ ${load.temperature}°C\n`;
+        }
+        text += '\n';
+
+        text += `## تجهیزات انتخاب شده\n`;
+        text += `### اواپراتورها (${response.equipment.evaporators.length})\n`;
+        for (const e of response.equipment.evaporators) {
+            text += `- ${e.tag}: ${e.model}, ${e.capacity} kW, ${e.fanCount} فن\n`;
+        }
+
+        text += `\n### کمپرسورها (${response.equipment.compressors.length})\n`;
+        for (const c of response.equipment.compressors) {
+            text += `- ${c.tag}: ${c.model}, ${c.capacity.toFixed(0)} kW, COP=${c.cop}\n`;
+        }
+
+        if (response.energy) {
+            text += `\n## بهینه‌سازی انرژی\n`;
+            text += `- **مصرف سالانه:** ${response.energy.annualConsumption.toLocaleString()} kWh\n`;
+            text += `- **هزینه سالانه:** $${response.energy.annualCost.toLocaleString()}\n`;
+            text += `- **پتانسیل صرفه‌جویی:** ${response.energy.savingsPercent}%\n`;
+            text += `- **بازگشت سرمایه:** ${response.energy.paybackYears} سال\n`;
+        }
+
+        if (response.standards) {
+            text += `\n## استانداردها\n`;
+            text += `- **استاندارد اصلی:** ${response.standards.primary}\n`;
+            text += `- **طراحی:** ${response.standards.design.join(', ')}\n`;
+            text += `- **ایمنی:** ${response.standards.safety.join(', ')}\n`;
+        }
+
+        return text;
+    }
+
+    /**
+     * Intelligent message handler (v3.0)
+     * Handles: questions, incomplete designs, recommendations
+     * @param {string} userMessage - User's natural language input
+     * @param {string} sessionId - Session ID for conversation tracking
+     * @returns {Object} Response with intent-based content
+     */
+    async handleMessage(userMessage, sessionId = 'default') {
+        const startTime = Date.now();
+
+        try {
+            console.log('🤖 AI Message Handler v3.0');
+            console.log(`📨 Message: "${userMessage.substring(0, 100)}..."`);
+
+            // Get or create conversation state
+            let conversation = this.conversationState.get(sessionId) || {
+                history: [],
+                parsedInfo: {},
+                awaitingInfo: false,
+                awaitingConfirmation: false
+            };
+
+            // Step 1: Classify intent
+            console.log('🎯 Classifying intent...');
+            const classification = this.intentClassifier.classify(userMessage, {
+                awaitingInfo: conversation.awaitingInfo,
+                awaitingConfirmation: conversation.awaitingConfirmation
+            });
+            console.log(`   ✓ Intent: ${classification.intent} (confidence: ${classification.confidence})`);
+
+            // Step 2: Extract entities
+            const entities = classification.entities || {};
+
+            // Step 3: Handle based on intent
+            let response;
+
+            switch (classification.intent) {
+                case 'GREETING':
+                    response = this._handleGreeting(classification.language);
+                    break;
+
+                case 'QUESTION':
+                    response = await this._handleQuestion(userMessage, classification);
+                    break;
+
+                case 'CLARIFICATION':
+                    response = await this._handleClarification(userMessage, entities, conversation, classification);
+                    break;
+
+                case 'CONFIRMATION':
+                    response = await this._handleConfirmation(conversation, classification);
+                    break;
+
+                case 'MODIFICATION':
+                    response = this._handleModification(conversation, classification);
+                    break;
+
+                case 'DESIGN_REQUEST':
+                    response = await this._handleDesignRequest(userMessage, entities, classification, conversation);
+                    break;
+
+                case 'UNKNOWN':
+                default:
+                    response = this._handleUnknown(classification.language);
+                    break;
+            }
+
+            // Update conversation history
+            conversation.history.push({
+                timestamp: new Date(),
+                userMessage,
+                intent: classification.intent,
+                response: response.type
+            });
+            this.conversationState.set(sessionId, conversation);
+
+            response.executionTime = Date.now() - startTime;
+            response.sessionId = sessionId;
+
+            return response;
+
+        } catch (error) {
+            console.error('❌ Message handling error:', error);
+            return {
+                success: false,
+                type: 'error',
+                message: {
+                    en: 'Sorry, I encountered an error processing your message.',
+                    fa: 'متأسفانه در پردازش پیام شما خطایی رخ داد.',
+                    ar: 'عذراً، حدث خطأ في معالجة رسالتك.'
+                },
+                error: error.message,
+                executionTime: Date.now() - startTime
+            };
+        }
+    }
+
+    _handleGreeting(language) {
+        const greetings = {
+            en: {
+                message: '👋 Hello! I\'m your AI refrigeration design assistant.',
+                help: 'I can help you design cold storage rooms, freezers, and refrigeration systems. Just describe your project!'
+            },
+            fa: {
+                message: '👋 سلام! من دستیار هوشمند طراحی تبرید شما هستم.',
+                help: 'می‌توانم در طراحی سردخانه، فریزر و سیستم‌های تبرید به شما کمک کنم. فقط پروژه خود را توضیح دهید!'
+            },
+            ar: {
+                message: '👋 مرحباً! أنا مساعد تصميم التبريد الذكي.',
+                help: 'يمكنني مساعدتك في تصميم غرف التخزين البارد والمجمدات وأنظمة التبريد.'
+            }
+        };
+
+        const greeting = greetings[language] || greetings.en;
+
+        return {
+            success: true,
+            type: 'greeting',
+            message: greeting.message,
+            help: greeting.help,
+            language
+        };
+    }
+
+    async _handleQuestion(userMessage, classification) {
+        const responses = {
+            en: {
+                message: 'I understand you have a question about refrigeration.',
+                note: 'I can help with design calculations. What would you like to know?',
+                suggestions: [
+                    'Design a cold storage room',
+                    'Calculate cooling load',
+                    'Recommend refrigerant'
+                ]
+            },
+            fa: {
+                message: 'متوجه شدم که سوالی درباره تبرید دارید.',
+                note: 'می‌توانم در محاسبات طراحی به شما کمک کنم.',
+                suggestions: [
+                    'طراحی سردخانه',
+                    'محاسبه بار حرارتی',
+                    'پیشنهاد مبرد'
+                ]
+            }
+        };
+
+        const lang = classification.language;
+        const resp = responses[lang] || responses.en;
+
+        return {
+            success: true,
+            type: 'question_response',
+            message: resp.message,
+            note: resp.note,
+            suggestions: resp.suggestions,
+            language: lang
+        };
+    }
+
+    async _handleClarification(userMessage, entities, conversation, classification) {
+        console.log('📝 Processing clarification...');
+
+        // Re-parse the combined information
+        const fullInput = conversation.history.map(h => h.userMessage).join(' ') + ' ' + userMessage;
+        const parsed = await this.parser.parse(fullInput);
+
+        // Merge entities properly
+        conversation.parsedInfo = {
+            ...conversation.parsedInfo,
+            ...parsed,
+            entities: {
+                ...conversation.parsedInfo.entities,
+                ...entities
+            }
+        };
+
+        // Also merge top-level entity values
+        if (entities.dimensions) conversation.parsedInfo.dimensions = entities.dimensions;
+        if (entities.temperatures && entities.temperatures.length > 0) {
+            conversation.parsedInfo.temperature = entities.temperatures[0];
+        }
+        if (entities.locations) conversation.parsedInfo.location = entities.locations;
+        if (entities.products) conversation.parsedInfo.productType = entities.products;
+        if (entities.applicationType) conversation.parsedInfo.applicationType = entities.applicationType;
+
+        // Validate if we have everything
+        const validation = this.infoValidator.validate(conversation.parsedInfo);
+
+        if (validation.isComplete) {
+            return await this._generateRecommendations(conversation, classification);
+        } else {
+            return this._askMissingInfo(validation, classification.language, conversation);
+        }
+    }
+
+    async _handleConfirmation(conversation, classification) {
+        console.log('✅ User confirmed - running calculations...');
+
+        if (!conversation.parsedInfo || !conversation.recommendedRefrigerant) {
+            return {
+                success: false,
+                type: 'error',
+                message: 'No recommendations to confirm. Please start a new design request.',
+                language: classification.language
+            };
+        }
+
+        // Set the confirmed refrigerant and materials
+        conversation.parsedInfo.refrigerant = conversation.recommendedRefrigerant.name || conversation.recommendedRefrigerant.id;
+        conversation.parsedInfo.wallMaterial = conversation.recommendedMaterials;
+
+        // Log parsed rooms count for debugging
+        console.log(`   ✓ Rooms in parsedInfo: ${conversation.parsedInfo.rooms?.length || 0}`);
+
+        // Run the full calculation with pre-parsed data (skip re-parsing!)
+        return await this.processRequest(
+            '', // Empty message since we're using preParsedData
+            true, // skipParsing = true
+            conversation.parsedInfo // preParsedData
+        );
+    }
+
+    _handleModification(conversation, classification) {
+        const entities = classification.entities || {};
+
+        // Check if user selected a specific refrigerant (e.g., "use R404A refrigerant")
+        if (entities.refrigerant) {
+            console.log(`✅ User selected refrigerant: ${entities.refrigerant}`);
+
+            // Update conversation with selected refrigerant
+            conversation.parsedInfo.refrigerant = entities.refrigerant;
+
+            // Regenerate recommendations with the selected refrigerant
+            return this._generateRecommendations(conversation, classification);
+        }
+
+        // Otherwise, provide refrigerant selection options
+        const refrigerantOptions = [
+            { id: 'R717', name: 'Ammonia (R-717)', type: 'Industrial', gwp: 0 },
+            { id: 'R744', name: 'CO₂ (R-744)', type: 'Transcritical', gwp: 1 },
+            { id: 'R404A', name: 'R-404A (Freon)', type: 'Commercial', gwp: 3922 },
+            { id: 'R134a', name: 'R-134a', type: 'Medium Temp', gwp: 1430 },
+            { id: 'R410A', name: 'R-410A', type: 'HVAC', gwp: 2088 },
+            { id: 'R507', name: 'R-507', type: 'Low Temp', gwp: 3985 },
+            { id: 'R290', name: 'Propane (R-290)', type: 'Natural', gwp: 3 },
+            { id: 'R22', name: 'R-22 (HCFC)', type: 'Legacy', gwp: 1810 }
+        ];
+
+        return {
+            success: true,
+            type: 'refrigerant_selection',
+            message: {
+                en: 'Select a refrigerant for your system:',
+                fa: 'مبرد مورد نظر را انتخاب کنید:',
+                ar: 'اختر مبرداً لنظامك:'
+            }[classification.language] || 'Select a refrigerant for your system:',
+            refrigerantOptions,
+            currentRecommendations: {
+                refrigerant: conversation.recommendedRefrigerant,
+                materials: conversation.recommendedMaterials
+            },
+            language: classification.language,
+            awaitingRefrigerantSelection: true
+        };
+    }
+
+    async _handleDesignRequest(userMessage, entities, classification, conversation) {
+        console.log('🏗️ Handling design request...');
+
+        // Parse the full message
+        const parsed = await this.parser.parse(userMessage);
+
+        // Merge entities properly
+        conversation.parsedInfo = {
+            ...conversation.parsedInfo,
+            ...parsed,
+            entities: {
+                ...conversation.parsedInfo.entities,
+                ...entities
+            }
+        };
+
+        // Also merge top-level entity values
+        if (entities.dimensions) conversation.parsedInfo.dimensions = entities.dimensions;
+        if (entities.temperatures && entities.temperatures.length > 0) {
+            conversation.parsedInfo.temperature = entities.temperatures[0];
+        }
+        if (entities.locations) conversation.parsedInfo.location = entities.locations;
+        if (entities.products) conversation.parsedInfo.productType = entities.products;
+        if (entities.applicationType) conversation.parsedInfo.applicationType = entities.applicationType;
+
+        // Validate required information
+        const validation = this.infoValidator.validate(conversation.parsedInfo);
+
+        console.log(`   ✓ Completeness: ${(validation.completenessScore * 100).toFixed(0)}%`);
+
+        if (validation.isComplete) {
+            return await this._generateRecommendations(conversation, classification);
+        } else {
+            return this._askMissingInfo(validation, classification.language, conversation);
+        }
+    }
+
+    async _generateRecommendations(conversation, classification) {
+        console.log('💡 Generating smart recommendations...');
+
+        const info = conversation.parsedInfo;
+
+        // Calculate estimated cooling load
+        let estimatedLoad = 100;
+        if (info.dimensions) {
+            const volume = (info.dimensions.length || 10) *
+                (info.dimensions.width || 10) *
+                (info.dimensions.height || 3);
+            estimatedLoad = volume * 2;
+        }
+
+        const temperature = info.temperature || info.entities?.temperatures?.[0] || -20;
+        const location = info.location || info.entities?.locations || 'International';
+
+        // Get material recommendation
+        const matRec = this.materialRecommender.recommend({
+            temperature,
+            location,
+            roomDimensions: info.dimensions,
+            applicationType: info.applicationType
+        });
+
+        // Get regional standards
+        const standards = getStandardsForLocation(location);
+
+        // ============ CRITICAL: Respect user's explicit refrigerant choice ============
+        let refRec;
+        const userSpecifiedRefrigerant = info.refrigerant || classification.entities?.refrigerant;
+
+        if (userSpecifiedRefrigerant) {
+            // User explicitly specified a refrigerant - USE IT!
+            console.log(`✅ User explicitly requested refrigerant: ${userSpecifiedRefrigerant}`);
+
+            // Refrigerant database with full info
+            const refrigerantDatabase = {
+                'R717': { name: 'Ammonia (R-717)', gwp: 0, safety: 'B2L (Toxic, Low Flammability)', advantages: ['Zero GWP', 'High efficiency', 'Industrial proven'] },
+                'R744': { name: 'CO₂ (R-744)', gwp: 1, safety: 'A1 (Non-toxic, Non-flammable)', advantages: ['Ultra-low GWP', 'Excellent for very low temps', 'Safe'] },
+                'R404A': { name: 'R-404A (Freon)', gwp: 3922, safety: 'A1 (Non-toxic, Non-flammable)', advantages: ['Easy to handle', 'Widely available', 'Low cost equipment'] },
+                'R134a': { name: 'R-134a', gwp: 1430, safety: 'A1 (Non-toxic, Non-flammable)', advantages: ['Common', 'Safe', 'Good for medium temps'] },
+                'R410A': { name: 'R-410A', gwp: 2088, safety: 'A1 (Non-toxic, Non-flammable)', advantages: ['High efficiency', 'Good for HVAC', 'Available'] },
+                'R507': { name: 'R-507', gwp: 3985, safety: 'A1 (Non-toxic, Non-flammable)', advantages: ['Alternative to R404A', 'Low temp applications'] },
+                'R290': { name: 'Propane (R-290)', gwp: 3, safety: 'A3 (Flammable)', advantages: ['Very low GWP', 'Natural refrigerant', 'Efficient'] },
+                'R22': { name: 'R-22 (HCFC)', gwp: 1810, safety: 'A1', advantages: ['Legacy systems', 'Being phased out'] }
+            };
+
+            const refInfo = refrigerantDatabase[userSpecifiedRefrigerant] || refrigerantDatabase['R717'];
+            refRec = {
+                recommended: {
+                    id: userSpecifiedRefrigerant,
+                    name: refInfo.name,
+                    gwp: refInfo.gwp,
+                    safety: refInfo.safety,
+                    advantages: refInfo.advantages,
+                    userRequested: true
+                },
+                alternatives: [],
+                analysis: `Using ${refInfo.name} as requested by user.`
+            };
+        } else {
+            // No explicit refrigerant - use AI recommendation system
+            refRec = this.refrigerantRecommender.recommend({
+                coolingLoad: estimatedLoad,
+                temperature,
+                location,
+                applicationType: info.applicationType || 'cold_storage_frozen'
+            });
+        }
+
+        // Store recommendations
+        conversation.recommendedRefrigerant = refRec.recommended;
+        conversation.recommendedMaterials = matRec;
+        conversation.awaitingConfirmation = true;
+        conversation.awaitingInfo = false;
+
+        const lang = classification.language;
+
+        return {
+            success: true,
+            type: 'recommendations',
+            message: {
+                en: '✅ I have analyzed your requirements. Here are my recommendations:',
+                fa: '✅ نیازهای شما را بررسی کردم. پیشنهادات من:',
+                ar: '✅ لقد قمت بتحليل متطلباتك. إليك توصياتي:'
+            }[lang] || '✅ Recommendations ready',
+            projectSummary: {
+                location: standards.country,
+                applicationType: info.applicationType,
+                temperature: `${temperature}°C`,
+                estimatedLoad: `${estimatedLoad} kW`,
+                dimensions: info.dimensions
+            },
+            refrigerant: {
+                recommended: refRec.recommended,
+                alternatives: refRec.alternatives,
+                analysis: refRec.analysis
+            },
+            materials: {
+                panel: matRec.panel,
+                door: matRec.door,
+                floor: matRec.floor
+            },
+            standards: {
+                country: standards.country,
+                code: standards.refrigerationStandards?.code,
+                safetyFactor: standards.refrigerationStandards?.safetyFactor
+            },
+            nextSteps: {
+                en: [
+                    'Type "confirm" or "yes" to proceed with calculations',
+                    'Or say "change refrigerant" or "change materials" to modify'
+                ],
+                fa: [
+                    'تایید کنید تا محاسبات انجام شود',
+                    'یا برای تغییر بگویید "تغییر مبرد" یا "تغییر متریال"'
+                ],
+                ar: [
+                    'تأكيد للمتابعة مع الحسابات',
+                    'أو قل "تغيير المبرد" أو "تغيير المواد" للتعديل'
+                ]
+            }[lang],
+            language: lang,
+            awaitingConfirmation: true
+        };
+    }
+
+    _askMissingInfo(validation, language, conversation) {
+        console.log(`❓ Asking for missing info: ${validation.missing.map(m => m.field).join(', ')}`);
+
+        conversation.awaitingInfo = true;
+
+        const questions = validation.missing.slice(0, 3).map(m => {
+            return this.infoValidator.generateQuestion(m.field, language);
+        });
+
+        const messages = {
+            en: '📋 I need a bit more information to design your system:',
+            fa: '📋 برای طراحی سیستم، نیاز به اطلاعات بیشتری دارم:',
+            ar: '📋 أحتاج إلى مزيد من المعلومات لتصميم نظامك:'
+        };
+
+        // Extract recommendations from filled fields
+        const recommendations = {};
+        const parsedInfo = conversation.parsedInfo || {};
+
+        // Location
+        if (parsedInfo.location) {
+            const loc = parsedInfo.location;
+            recommendations.location = typeof loc === 'string' ? loc :
+                (loc.city && loc.country) ? `${loc.city}, ${loc.country}` :
+                    (loc.city || loc.country || 'Unknown');
+        }
+
+        // Temperature
+        if (parsedInfo.temperature) {
+            recommendations.temperature = `${parsedInfo.temperature}°C`;
+        } else if (parsedInfo.entities?.temperatures?.length > 0) {
+            recommendations.temperature = `${parsedInfo.entities.temperatures[0]}°C`;
+        }
+
+        // Estimated Load
+        if (parsedInfo.dimensions) {
+            const volume = (parsedInfo.dimensions.length || 10) *
+                (parsedInfo.dimensions.width || 10) *
+                (parsedInfo.dimensions.height || 3);
+            const estimatedLoad = Math.round(volume * 2); // 2 kW per m³ approximation
+            recommendations.estimatedLoad = `${estimatedLoad} kW`;
+        }
+
+        return {
+            success: true,
+            type: 'info_request',
+            message: messages[language] || messages.en,
+            completeness: `${(validation.completenessScore * 100).toFixed(0)}%`,
+            filled: validation.filled.map(f => f.field),
+            questions,
+            recommendations: Object.keys(recommendations).length > 0 ? recommendations : undefined,
+            language
+        };
+    }
+
+    _handleUnknown(language) {
+        const messages = {
+            en: {
+                message: 'I\'m not sure I understood that.',
+                help: 'You can ask me to design a cold storage, or ask questions about refrigeration.'
+            },
+            fa: {
+                message: 'متأسفانه متوجه نشدم.',
+                help: 'می‌توانید از من بخواهید سردخانه طراحی کنم یا سوالات تبرید بپرسید.'
+            },
+            ar: {
+                message: 'لم أفهم ذلك.',
+                help: 'يمكنك أن تطلب مني تصميم تخزين بارد أو طرح أسئلة حول التبريد.'
+            }
+        };
+
+        const resp = messages[language] || messages.en;
+
+        return {
+            success: true,
+            type: 'unknown',
+            message: resp.message,
+            help: resp.help,
+            language
+        };
+    }
+
+    // ============================================================
+    // 🧠 AI CAPTAIN PARSING LOGIC
+    // ============================================================
+
+    /**
+     * Parse user input using Gemini AI
+     * @param {string} userMessage - User's natural language input
+     * @returns {Object|null} Structured project data or null if failed
+     */
+    async _parseWithAI(userMessage) {
+        if (!this.gemini || !this.gemini.available) {
+            console.log('⚠️ Gemini Service not available, skipping AI parsing.');
+            return null;
+        }
+
+        try {
+            const systemPrompt = `
+You are the AI Captain of an advanced HVAC-R engineering platform.
+Your Role: Interpret user requests and translate them into a structured JSON configuration for the refrigeration engine.
+
+Rules:
+1. INFERS MISSING DATA: If the user says "frozen meat", infer T = -18°C or lower. If "Dubai", infer ambient = 46°C.
+2. REFRIGERANT DETECTION: 
+   - "Ammonia", "NH3", "R717", "آمونیاک" -> "R717"
+   - "Freon 404", "R404" -> "R404A"
+   - "CO2", "R744" -> "R744"
+3. OUTPUT FORMAT: Return ONLY a valid JSON object matching the schema below. No markdown, no explanations.
+
+Schema:
+{
+  "project": {
+    "name": "string (inferred from context or 'New Project')",
+    "location": { "city": "string", "country": "string" },
+    "refrigerant": "string (R717, R744, R404A, R134a, R507, R22)",
+    "product": { "type": "string (chicken, meat, fish, fruit, dairy)" },
+    "rooms": [
+      {
+        "name": "string (e.g. Cold Store 1)",
+        "temperature": number (in Celsius),
+        "dimensions": { "length": number, "width": number, "height": number }
+      }
+    ]
+  }
+}
+
+Example Input: "طراحی سردخانه 2000 تنی مرغ در تهران با آمونیاک ابعاد 40 در 50"
+Example Output:
+{
+  "project": {
+    "name": "Chicken Cold Storage Project",
+    "location": { "city": "Tehran", "country": "Iran" },
+    "refrigerant": "R717",
+    "product": { "type": "chicken" },
+    "rooms": [
+      {
+        "name": "Main Hall",
+        "temperature": -18,
+        "dimensions": { "length": 50, "width": 40, "height": 6 }
+      }
+    ]
+  }
+}
+
+User Input: "${userMessage}"
+`;
+
+            const result = await this.gemini.chat(systemPrompt);
+
+            if (result.success) {
+                // Extract JSON from response (handle markdown generic cleanup)
+                let jsonStr = result.message.trim();
+                jsonStr = jsonStr.replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+
+                const aiData = JSON.parse(jsonStr);
+
+                // Map to strict internal structure
+                if (aiData.project) {
+                    return {
+                        name: aiData.project.name || 'New Project',
+                        location: aiData.project.location || { city: 'Tehran', country: 'Iran' },
+                        refrigerant: aiData.project.refrigerant || null, // Allow null to bubble defaults
+                        product: aiData.project.product || { type: 'general' },
+                        rooms: aiData.project.rooms || [],
+                        requirements: aiData.project.requirements || [],
+                        parsedAt: new Date().toISOString()
+                    };
+                }
+            }
+            return null;
+
+        } catch (error) {
+            console.error('❌ AI Parsing Error:', error.message);
+            return null;
+        }
+    }
+}
+
+module.exports = DesignOrchestrator;

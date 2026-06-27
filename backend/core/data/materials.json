@@ -1,0 +1,89 @@
+{
+    "insulation": {
+        "polyurethane_40": {
+            "name": "Polyurethane Foam (40 kg/m³)",
+            "thermalConductivity": 0.024,
+            "density": 40,
+            "maxTemp": 100,
+            "minTemp": -50
+        },
+        "polyurethane_35": {
+            "name": "Polyurethane Foam (35 kg/m³)",
+            "thermalConductivity": 0.026,
+            "density": 35
+        },
+        "polystyrene_eps": {
+            "name": "Expanded Polystyrene (EPS)",
+            "thermalConductivity": 0.038,
+            "density": 25
+        },
+        "polystyrene_xps": {
+            "name": "Extruded Polystyrene (XPS)",
+            "thermalConductivity": 0.032,
+            "density": 35
+        },
+        "rockwool": {
+            "name": "Rock Wool",
+            "thermalConductivity": 0.040,
+            "density": 100
+        },
+        "glasswool": {
+            "name": "Glass Wool",
+            "thermalConductivity": 0.035,
+            "density": 48
+        }
+    },
+    "walls": {
+        "brick_30cm": {
+            "name": "Brick Wall 30cm",
+            "thermalConductivity": 0.72,
+            "thickness": 0.30
+        },
+        "concrete_20cm": {
+            "name": "Concrete Wall 20cm",
+            "thermalConductivity": 1.70,
+            "thickness": 0.20
+        },
+        "sandwich_panel": {
+            "name": "Sandwich Panel (steel + PU)",
+            "thickness": 0.10,
+            "uValue": 0.24
+        }
+    },
+    "floors": {
+        "concrete_insulated": {
+            "name": "Insulated Concrete Floor",
+            "thermalConductivity": 1.70,
+            "groundFactor": 0.8
+        },
+        "concrete_uninsulated": {
+            "name": "Uninsulated Concrete Floor",
+            "thermalConductivity": 1.70,
+            "groundFactor": 0.5
+        }
+    },
+    "doors": {
+        "insulated_15cm": {
+            "name": "Insulated Door 15cm",
+            "uValue": 0.20,
+            "infiltrationFactor": 0.02
+        },
+        "strip_curtain": {
+            "name": "Strip Curtain",
+            "infiltrationFactor": 0.15
+        },
+        "air_curtain": {
+            "name": "Air Curtain",
+            "infiltrationFactor": 0.05
+        }
+    },
+    "panelThicknesses": {
+        "-5": 100,
+        "-10": 100,
+        "-18": 120,
+        "-25": 150,
+        "-35": 175,
+        "-40": 200,
+        "-45": 200
+    }
+}

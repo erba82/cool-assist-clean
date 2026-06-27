@@ -1,0 +1,307 @@
+{
+    "R717": {
+        "name": "Ammonia",
+        "formula": "NH3",
+        "type": "natural",
+        "gwp": 0,
+        "odp": 0,
+        "safetyClass": "B2L",
+        "molarMass": 17.03,
+        "criticalTemp": 132.4,
+        "criticalPressure": 113.3,
+        "normalBoilingPoint": -33.3,
+        "properties": {
+            "-45": {
+                "pressure": 0.545,
+                "density_liquid": 690,
+                "density_vapor": 0.47,
+                "enthalpy_liquid": 48.5,
+                "enthalpy_vapor": 1389,
+                "latentHeat": 1340.5,
+                "entropy_liquid": 0.20,
+                "entropy_vapor": 5.52
+            },
+            "-40": {
+                "pressure": 0.717,
+                "density_liquid": 682,
+                "density_vapor": 0.62,
+                "enthalpy_liquid": 69.6,
+                "enthalpy_vapor": 1398,
+                "latentHeat": 1328.4,
+                "entropy_liquid": 0.28,
+                "entropy_vapor": 5.48
+            },
+            "-35": {
+                "pressure": 0.932,
+                "density_liquid": 674,
+                "density_vapor": 0.80,
+                "enthalpy_liquid": 90.7,
+                "enthalpy_vapor": 1407,
+                "latentHeat": 1316.3,
+                "entropy_liquid": 0.36,
+                "entropy_vapor": 5.46
+            },
+            "-30": {
+                "pressure": 1.195,
+                "density_liquid": 666,
+                "density_vapor": 1.02,
+                "enthalpy_liquid": 111.8,
+                "enthalpy_vapor": 1416,
+                "latentHeat": 1304.2,
+                "entropy_liquid": 0.36,
+                "entropy_vapor": 5.46
+            },
+            "-25": {
+                "pressure": 1.515,
+                "density_liquid": 658,
+                "density_vapor": 1.28,
+                "enthalpy_liquid": 133.0,
+                "enthalpy_vapor": 1424,
+                "latentHeat": 1291.0,
+                "entropy_liquid": 0.51,
+                "entropy_vapor": 5.42
+            },
+            "-20": {
+                "pressure": 1.901,
+                "density_liquid": 650,
+                "density_vapor": 1.60,
+                "enthalpy_liquid": 154.2,
+                "enthalpy_vapor": 1432,
+                "latentHeat": 1277.8,
+                "entropy_liquid": 0.66,
+                "entropy_vapor": 5.38
+            },
+            "-18": {
+                "pressure": 2.090,
+                "density_liquid": 647,
+                "density_vapor": 1.75,
+                "enthalpy_liquid": 163.0,
+                "enthalpy_vapor": 1435,
+                "latentHeat": 1272.0,
+                "entropy_liquid": 0.72,
+                "entropy_vapor": 5.36
+            },
+            "-15": {
+                "pressure": 2.363,
+                "density_liquid": 641,
+                "density_vapor": 1.97,
+                "enthalpy_liquid": 175.5,
+                "enthalpy_vapor": 1440,
+                "latentHeat": 1264.5,
+                "entropy_liquid": 0.82,
+                "entropy_vapor": 5.34
+            },
+            "-10": {
+                "pressure": 2.909,
+                "density_liquid": 633,
+                "density_vapor": 2.41,
+                "enthalpy_liquid": 196.9,
+                "enthalpy_vapor": 1447,
+                "latentHeat": 1250.1,
+                "entropy_liquid": 1.00,
+                "entropy_vapor": 5.30
+            },
+            "-5": {
+                "pressure": 3.549,
+                "density_liquid": 624,
+                "density_vapor": 2.91,
+                "enthalpy_liquid": 218.4,
+                "enthalpy_vapor": 1454,
+                "latentHeat": 1235.6,
+                "entropy_liquid": 1.18,
+                "entropy_vapor": 5.26
+            },
+            "0": {
+                "pressure": 4.294,
+                "density_liquid": 615,
+                "density_vapor": 3.49,
+                "enthalpy_liquid": 240.0,
+                "enthalpy_vapor": 1460,
+                "latentHeat": 1220.0,
+                "entropy_liquid": 1.41,
+                "entropy_vapor": 5.20
+            },
+            "5": {
+                "pressure": 5.158,
+                "density_liquid": 606,
+                "density_vapor": 4.16,
+                "enthalpy_liquid": 261.8,
+                "enthalpy_vapor": 1466,
+                "latentHeat": 1204.2,
+                "entropy_liquid": 1.60,
+                "entropy_vapor": 5.15
+            },
+            "10": {
+                "pressure": 6.150,
+                "density_liquid": 596,
+                "density_vapor": 4.93,
+                "enthalpy_liquid": 283.7,
+                "enthalpy_vapor": 1472,
+                "latentHeat": 1188.3,
+                "entropy_liquid": 1.80,
+                "entropy_vapor": 5.10
+            },
+            "15": {
+                "pressure": 7.283,
+                "density_liquid": 586,
+                "density_vapor": 5.82,
+                "enthalpy_liquid": 305.8,
+                "enthalpy_vapor": 1478,
+                "latentHeat": 1172.2,
+                "entropy_liquid": 2.00,
+                "entropy_vapor": 5.05
+            },
+            "20": {
+                "pressure": 8.576,
+                "density_liquid": 576,
+                "density_vapor": 6.84,
+                "enthalpy_liquid": 328.1,
+                "enthalpy_vapor": 1483,
+                "latentHeat": 1154.9,
+                "entropy_liquid": 2.19,
+                "entropy_vapor": 5.00
+            },
+            "25": {
+                "pressure": 10.03,
+                "density_liquid": 567,
+                "density_vapor": 7.93,
+                "enthalpy_liquid": 350.2,
+                "enthalpy_vapor": 1488,
+                "latentHeat": 1137.8,
+                "entropy_liquid": 2.39,
+                "entropy_vapor": 4.95
+            },
+            "30": {
+                "pressure": 11.67,
+                "density_liquid": 556,
+                "density_vapor": 9.23,
+                "enthalpy_liquid": 372.7,
+                "enthalpy_vapor": 1492,
+                "latentHeat": 1119.3,
+                "entropy_liquid": 2.59,
+                "entropy_vapor": 4.89
+            },
+            "35": {
+                "pressure": 13.51,
+                "density_liquid": 545,
+                "density_vapor": 10.74,
+                "enthalpy_liquid": 395.4,
+                "enthalpy_vapor": 1495,
+                "latentHeat": 1099.6,
+                "entropy_liquid": 2.79,
+                "entropy_vapor": 4.83
+            },
+            "40": {
+                "pressure": 15.55,
+                "density_liquid": 534,
+                "density_vapor": 12.47,
+                "enthalpy_liquid": 418.3,
+                "enthalpy_vapor": 1498,
+                "latentHeat": 1079.7,
+                "entropy_liquid": 3.01,
+                "entropy_vapor": 4.77
+            },
+            "45": {
+                "pressure": 17.82,
+                "density_liquid": 522,
+                "density_vapor": 14.46,
+                "enthalpy_liquid": 441.5,
+                "enthalpy_vapor": 1500,
+                "latentHeat": 1058.5,
+                "entropy_liquid": 3.23,
+                "entropy_vapor": 4.70
+            },
+            "50": {
+                "pressure": 20.33,
+                "density_liquid": 510,
+                "density_vapor": 16.73,
+                "enthalpy_liquid": 465.0,
+                "enthalpy_vapor": 1501,
+                "latentHeat": 1036.0,
+                "entropy_liquid": 3.46,
+                "entropy_vapor": 4.63
+            }
+        }
+    },
+    "R744": {
+        "name": "Carbon Dioxide",
+        "formula": "CO2",
+        "type": "natural",
+        "gwp": 1,
+        "odp": 0,
+        "safetyClass": "A1",
+        "molarMass": 44.01,
+        "criticalTemp": 31.1,
+        "criticalPressure": 73.8,
+        "normalBoilingPoint": -78.5,
+        "transcritical": true
+    },
+    "R290": {
+        "name": "Propane",
+        "formula": "C3H8",
+        "type": "natural",
+        "gwp": 3,
+        "odp": 0,
+        "safetyClass": "A3",
+        "molarMass": 44.1,
+        "criticalTemp": 96.7,
+        "criticalPressure": 42.5,
+        "normalBoilingPoint": -42.1
+    },
+    "R404A": {
+        "name": "R404A",
+        "type": "synthetic",
+        "gwp": 3922,
+        "odp": 0,
+        "safetyClass": "A1",
+        "blend": [
+            "R125",
+            "R143a",
+            "R134a"
+        ],
+        "normalBoilingPoint": -46.2
+    },
+    "R410A": {
+        "name": "R410A",
+        "type": "synthetic",
+        "gwp": 2088,
+        "odp": 0,
+        "safetyClass": "A1",
+        "blend": [
+            "R32",
+            "R125"
+        ],
+        "normalBoilingPoint": -51.4
+    },
+    "R134a": {
+        "name": "R134a",
+        "formula": "CF3CH2F",
+        "type": "synthetic",
+        "gwp": 1430,
+        "odp": 0,
+        "safetyClass": "A1",
+        "molarMass": 102.03,
+        "criticalTemp": 101.1,
+        "normalBoilingPoint": -26.1
+    },
+    "R32": {
+        "name": "R32",
+        "formula": "CH2F2",
+        "type": "synthetic",
+        "gwp": 675,
+        "odp": 0,
+        "safetyClass": "A2L",
+        "molarMass": 52.02,
+        "normalBoilingPoint": -51.7
+    },
+    "R22": {
+        "name": "R22 (HCFC)",
+        "formula": "CHClF2",
+        "type": "synthetic",
+        "gwp": 1810,
+        "odp": 0.055,
+        "safetyClass": "A1",
+        "phaseOut": true,
+        "normalBoilingPoint": -40.8
+    }
+}

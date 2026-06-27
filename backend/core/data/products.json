@@ -1,0 +1,174 @@
+{
+    "poultry": {
+        "chicken": {
+            "name": "Chicken (whole)",
+            "specificHeatAboveFreezing": 3.31,
+            "specificHeatBelowFreezing": 1.55,
+            "latentHeat": 247,
+            "freezingPoint": -2.8,
+            "waterContent": 0.74,
+            "density": 1070,
+            "respirationRate": 0
+        },
+        "turkey": {
+            "name": "Turkey",
+            "specificHeatAboveFreezing": 3.31,
+            "specificHeatBelowFreezing": 1.55,
+            "latentHeat": 247,
+            "freezingPoint": -2.8,
+            "waterContent": 0.74,
+            "density": 1040
+        }
+    },
+    "meat": {
+        "beef": {
+            "name": "Beef",
+            "specificHeatAboveFreezing": 3.22,
+            "specificHeatBelowFreezing": 1.68,
+            "latentHeat": 233,
+            "freezingPoint": -2.2,
+            "waterContent": 0.70,
+            "density": 1070
+        },
+        "pork": {
+            "name": "Pork",
+            "specificHeatAboveFreezing": 2.85,
+            "specificHeatBelowFreezing": 1.51,
+            "latentHeat": 197,
+            "freezingPoint": -2.2,
+            "waterContent": 0.60,
+            "density": 1050
+        },
+        "lamb": {
+            "name": "Lamb",
+            "specificHeatAboveFreezing": 2.80,
+            "specificHeatBelowFreezing": 1.47,
+            "latentHeat": 189,
+            "freezingPoint": -2.2,
+            "waterContent": 0.58,
+            "density": 1040
+        }
+    },
+    "seafood": {
+        "fish": {
+            "name": "Fish (fresh)",
+            "specificHeatAboveFreezing": 3.60,
+            "specificHeatBelowFreezing": 1.76,
+            "latentHeat": 276,
+            "freezingPoint": -2.2,
+            "waterContent": 0.82,
+            "density": 1050
+        },
+        "shrimp": {
+            "name": "Shrimp",
+            "specificHeatAboveFreezing": 3.43,
+            "specificHeatBelowFreezing": 1.72,
+            "latentHeat": 268,
+            "freezingPoint": -2.2,
+            "waterContent": 0.80,
+            "density": 1080
+        }
+    },
+    "dairy": {
+        "milk": {
+            "name": "Milk",
+            "specificHeatAboveFreezing": 3.89,
+            "specificHeatBelowFreezing": 1.97,
+            "latentHeat": 289,
+            "freezingPoint": -0.5,
+            "waterContent": 0.87,
+            "density": 1030
+        },
+        "cheese": {
+            "name": "Cheese",
+            "specificHeatAboveFreezing": 2.30,
+            "specificHeatBelowFreezing": 1.26,
+            "latentHeat": 126,
+            "freezingPoint": -3.0,
+            "waterContent": 0.38,
+            "density": 1090
+        },
+        "butter": {
+            "name": "Butter",
+            "specificHeatAboveFreezing": 1.38,
+            "specificHeatBelowFreezing": 0.96,
+            "latentHeat": 50,
+            "freezingPoint": -0.5,
+            "waterContent": 0.15,
+            "density": 920
+        }
+    },
+    "fruits": {
+        "apple": {
+            "name": "Apple",
+            "specificHeatAboveFreezing": 3.72,
+            "specificHeatBelowFreezing": 1.88,
+            "latentHeat": 280,
+            "freezingPoint": -1.5,
+            "waterContent": 0.84,
+            "density": 850,
+            "respirationRate": 12
+        },
+        "orange": {
+            "name": "Orange",
+            "specificHeatAboveFreezing": 3.77,
+            "specificHeatBelowFreezing": 1.92,
+            "latentHeat": 289,
+            "freezingPoint": -1.2,
+            "waterContent": 0.87,
+            "density": 960,
+            "respirationRate": 8
+        },
+        "banana": {
+            "name": "Banana",
+            "specificHeatAboveFreezing": 3.35,
+            "specificHeatBelowFreezing": 1.76,
+            "latentHeat": 251,
+            "freezingPoint": -1.1,
+            "waterContent": 0.75,
+            "density": 980,
+            "respirationRate": 35
+        }
+    },
+    "vegetables": {
+        "potato": {
+            "name": "Potato",
+            "specificHeatAboveFreezing": 3.52,
+            "specificHeatBelowFreezing": 1.80,
+            "latentHeat": 264,
+            "freezingPoint": -0.9,
+            "waterContent": 0.79,
+            "density": 1100,
+            "respirationRate": 15
+        },
+        "tomato": {
+            "name": "Tomato",
+            "specificHeatAboveFreezing": 3.98,
+            "specificHeatBelowFreezing": 2.01,
+            "latentHeat": 314,
+            "freezingPoint": -0.9,
+            "waterContent": 0.94,
+            "density": 980,
+            "respirationRate": 25
+        },
+        "onion": {
+            "name": "Onion",
+            "specificHeatAboveFreezing": 3.81,
+            "specificHeatBelowFreezing": 1.93,
+            "latentHeat": 293,
+            "freezingPoint": -0.9,
+            "waterContent": 0.88,
+            "density": 960,
+            "respirationRate": 7
+        }
+    },
+    "iceCream": {
+        "name": "Ice Cream",
+        "specificHeatAboveFreezing": 2.93,
+        "specificHeatBelowFreezing": 1.88,
+        "latentHeat": 201,
+        "freezingPoint": -5.5,
+        "waterContent": 0.60,
+        "density": 540
+    }
+}

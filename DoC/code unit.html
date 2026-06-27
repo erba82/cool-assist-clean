@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="light"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Engineering Toolkit Overlay</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem", 
+                        "lg": "0.5rem", 
+                        "xl": "0.75rem", 
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.1)',
+                        'floating': '0 10px 40px -10px rgba(0, 0, 0, 0.2)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Animation helper */
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light text-slate-800 antialiased overflow-hidden h-screen w-full flex">
+<!-- BACKGROUND APPLICATION SIMULATION (AI Chat Interface) -->
+<!-- This creates the context for the overlay -->
+<div class="flex-1 flex flex-col h-full opacity-40 select-none pointer-events-none filter blur-[2px] scale-[1.01]">
+<!-- Top Nav -->
+<div class="h-16 border-b border-slate-200 bg-white flex items-center px-6 justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-slate-200 rounded-lg"></div>
+<div class="w-32 h-4 bg-slate-200 rounded"></div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded-full bg-slate-200"></div>
+</div>
+</div>
+<div class="flex flex-1 overflow-hidden">
+<!-- Sidebar -->
+<div class="w-64 bg-slate-50 border-r border-slate-200 hidden md:flex flex-col p-4 gap-4">
+<div class="w-3/4 h-8 bg-slate-200 rounded mb-4"></div>
+<div class="space-y-3">
+<div class="w-full h-10 bg-slate-200/50 rounded"></div>
+<div class="w-full h-10 bg-slate-200/50 rounded"></div>
+<div class="w-full h-10 bg-slate-200/50 rounded"></div>
+</div>
+</div>
+<!-- Chat Area -->
+<div class="flex-1 flex flex-col bg-white">
+<div class="flex-1 p-8 space-y-8 overflow-y-auto">
+<!-- AI Message -->
+<div class="flex gap-4 max-w-3xl mx-auto w-full">
+<div class="w-10 h-10 rounded-full bg-primary/20 shrink-0"></div>
+<div class="space-y-3 flex-1">
+<div class="w-1/4 h-4 bg-slate-200 rounded"></div>
+<div class="w-full h-16 bg-slate-100 rounded-lg"></div>
+<div class="w-2/3 h-16 bg-slate-100 rounded-lg"></div>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex gap-4 max-w-3xl mx-auto w-full flex-row-reverse">
+<div class="w-10 h-10 rounded-full bg-slate-200 shrink-0"></div>
+<div class="space-y-3 flex-1 flex flex-col items-end">
+<div class="w-full h-12 bg-slate-100 rounded-lg"></div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-6 border-t border-slate-100">
+<div class="max-w-3xl mx-auto w-full h-14 border border-slate-200 rounded-xl bg-white shadow-sm flex items-center px-4">
+<div class="w-full h-4 bg-slate-100 rounded"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- MAIN OVERLAY CONTAINER -->
+<!-- Positioned absolutely to simulate floating window -->
+<div class="absolute inset-0 z-10 flex items-center justify-center p-4 md:items-end md:justify-end md:pb-8 md:pr-8 pointer-events-none">
+<!-- WRAPPER for demonstration: Showing 2 states side-by-side on large screens, or stacked on small -->
+<!-- In a real app, this would be one window changing content. -->
+<div class="flex flex-col md:flex-row gap-8 pointer-events-auto items-end">
+<!-- STATE 1: HOME (MENU) -->
+<div class="w-[340px] bg-white dark:bg-slate-800 rounded-xl shadow-floating border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden fade-in-up" style="animation-delay: 0.1s;">
+<!-- Header -->
+<div class="h-11 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 cursor-move select-none">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">handyman</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Tools</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded p-0.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<button class="text-slate-400 hover:text-red-500 rounded p-0.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<!-- Content: Grid Menu -->
+<div class="p-4 grid gap-3">
+<p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Select Utility</p>
+<!-- Tool Card 1 -->
+<button class="flex items-center gap-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all group text-left bg-white dark:bg-slate-800">
+<div class="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">thermometer</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-slate-800 dark:text-slate-100">Refrigerant Props</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">P-T charts, Enthalpy</span>
+</div>
+</button>
+<!-- Tool Card 2 -->
+<button class="flex items-center gap-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all group text-left bg-white dark:bg-slate-800">
+<div class="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">calculate</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-slate-800 dark:text-slate-100">Eng. Calculator</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Scientific functions</span>
+</div>
+</button>
+<!-- Tool Card 3 -->
+<button class="flex items-center gap-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all group text-left bg-white dark:bg-slate-800">
+<div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">compare_arrows</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-slate-800 dark:text-slate-100">Unit Converter</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Length, Mass, Pressure</span>
+</div>
+</button>
+</div>
+<div class="h-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center">
+<div class="w-10 h-1 bg-slate-200 rounded-full"></div>
+</div>
+</div>
+<!-- STATE 2: ACTIVE TOOL (Unit Converter) -->
+<!-- This represents what happens after clicking the 3rd option -->
+<div class="w-[340px] bg-white dark:bg-slate-800 rounded-xl shadow-floating border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden fade-in-up" style="animation-delay: 0.2s;">
+<!-- Header with Back Nav -->
+<div class="h-11 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-3 cursor-move select-none">
+<div class="flex items-center gap-1">
+<button class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+</button>
+<span class="text-sm font-semibold text-slate-800 dark:text-slate-200 ml-1">Unit Converter</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded p-0.5">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<button class="text-slate-400 hover:text-red-500 rounded p-0.5">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<!-- Tool Content -->
+<div class="p-5 flex flex-col gap-4">
+<!-- Category Tabs -->
+<div class="bg-slate-100 dark:bg-slate-900 p-1 rounded-lg flex overflow-x-auto no-scrollbar">
+<button class="flex-1 text-xs font-semibold py-1.5 px-3 bg-white dark:bg-slate-700 shadow-sm rounded-md text-slate-800 dark:text-white transition-all whitespace-nowrap">Length</button>
+<button class="flex-1 text-xs font-medium py-1.5 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all whitespace-nowrap">Pressure</button>
+<button class="flex-1 text-xs font-medium py-1.5 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all whitespace-nowrap">Temp</button>
+<button class="flex-1 text-xs font-medium py-1.5 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all whitespace-nowrap">Weight</button>
+</div>
+<div class="flex flex-col gap-3 relative">
+<!-- Input Group (From) -->
+<div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 group focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all">
+<div class="flex justify-between items-center mb-1">
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Input</label>
+</div>
+<div class="flex items-center gap-2">
+<input class="w-full bg-transparent border-none p-0 text-xl font-bold text-slate-800 dark:text-slate-100 focus:ring-0 placeholder-slate-300" type="number" value="120"/>
+<div class="h-6 w-[1px] bg-slate-300 dark:bg-slate-600"></div>
+<select class="bg-transparent border-none text-sm font-medium text-slate-600 dark:text-slate-300 focus:ring-0 cursor-pointer pr-8 pl-1 text-right">
+<option>Meters</option>
+<option>Kilometers</option>
+<option>Miles</option>
+</select>
+</div>
+</div>
+<!-- Swap Button -->
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+<button class="w-8 h-8 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shadow-sm flex items-center justify-center text-primary hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">swap_vert</span>
+</button>
+</div>
+<!-- Output Group (To) -->
+<div class="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-lg p-3">
+<div class="flex justify-between items-center mb-1">
+<label class="text-[10px] font-bold text-primary/70 uppercase tracking-wide">Result</label>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-full bg-transparent p-0 text-xl font-bold text-primary select-all">393.70</div>
+<div class="h-6 w-[1px] bg-primary/20"></div>
+<select class="bg-transparent border-none text-sm font-medium text-primary focus:ring-0 cursor-pointer pr-8 pl-1 text-right">
+<option>Feet</option>
+<option>Inches</option>
+<option>Yards</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="grid grid-cols-2 gap-3 mt-1">
+<button class="py-2.5 px-4 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Clear</button>
+<button class="py-2.5 px-4 rounded-lg bg-primary text-sm font-medium text-white shadow-md hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+<span>Convert</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

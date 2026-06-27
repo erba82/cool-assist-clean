@@ -1,0 +1,92 @@
+[
+  {
+    "id": "1771697572373",
+    "timestamp": "2026-02-21T18:12:52.373Z",
+    "userId": "user-session-1",
+    "query": "hi",
+    "response": "Hello! How can I help you today?",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": false,
+    "feedbackScore": 0,
+    "usageCount": 1
+  },
+  {
+    "id": "1771697828368",
+    "timestamp": "2026-02-21T18:17:08.368Z",
+    "userId": "user-session-1",
+    "query": "hi",
+    "response": "Hello! How can I help you today?",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": false,
+    "feedbackScore": 0,
+    "usageCount": 1
+  },
+  {
+    "id": "1771697896676",
+    "timestamp": "2026-02-21T18:18:16.676Z",
+    "userId": "user-session-1",
+    "query": "hi",
+    "response": "Hello! How can I help you today?",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": true,
+    "feedbackScore": 0,
+    "usageCount": 1
+  },
+  {
+    "id": "1771698281992",
+    "timestamp": "2026-02-21T18:24:41.992Z",
+    "userId": "user-session-1",
+    "query": "hi",
+    "response": "Hello! How can I help you today?",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": true,
+    "feedbackScore": 0,
+    "usageCount": 1
+  },
+  {
+    "id": "1771698325610",
+    "timestamp": "2026-02-21T18:25:25.610Z",
+    "userId": "user-session-1",
+    "query": "can you tell me about nh3",
+    "response": "Hydrogen monoxide (HNO) is a compound composed of hydrogen, nitrogen, and oxygen. It is a colorless gas with a density around 0.01 g/cm³. HNO can be formed in two main ways: \n\n1. **Electrochemical Reaction**: When a metal reacts with an acid, such as zinc reacting with sulfuric acid (Zn + H₂SO₄ → ZnSO₄ + H₂O), the product is hydrogen monoxide.\n   \n2. **Nitrogen Oxide Reaction**: The reaction between nitrogen and oxygen produces nitrogen monoxide (NO) in the presence of a catalyst, such as nickel or palladium.\n\nHNO has various industrial applications, including the production of fertilizers like ammonium nitrate (NH₄NO), explosives, and specialized chemicals like nitric acid. It is also known for being a toxic gas and dangerous to inhale due to its flammability and ability to react with many materials under certain conditions.",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": false,
+    "feedbackScore": 0,
+    "usageCount": 1
+  },
+  {
+    "id": "1771706301272",
+    "timestamp": "2026-02-21T20:38:21.272Z",
+    "userId": "user-session-1",
+    "query": "design a 100 ton cold storage for meat with r 507 at tehran in -18c",
+    "response": "The design of a 100 ton cold storage for meat in Tehran with a temperature of -18°C is comprehensive and efficient. Here's an organized overview of the key components and considerations:\n\n### Cold Storage Unit (CBM)\n- **Design**: A large, multi-compartment space designed to handle the weight of 100 tons of meat.\n- **Materials**: Steel beams for structural integrity with specified thickness and spacing.\n- **Interior Area**: Walled interior with air circulation to maintain humidity and prevent storage issues.\n\n### Interior Storage\n- **Space Requirements**: The 4-row arrangement allows for variable height, accommodating different meats and storage needs.\n\n### Shelf/Compartment System\n- **Shelf Configuration**: 4 rows with varying heights (160, 185, 200, 230 cm) to optimize space usage.\n- **Humidity Management**: Adjustments using fans and windows are key for maintaining a comfortable environment without causing discomfort.\n\n### Environmental Considerations\n- **Temperature Control**: System likely includes refrigeration or air conditioning to maintain consistent temperatures.\n- **Energy Efficiency**: May incorporate cooling/cooling systems to reduce energy consumption.\n- **Safety Features**: Includes fans and window adjustments to facilitate proper humidity management.\n\n### Material and Cost Considerations\n- **Building Blocks**: Steel beams, insulation, and other materials are chosen for their efficiency in cold storage.\n- **Cost Estimate**: Based on base pricing (R 507) plus additional materials and labor costs.\n\n### Design Considerations\n- **Compartments and Rows**: 4 rows allow for optimized storage depending on meat type. Each compartment is designed to maintain optimal temperature and humidity conditions.\n- **Food Safety**: Ensures fresh meat by controlling temperature, humidity, and other factors through controlled storage.\n\nThis design balances functionality with environmental impact, ensuring that the meat remains fresh and protected from external influences while efficiently storing 100 tons of meat.",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": false,
+    "feedbackScore": 0,
+    "usageCount": 1
+  }
+]

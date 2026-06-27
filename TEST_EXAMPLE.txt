@@ -1,0 +1,104 @@
+===========================================================================
+TEST EXAMPLES FOR AMMONIA REFRIGERATION DESIGN
+Copy and paste these examples into the "Data Collection" phase
+===========================================================================
+
+EXAMPLE 1 - English (Simple):
+---------------------------
+Poultry Processing Facility
+Location: Tehran, Iran
+
+Chilling Room, 20x8x4 meters, -5°C
+Freezing Room 1, 25x10x5 meters, -35°C
+Freezing Room 2, 25x10x5 meters, -35°C
+Cold Storage 1, 30x15x6 meters, -18°C
+Cold Storage 2, 30x15x6 meters, -18°C
+Pre-cooling Room, 15x8x4 meters, 2°C
+
+
+EXAMPLE 2 - Persian (فارسی):
+---------------------------
+تاسیسات فرآوری مرغ
+مکان: تهران، ایران
+
+اتاق خنک کاری، 20x8x4 متر، -5°C
+اتاق انجماد 1، 25x10x5 متر، -35°C
+انبار سرد 1، 30x15x6 متر، -18°C
+اتاق پیش سرد، 15x8x4 متر، 2°C
+
+
+EXAMPLE 3 - Detailed English:
+---------------------------
+Ardabil Poultry Slaughterhouse Refrigeration System
+Location: Ardabil, Iran
+
+We need a complete ammonia refrigeration system for our poultry processing facility.
+
+Chilling Room, 20x8x4 meters, -5°C
+Freezing Room 1, 25x10x5 meters, -35°C  
+Freezing Room 2, 25x10x5 meters, -35°C
+Cold Storage 1, 30x15x6 meters, -18°C
+Cold Storage 2, 30x15x6 meters, -18°C
+Cold Storage 3, 30x15x6 meters, -18°C
+Giblet Storage, 8x6x4 meters, -18°C
+Pre-cooling Room, 15x8x4 meters, 2°C
+Packaging Room, 12x8x4 meters, 4°C
+Loading Dock, 10x6x3 meters, 4°C
+
+
+EXAMPLE 4 - Mixed Format:
+---------------------------
+Fish Processing Cold Storage
+Location: Dubai
+
+Processing area: 12x8x4, temperature 5°C
+Blast freezer tunnel: 20x6x4, -40°C  
+Storage room 1: 25x15x6, -25°C
+Storage room 2: 25x15x6, -25°C
+
+
+EXAMPLE 5 - Minimal (will create defaults):
+---------------------------
+Basic Cold Storage
+10x8x4
+-18°C
+
+
+===========================================================================
+HOW TO TEST:
+===========================================================================
+
+1. Refresh browser (F5)
+2. Click "Load Demo" button OR start a new chat
+3. Go to "Data Collection" phase (first phase)
+4. Copy ONE of the examples above
+5. Paste it in the text box
+6. Click "Analyze with AI" button
+7. Wait 2-5 seconds
+8. See the complete results with:
+   - Total rooms detected
+   - Load calculations for each room
+   - Regional standards applied (Middle East for Iran)
+   - Temperature range groupings
+   - Equipment selection recommendations
+
+===========================================================================
+WHAT HAPPENS:
+===========================================================================
+
+✅ Parser automatically detects:
+   - Project name (first line)
+   - Location (extracts country/city)
+   - Room names
+   - Dimensions (length × width × height)
+   - Temperatures
+   
+✅ System automatically:
+   - Determines room type (chilling, blast_freezer, storage, cooler)
+   - Applies regional standards (ASME, IIAR, ISO based on location)
+   - Calculates loads (transmission, product, infiltration, internal)
+   - Applies safety factors
+   - Selects equipment
+   - Generates all 7 phases
+
+===========================================================================

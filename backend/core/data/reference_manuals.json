@@ -1,0 +1,484 @@
+{
+    "manuals": [
+        {
+            "id": "comprehensive_design_guide",
+            "title": "راهنمای جامع طراحی سیستم‌های تبرید - از محاسبات صفر تا نقشه‌کشی",
+            "version": "1.0",
+            "sections": {
+                "load_calculation": {
+                    "transmission_load": {
+                        "formula": "Q_wall = A × U × ΔT",
+                        "u_value_calculation": "1/U = x1/k1 + x2/k2 + x3/k3 + ...",
+                        "components": [
+                            "walls",
+                            "ceiling",
+                            "floor"
+                        ],
+                        "safety_factor": 1.2
+                    },
+                    "product_load": {
+                        "above_freezing": "Q = m × Cp × (T1 - T2) / t",
+                        "with_freezing": "Q = [m × Cp1 × (T1 - Tf) + m × L + m × Cp2 × (Tf - T2)] / t",
+                        "respiration_load": "For fruits/vegetables - add Q_resp"
+                    },
+                    "infiltration_load": {
+                        "formula": "Q_air = V × ρ × Cp × ΔT × n / 3600",
+                        "air_changes": "3-5 changes per day typical"
+                    },
+                    "internal_loads": {
+                        "lighting": "Q_light = W × 3.6 kW",
+                        "people": "100-150 W per person",
+                        "motors": "Motor output power",
+                        "defrost": "Include defrost cycle heat"
+                    }
+                },
+                "thermodynamic_cycle": {
+                    "cop_formula": "COP = Q_L / W = (h_evap_out - h_evap_in) / (h_comp_out - h_comp_in)",
+                    "cycle_points": {
+                        "point_1": {
+                            "location": "Evaporator outlet",
+                            "state": "Superheated vapor",
+                            "parameters": [
+                                "T",
+                                "P",
+                                "h",
+                                "s"
+                            ]
+                        },
+                        "point_2": {
+                            "location": "Compressor outlet",
+                            "state": "Superheated vapor (high pressure)",
+                            "parameters": [
+                                "T",
+                                "P",
+                                "h",
+                                "s"
+                            ],
+                            "process": "Isentropic compression (s2 = s1)"
+                        },
+                        "point_3": {
+                            "location": "Condenser outlet",
+                            "state": "Subcooled liquid",
+                            "parameters": [
+                                "T",
+                                "P",
+                                "h",
+                                "s"
+                            ],
+                            "subcool": "3-5 K recommended"
+                        },
+                        "point_4": {
+                            "location": "Expansion valve outlet",
+                            "state": "Two-phase mixture",
+                            "parameters": [
+                                "T",
+                                "P",
+                                "h",
+                                "s"
+                            ],
+                            "process": "Isenthalpic expansion (h4 = h3)"
+                        }
+                    },
+                    "mass_flow_rate": "ṁ = Q_evap / Δh = Q_evap / (h_in - h_out)",
+                    "compressor_work": "W = ṁ × (h2 - h1)",
+                    "superheat": "5-10 K recommended",
+                    "subcool": "3-5 K recommended"
+                },
+                "refrigerant_selection": {
+                    "R717_ammonia": {
+                        "properties": {
+                            "formula": "NH₃",
+                            "molecular_weight": 17.03,
+                            "boiling_point": -33.3,
+                            "odp": 0,
+                            "gwp": 0,
+                            "safety_class": "B2L"
+                        },
+                        "advantages": [
+                            "Highest COP",
+                            "Zero environmental impact",
+                            "Low cost",
+                            "Excellent heat transfer"
+                        ],
+                        "disadvantages": [
+                            "Toxic",
+                            "Flammable",
+                            "Requires steel piping",
+                            "Advanced leak detection needed"
+                        ],
+                        "applications": [
+                            "Large industrial cold storage",
+                            "High load systems",
+                            "Cascade systems"
+                        ]
+                    },
+                    "R744_CO2": {
+                        "properties": {
+                            "formula": "CO₂",
+                            "critical_temp": 31.1,
+                            "odp": 0,
+                            "gwp": 1,
+                            "safety_class": "A1"
+                        },
+                        "advantages": [
+                            "Environmentally friendly",
+                            "Non-flammable",
+                            "High efficiency at low temps"
+                        ],
+                        "disadvantages": [
+                            "Very high pressure (up to 90 bar)",
+                            "Expensive equipment"
+                        ],
+                        "applications": [
+                            "Cascade systems (low stage)",
+                            "Medium temp storage"
+                        ]
+                    },
+                    "cascade_systems": {
+                        "description": "Two-stage system for very low temps or high efficiency",
+                        "typical_combination": "R717 (high stage) / R744 (low stage)",
+                        "cop_improvement": "Up to 3.5% increase"
+                    }
+                },
+                "equipment_selection": {
+                    "compressor": {
+                        "types": {
+                            "reciprocating": {
+                                "capacity_range": "Small to medium",
+                                "advantages": [
+                                    "Reliable",
+                                    "Easy maintenance",
+                                    "Lower initial cost"
+                                ],
+                                "applications": [
+                                    "Below zero storage"
+                                ]
+                            },
+                            "screw": {
+                                "capacity_range": "Large industrial",
+                                "advantages": [
+                                    "High efficiency",
+                                    "Long life",
+                                    "Low vibration",
+                                    "Continuous operation"
+                                ],
+                                "applications": [
+                                    "Large cold storage",
+                                    "Industrial systems"
+                                ]
+                            },
+                            "two_stage": {
+                                "capacity_range": "Very low temps",
+                                "advantages": [
+                                    "Lower compression ratio per stage",
+                                    "Longer component life"
+                                ],
+                                "applications": [
+                                    "Below -25°C"
+                                ]
+                            }
+                        },
+                        "selection_criteria": [
+                            "Cooling load",
+                            "Evaporating temp",
+                            "Condensing temp",
+                            "COP"
+                        ]
+                    },
+                    "evaporator": {
+                        "td_selection": {
+                            "low_td_3_5K": {
+                                "application": "Above zero storage",
+                                "reason": "High humidity preservation",
+                                "note": "Larger surface area = higher moisture"
+                            },
+                            "high_td_8_12K": {
+                                "application": "Below zero storage",
+                                "reason": "Cost reduction",
+                                "note": "Acceptable for frozen products"
+                            }
+                        },
+                        "fin_pitch": {
+                            "above_zero": "4-6 mm",
+                            "minus_18C": "8-10 mm",
+                            "minus_30C": "10-16 mm",
+                            "reason": "Prevent frost buildup, maintain efficiency"
+                        },
+                        "formula": "TD = T_room - T_evaporating"
+                    },
+                    "condenser": {
+                        "heat_rejection": "Q_condenser = Q_evaporator + W_compressor",
+                        "sizing_method": "LMTD",
+                        "formula": "Q_C = U × A × LMTD",
+                        "condensing_temp": "T_cond = T_ambient + 10-15 K"
+                    },
+                    "expansion_valve": {
+                        "types": {
+                            "TEV": {
+                                "name": "Thermostatic Expansion Valve",
+                                "control": "Superheat control via 3 pressures",
+                                "application": "Most common"
+                            },
+                            "EEV": {
+                                "name": "Electronic Expansion Valve",
+                                "control": "Precise digital control",
+                                "application": "High efficiency systems"
+                            }
+                        },
+                        "function": "Maintain pressure difference and control superheat (5-10 K)"
+                    }
+                },
+                "pid_standards": {
+                    "standards": {
+                        "ISA_5_1": "Main standard for symbols and tagging",
+                        "ISO_10628": "Graphical symbols for process diagrams",
+                        "ISO_14617": "Equipment symbols"
+                    },
+                    "pfd_vs_pid": {
+                        "PFD": {
+                            "name": "Process Flow Diagram",
+                            "content": "Main equipment and material flows only",
+                            "detail_level": "Schematic overview"
+                        },
+                        "PID": {
+                            "name": "Piping & Instrumentation Diagram",
+                            "content": "All piping details, valves, instruments, control loops",
+                            "detail_level": "Construction-ready detail",
+                            "purpose": "Common language for safety and control"
+                        }
+                    },
+                    "tagging_system": {
+                        "format": "First letter = parameter type, subsequent letters = instrument type",
+                        "examples": {
+                            "TI": "Temperature Indicator",
+                            "PI": "Pressure Indicator",
+                            "PIC": "Pressure Indicating Controller",
+                            "FCV": "Flow Control Valve",
+                            "PSV": "Pressure Safety Valve",
+                            "LC": "Level Controller"
+                        }
+                    },
+                    "equipment_tags": {
+                        "C": "Compressor",
+                        "E": "Heat Exchanger (Evaporator/Condenser)",
+                        "P": "Pump",
+                        "V": "Valve"
+                    },
+                    "ammonia_specific_requirements": {
+                        "critical_items": [
+                            "Pressure Safety Valves (PSV) details",
+                            "Emergency discharge lines",
+                            "Oil separation equipment",
+                            "Liquid level controls (LC)",
+                            "Leak detection systems"
+                        ],
+                        "reason": "High toxicity requires maximum safety detail"
+                    }
+                },
+                "design_recommendations": {
+                    "cop_optimization": {
+                        "priority": "COP should be main design criterion",
+                        "impact": "Determines OPEX (operational costs)",
+                        "analysis_tool": "P-H diagram for refrigerant comparison"
+                    },
+                    "td_management": {
+                        "above_zero": "Low TD for moisture preservation and product quality",
+                        "below_zero": "Fin spacing for frost management"
+                    },
+                    "safety_factors": {
+                        "general": "10-30% typical",
+                        "application_specific": true
+                    },
+                    "receiver_volume": {
+                        "formula": "V_receiver = 1.5-2.0 × ṁ × t_cycle",
+                        "typical": "20-40 liters per ton refrigeration"
+                    }
+                }
+            }
+        },
+        {
+            "id": "industrial_refrigeration_engineering",
+            "title": "مقاله جامع طراحی و مهندسی سیستم‌های تبرید صنعتی",
+            "version": "1.0",
+            "key_concepts": {
+                "cold_storage_classification": {
+                    "above_zero": {
+                        "temp_range": "0°C to 10°C",
+                        "products": [
+                            "Fruits",
+                            "Vegetables",
+                            "Dairy",
+                            "Pharmaceuticals"
+                        ],
+                        "humidity_requirement": ">90%",
+                        "goal": "Prevent product drying"
+                    },
+                    "below_zero": {
+                        "temp_range": "-18°C to -30°C",
+                        "products": [
+                            "Meat",
+                            "Poultry",
+                            "Ice cream"
+                        ],
+                        "blast_freezing": "Up to -40°C for rapid freezing"
+                    }
+                },
+                "cop_detailed": {
+                    "formula": "COP = Q_L / W = (h_evap_out - h_evap_in) / (h_comp_out - h_comp_in)",
+                    "importance": "COP > 1 because system pumps heat, not converts energy",
+                    "impact": "Higher COP = Lower energy cost",
+                    "optimization": "Must be primary design criterion"
+                },
+                "load_calculation_detailed": {
+                    "transmission": {
+                        "formula": "Q_T = U × A × ΔT",
+                        "multilayer_u": "1/U = Σ(x_i / k_i)",
+                        "components": [
+                            "Walls",
+                            "Ceiling",
+                            "Floor"
+                        ]
+                    },
+                    "product_load_detailed": {
+                        "percentage": "55-75% of total load",
+                        "three_phases": {
+                            "cool_down": "Sensible heat to freezing point",
+                            "freezing": "Latent heat of fusion (L)",
+                            "sub_cooling": "Sensible heat below freezing point"
+                        },
+                        "formula": "Q_Product = m × [Cp1×(T1-Tf) + L + Cp2×(Tf-T2)] / t_cooling",
+                        "respiration": "Add Q_resp for living products (fruits/vegetables)"
+                    },
+                    "internal_loads": {
+                        "personnel": "Q_personnel = N × T × H",
+                        "lighting": "LED recommended",
+                        "evaporator_fan": "Motor heat",
+                        "defrost_cycle": "Heat from defrost system"
+                    },
+                    "infiltration": {
+                        "method": "Based on enthalpy difference (Δh)",
+                        "includes": [
+                            "Sensible heat",
+                            "Latent heat (moisture)"
+                        ]
+                    },
+                    "final_capacity": {
+                        "formula": "Q_Design = Q_Total × (1.1 to 1.3) / operating_hours",
+                        "safety_factor": "10-30%",
+                        "operating_hours": "14-18 hours typical"
+                    }
+                },
+                "advanced_cycles": {
+                    "cascade": {
+                        "description": "Two separate circuits for very low temps or high efficiency",
+                        "typical": "R717 (high stage) / R744 (low stage)",
+                        "cop_improvement": "Up to 3.5% increase",
+                        "applications": [
+                            "Blast freezing",
+                            "Hot climate regions"
+                        ]
+                    }
+                },
+                "equipment_details": {
+                    "evaporator_td": {
+                        "formula": "TD = T_room - T_evaporating",
+                        "low_td": {
+                            "range": "3-5 K",
+                            "application": "Above zero storage",
+                            "benefit": "High humidity preservation",
+                            "tradeoff": "Larger surface area required"
+                        },
+                        "high_td": {
+                            "range": "8-12 K",
+                            "application": "Below zero storage",
+                            "benefit": "Lower initial cost"
+                        }
+                    },
+                    "fin_spacing": {
+                        "importance": "Critical for frost management in below-zero",
+                        "recommendations": {
+                            "minus_30C": "10-16 mm",
+                            "reason": "Delay frost formation, maintain efficiency"
+                        }
+                    },
+                    "condenser_lmtd": {
+                        "formula": "Q_C = U × A × LMTD",
+                        "lmtd": "LMTD = (ΔT1 - ΔT2) / ln(ΔT1/ΔT2)"
+                    },
+                    "expansion_valve_detail": {
+                        "tev": {
+                            "control_method": "Three pressures: bulb sensor, spring, evaporator",
+                            "maintains": "Superheat 5-10 K"
+                        },
+                        "eev": {
+                            "control_method": "Electronic/digital",
+                            "benefit": "More precise control, higher efficiency"
+                        }
+                    }
+                },
+                "pid_detailed_standards": {
+                    "pfd_characteristics": {
+                        "content": "Main equipment only",
+                        "detail": "Schematic overview",
+                        "purpose": "Process understanding"
+                    },
+                    "pid_characteristics": {
+                        "content": "All piping, valves, instruments, control loops",
+                        "detail": "Construction-ready",
+                        "purpose": "Safety and control implementation",
+                        "critical": "Common language for safety"
+                    },
+                    "isa_5_1_tagging": {
+                        "first_letter": "Parameter type (T=Temp, P=Pressure, F=Flow, L=Level)",
+                        "subsequent_letters": "Instrument type (I=Indicator, C=Controller, V=Valve)",
+                        "examples": {
+                            "TI": "Temperature Indicator",
+                            "PIC": "Pressure Indicating Controller (in central panel)",
+                            "FCV": "Flow Control Valve",
+                            "PSV": "Pressure Safety Valve",
+                            "LC": "Level Controller"
+                        }
+                    },
+                    "ammonia_pid_critical": {
+                        "reason": "High toxicity requires maximum detail",
+                        "must_show": [
+                            "PSV (Pressure Safety Valve) details",
+                            "Emergency discharge lines",
+                            "Oil separation equipment",
+                            "Liquid level controls (LC)",
+                            "Leak detection systems"
+                        ]
+                    }
+                },
+                "design_philosophy": {
+                    "cop_priority": {
+                        "statement": "COP must be main design criterion",
+                        "reason": "Determines operational costs (OPEX)",
+                        "tool": "P-H diagram analysis for refrigerant comparison"
+                    },
+                    "td_quality_relationship": {
+                        "above_zero": "Low TD = High moisture = Better product quality",
+                        "below_zero": "Fin spacing management = Frost control"
+                    },
+                    "safety_first": {
+                        "natural_refrigerants": "Global trend toward R717 and R744",
+                        "requirement": "Engineers must know ISA 5.1 standards",
+                        "pid_role": "Primary document for safety control implementation"
+                    },
+                    "analogy": {
+                        "dam_comparison": "Design like building a dam",
+                        "load_calculation": "Accurate water inflow = Accurate heat load",
+                        "undersized": "Capacity shortage = Product spoilage",
+                        "oversized": "High initial cost + High energy consumption",
+                        "pid": "Final blueprint ensures dam works safely against flood (pressure/leaks)"
+                    }
+                }
+            }
+        }
+    ],
+    "metadata": {
+        "created": "2025-12-09",
+        "purpose": "Reference database for refrigeration system design calculations and P&ID generation",
+        "usage": "Used by ThermodynamicCycleAnalyzer and PIDAutoGenerator modules"
+    }
+}

@@ -1,0 +1,558 @@
+{
+    "compressors": {
+        "mycom": {
+            "name": "Mayekawa MYCOM",
+            "country": "Japan",
+            "type": "screw",
+            "series": {
+                "N": {
+                    "capacity": [
+                        100,
+                        1500
+                    ],
+                    "vi": [
+                        2.6,
+                        3.6,
+                        4.8
+                    ],
+                    "oilCooling": "thermosiphon"
+                },
+                "W": {
+                    "capacity": [
+                        50,
+                        500
+                    ],
+                    "compact": true
+                }
+            },
+            "regions": [
+                "asia",
+                "europe",
+                "middle_east",
+                "americas"
+            ]
+        },
+        "bitzer": {
+            "name": "Bitzer",
+            "country": "Germany",
+            "type": "screw_semi",
+            "series": {
+                "HSK": {
+                    "capacity": [
+                        30,
+                        500
+                    ],
+                    "oilCooling": "liquid_injection"
+                },
+                "HSN": {
+                    "capacity": [
+                        20,
+                        350
+                    ],
+                    "ammonia": true
+                }
+            },
+            "regions": [
+                "europe",
+                "americas",
+                "asia"
+            ]
+        },
+        "grasso": {
+            "name": "GEA Grasso",
+            "country": "Netherlands",
+            "type": "screw",
+            "series": {
+                "SP": {
+                    "capacity": [
+                        100,
+                        2000
+                    ],
+                    "industrial": true
+                },
+                "LT": {
+                    "capacity": [
+                        200,
+                        3000
+                    ],
+                    "lowTemp": true
+                }
+            },
+            "regions": [
+                "europe",
+                "middle_east",
+                "asia"
+            ]
+        },
+        "frick": {
+            "name": "Johnson Controls Frick",
+            "country": "USA",
+            "type": "screw",
+            "series": {
+                "RWB": {
+                    "capacity": [
+                        150,
+                        1800
+                    ],
+                    "vi": [
+                        2.2,
+                        3.5,
+                        5.0
+                    ]
+                },
+                "RWBII": {
+                    "capacity": [
+                        200,
+                        2500
+                    ],
+                    "vsd": true
+                }
+            },
+            "regions": [
+                "americas",
+                "europe"
+            ]
+        },
+        "vilter": {
+            "name": "Emerson Vilter",
+            "country": "USA",
+            "type": "reciprocating",
+            "series": {
+                "VSS": {
+                    "capacity": [
+                        20,
+                        200
+                    ],
+                    "singleScrew": true
+                },
+                "VMC": {
+                    "capacity": [
+                        50,
+                        300
+                    ],
+                    "compound": true
+                }
+            },
+            "regions": [
+                "americas"
+            ]
+        },
+        "howden": {
+            "name": "Howden",
+            "country": "UK",
+            "type": "screw",
+            "series": {
+                "XRV": {
+                    "capacity": [
+                        100,
+                        1500
+                    ],
+                    "variableVi": true
+                }
+            },
+            "regions": [
+                "europe",
+                "asia",
+                "middle_east"
+            ]
+        },
+        "york": {
+            "name": "Johnson Controls York",
+            "country": "USA",
+            "type": "screw",
+            "series": {
+                "YVAA": {
+                    "capacity": [
+                        100,
+                        800
+                    ],
+                    "airCooled": true
+                },
+                "YR": {
+                    "capacity": [
+                        200,
+                        2000
+                    ],
+                    "industrial": true
+                }
+            },
+            "regions": [
+                "americas",
+                "asia"
+            ]
+        },
+        "sabroe": {
+            "name": "Johnson Controls Sabroe",
+            "country": "Denmark",
+            "type": "reciprocating",
+            "series": {
+                "SMC": {
+                    "capacity": [
+                        50,
+                        400
+                    ],
+                    "ammonia": true
+                },
+                "HPC": {
+                    "capacity": [
+                        100,
+                        600
+                    ],
+                    "co2": true
+                }
+            },
+            "regions": [
+                "europe",
+                "asia",
+                "middle_east"
+            ]
+        }
+    },
+    "condensers": {
+        "bac": {
+            "name": "Baltimore Aircoil Company",
+            "country": "USA",
+            "type": "evaporative",
+            "series": [
+                "VXC",
+                "FXV",
+                "PF"
+            ],
+            "regions": [
+                "americas",
+                "europe",
+                "asia"
+            ]
+        },
+        "evapco": {
+            "name": "Evapco",
+            "country": "USA",
+            "type": "evaporative",
+            "series": [
+                "AT",
+                "ATC",
+                "PMC"
+            ],
+            "regions": [
+                "americas",
+                "europe"
+            ]
+        },
+        "guentner": {
+            "name": "Güntner",
+            "country": "Germany",
+            "type": "air_cooled",
+            "series": [
+                "GVX",
+                "AGVX"
+            ],
+            "regions": [
+                "europe",
+                "middle_east",
+                "asia"
+            ]
+        },
+        "thermokey": {
+            "name": "Thermokey",
+            "country": "Italy",
+            "type": "air_cooled",
+            "series": [
+                "NEDA",
+                "KEDA"
+            ],
+            "regions": [
+                "europe",
+                "middle_east"
+            ]
+        },
+        "alfa_laval": {
+            "name": "Alfa Laval",
+            "country": "Sweden",
+            "type": "evaporative",
+            "series": [
+                "Niagara"
+            ],
+            "regions": [
+                "europe",
+                "asia",
+                "americas"
+            ]
+        }
+    },
+    "evaporators": {
+        "guentner": {
+            "name": "Güntner",
+            "country": "Germany",
+            "series": [
+                "CUBIC",
+                "FLAT",
+                "DUAL"
+            ],
+            "regions": [
+                "europe",
+                "middle_east",
+                "asia"
+            ]
+        },
+        "alfa_laval": {
+            "name": "Alfa Laval",
+            "country": "Sweden",
+            "series": [
+                "Arctigo",
+                "Friga-Bohn"
+            ],
+            "regions": [
+                "europe",
+                "americas"
+            ]
+        },
+        "bohn": {
+            "name": "Heatcraft Bohn",
+            "country": "USA",
+            "series": [
+                "ADT",
+                "LET",
+                "BHL"
+            ],
+            "regions": [
+                "americas"
+            ]
+        },
+        "colmac": {
+            "name": "Colmac Coil",
+            "country": "USA",
+            "series": [
+                "ADC",
+                "ADX"
+            ],
+            "regions": [
+                "americas"
+            ]
+        },
+        "goedhart": {
+            "name": "Goedhart",
+            "country": "Netherlands",
+            "series": [
+                "SGC",
+                "TGA"
+            ],
+            "regions": [
+                "europe"
+            ]
+        }
+    },
+    "pumps": {
+        "hermetic": {
+            "name": "Hermetic Pumpen",
+            "country": "Germany",
+            "type": "canned_motor",
+            "series": {
+                "CAM": {
+                    "flow": [
+                        1,
+                        50
+                    ],
+                    "ammonia": true
+                },
+                "CNF": {
+                    "flow": [
+                        5,
+                        100
+                    ],
+                    "lowNPSH": true
+                }
+            },
+            "regions": [
+                "europe",
+                "asia",
+                "middle_east"
+            ]
+        },
+        "witt": {
+            "name": "Witt",
+            "country": "Germany",
+            "type": "canned_motor",
+            "series": {
+                "HRP": {
+                    "flow": [
+                        2,
+                        80
+                    ],
+                    "ammonia": true
+                }
+            },
+            "regions": [
+                "europe"
+            ]
+        },
+        "nikkiso": {
+            "name": "Nikkiso",
+            "country": "Japan",
+            "type": "canned_motor",
+            "series": {
+                "Non-Seal": {
+                    "flow": [
+                        1,
+                        50
+                    ],
+                    "ammonia": true
+                }
+            },
+            "regions": [
+                "asia",
+                "americas"
+            ]
+        },
+        "sundyne": {
+            "name": "Sundyne",
+            "country": "USA",
+            "type": "centrifugal",
+            "series": {
+                "LMV": {
+                    "flow": [
+                        10,
+                        200
+                    ],
+                    "highPressure": true
+                }
+            },
+            "regions": [
+                "americas",
+                "europe"
+            ]
+        }
+    },
+    "valves": {
+        "danfoss": {
+            "name": "Danfoss",
+            "country": "Denmark",
+            "types": [
+                "solenoid",
+                "expansion",
+                "regulator",
+                "check",
+                "stop"
+            ],
+            "series": {
+                "ICM": {
+                    "type": "motorized",
+                    "range": "DN15-DN150"
+                },
+                "SVA": {
+                    "type": "stop",
+                    "ammonia": true
+                },
+                "ICS": {
+                    "type": "servo",
+                    "multifunction": true
+                },
+                "REG": {
+                    "type": "regulator"
+                }
+            },
+            "regions": [
+                "global"
+            ]
+        },
+        "parker": {
+            "name": "Parker Sporlan",
+            "country": "USA",
+            "types": [
+                "solenoid",
+                "expansion",
+                "check"
+            ],
+            "series": {
+                "CDS": {
+                    "type": "solenoid"
+                },
+                "SV": {
+                    "type": "stop"
+                }
+            },
+            "regions": [
+                "americas",
+                "asia"
+            ]
+        },
+        "hansen": {
+            "name": "Hansen Technologies",
+            "country": "USA",
+            "types": [
+                "stop",
+                "check",
+                "relief",
+                "regulator"
+            ],
+            "series": {
+                "HS": {
+                    "type": "stop",
+                    "ammonia": true
+                },
+                "HCK": {
+                    "type": "check"
+                }
+            },
+            "regions": [
+                "americas"
+            ]
+        },
+        "herl": {
+            "name": "Henry Technologies",
+            "country": "USA",
+            "types": [
+                "relief",
+                "regulator"
+            ],
+            "series": {
+                "5100": {
+                    "type": "relief",
+                    "ammonia": true
+                },
+                "E9A": {
+                    "type": "regulator"
+                }
+            },
+            "regions": [
+                "americas",
+                "europe"
+            ]
+        }
+    },
+    "vessels": {
+        "standard_fabricated": {
+            "name": "Local Fabrication",
+            "standards": [
+                "ASME VIII",
+                "EN 13445",
+                "PED"
+            ],
+            "regions": [
+                "global"
+            ]
+        },
+        "frick": {
+            "name": "Frick Vessels",
+            "country": "USA",
+            "types": [
+                "separator",
+                "receiver",
+                "accumulator"
+            ],
+            "regions": [
+                "americas"
+            ]
+        },
+        "evapco": {
+            "name": "Evapco Evapcold",
+            "country": "USA",
+            "types": [
+                "packaged_unit",
+                "vessel"
+            ],
+            "regions": [
+                "americas"
+            ]
+        }
+    }
+}

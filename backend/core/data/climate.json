@@ -1,0 +1,207 @@
+{
+    "Iran": {
+        "Tehran": {
+            "latitude": 35.7,
+            "altitude": 1200,
+            "summerDB": 40,
+            "summerWB": 22,
+            "winterDB": -5,
+            "region": "middle_east"
+        },
+        "Ardabil": {
+            "latitude": 38.2,
+            "altitude": 1350,
+            "summerDB": 35,
+            "summerWB": 20,
+            "winterDB": -15,
+            "region": "middle_east"
+        },
+        "Tabriz": {
+            "latitude": 38.1,
+            "altitude": 1340,
+            "summerDB": 37,
+            "summerWB": 19,
+            "winterDB": -15,
+            "region": "middle_east"
+        },
+        "Mashhad": {
+            "latitude": 36.3,
+            "altitude": 990,
+            "summerDB": 39,
+            "summerWB": 19,
+            "winterDB": -10,
+            "region": "middle_east"
+        },
+        "Isfahan": {
+            "latitude": 32.7,
+            "altitude": 1570,
+            "summerDB": 40,
+            "summerWB": 16,
+            "winterDB": -8,
+            "region": "middle_east"
+        },
+        "Shiraz": {
+            "latitude": 29.6,
+            "altitude": 1480,
+            "summerDB": 42,
+            "summerWB": 18,
+            "winterDB": -2,
+            "region": "middle_east"
+        },
+        "Ahvaz": {
+            "latitude": 31.3,
+            "altitude": 20,
+            "summerDB": 50,
+            "summerWB": 28,
+            "winterDB": 5,
+            "region": "middle_east"
+        },
+        "Bandar Abbas": {
+            "latitude": 27.2,
+            "altitude": 10,
+            "summerDB": 42,
+            "summerWB": 32,
+            "winterDB": 12,
+            "region": "middle_east"
+        }
+    },
+    "UAE": {
+        "Dubai": {
+            "latitude": 25.3,
+            "altitude": 5,
+            "summerDB": 46,
+            "summerWB": 30,
+            "winterDB": 14,
+            "region": "middle_east"
+        },
+        "Abu Dhabi": {
+            "latitude": 24.5,
+            "altitude": 5,
+            "summerDB": 46,
+            "summerWB": 29,
+            "winterDB": 13,
+            "region": "middle_east"
+        }
+    },
+    "Saudi Arabia": {
+        "Riyadh": {
+            "latitude": 24.6,
+            "altitude": 620,
+            "summerDB": 46,
+            "summerWB": 20,
+            "winterDB": 8,
+            "region": "middle_east"
+        },
+        "Jeddah": {
+            "latitude": 21.5,
+            "altitude": 17,
+            "summerDB": 42,
+            "summerWB": 30,
+            "winterDB": 18,
+            "region": "middle_east"
+        }
+    },
+    "Turkey": {
+        "Istanbul": {
+            "latitude": 41.0,
+            "altitude": 40,
+            "summerDB": 34,
+            "summerWB": 24,
+            "winterDB": 0,
+            "region": "europe"
+        },
+        "Ankara": {
+            "latitude": 39.9,
+            "altitude": 890,
+            "summerDB": 36,
+            "summerWB": 18,
+            "winterDB": -10,
+            "region": "europe"
+        }
+    },
+    "Germany": {
+        "Berlin": {
+            "latitude": 52.5,
+            "altitude": 35,
+            "summerDB": 32,
+            "summerWB": 20,
+            "winterDB": -10,
+            "region": "europe"
+        },
+        "Munich": {
+            "latitude": 48.1,
+            "altitude": 520,
+            "summerDB": 31,
+            "summerWB": 19,
+            "winterDB": -12,
+            "region": "europe"
+        }
+    },
+    "USA": {
+        "New York": {
+            "latitude": 40.7,
+            "altitude": 10,
+            "summerDB": 35,
+            "summerWB": 25,
+            "winterDB": -12,
+            "region": "north_america"
+        },
+        "Los Angeles": {
+            "latitude": 34.0,
+            "altitude": 90,
+            "summerDB": 35,
+            "summerWB": 21,
+            "winterDB": 7,
+            "region": "north_america"
+        },
+        "Chicago": {
+            "latitude": 41.9,
+            "altitude": 180,
+            "summerDB": 35,
+            "summerWB": 25,
+            "winterDB": -20,
+            "region": "north_america"
+        },
+        "Houston": {
+            "latitude": 29.8,
+            "altitude": 15,
+            "summerDB": 38,
+            "summerWB": 27,
+            "winterDB": 2,
+            "region": "north_america"
+        }
+    },
+    "default": {
+        "latitude": 35,
+        "altitude": 0,
+        "summerDB": 35,
+        "summerWB": 24,
+        "winterDB": 0,
+        "region": "default"
+    },
+    "standards": {
+        "europe": {
+            "primary": "EN",
+            "hvac": "EN 378",
+            "safety": "EN 378-2",
+            "piping": "EN 13480"
+        },
+        "north_america": {
+            "primary": "ANSI",
+            "hvac": "ASHRAE 15",
+            "safety": "IIAR",
+            "piping": "ASME B31.5"
+        },
+        "middle_east": {
+            "primary": "ISO",
+            "hvac": "ISO 5149",
+            "safety": "EN 378-2",
+            "piping": "ISO"
+        },
+        "default": {
+            "primary": "ISO",
+            "hvac": "ASHRAE",
+            "safety": "EN 378-2"
+        }
+    }
+}

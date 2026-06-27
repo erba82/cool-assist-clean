@@ -1,0 +1,2004 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Box, Paper, Typography, Stepper, Step, StepLabel, StepButton,
+    Button, Divider, Tabs, Tab, CircularProgress, Chip,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Card, CardContent, Grid, Alert, IconButton, Collapse, TextField
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import DevicesIcon from '@mui/icons-material/Devices';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import ElectricalServicesIcon from '@mui/icons-material/ElectricalServices';
+import MemoryIcon from '@mui/icons-material/Memory';
+import axios from 'axios';
+import ReactFlow, { Controls, MiniMap, Background, NodeProps, Handle, Position, BackgroundVariant } from 'reactflow';
+import 'reactflow/dist/style.css';
+import PIDDrawingEngine from './PIDDrawingEngine';
+
+// ==============================================
+// REFRIGERATION ENGINE - DIGITAL TWIN BRAIN
+// Simplified for robustness and accuracy
+// ==============================================
+
+class RefrigerationEngine {
+    /**
+     * Calculate mass flow and pipe sizing
+     * Simplified with robust defaults to prevent unit errors
+     */
+    static calculate(capacityKW: number, temp: number): { dn: number; massFlow: string; capacityKW: number } {
+        // Safety: Ensure Capacity is not huge (Watts vs kW check)
+        if (capacityKW > 10000) {
+            console.warn(`Unit check: Converting ${capacityKW} to kW`);
+            capacityKW = capacityKW / 1000;
+        }
+
+        // R717 Enthalpy diff approx: 1100 kJ/kg for typical conditions
+        const massFlow = capacityKW / 1100; // kg/s
+        
+        // Suction Density approx at -40C: 0.3 kg/m3
+        const density = 0.3;
+        
+        // Target Velocity: 12 m/s (IIAR standard for wet suction)
+        const volFlow = massFlow / density;
+        const area = volFlow / 12;
+        const dia = Math.sqrt(4 * area / Math.PI) * 1000; // mm
+
+        // DN Select
+        const sizes = [25, 32, 40, 50, 65, 80, 100, 125, 150, 200, 250];
+        const dn = sizes.find(s => s >= dia) || 250;
+
+        return { dn, massFlow: massFlow.toFixed(2), capacityKW };
+    }
+}
+
+// Ammonia Design Wizard - Intelligent Analysis Version
+
+// ==============================================
+// REFRIGERATION ENGINEERING MATH LIBRARY
+// ==============================================
+
+/**
+ * Ammonia (R717) Thermodynamic Properties
+ * ENHANCED: More complete tables for accurate refrigeration calculations
+ */
+const R717_TABLES = {
+    // Temp (°C) : Enthalpy of Gas (h_g kJ/kg)
+    enthalpyGas: {
+        '-50': 1390, '-45': 1395, '-40': 1400, '-35': 1405, '-30': 1410, 
+        '-25': 1415, '-20': 1420, '-10': 1430, '0': 1442, '10': 1452, 
+        '30': 1468, '35': 1471, '40': 1474
+    },
+    // Temp (°C) : Enthalpy of Liquid (h_f kJ/kg)
+    enthalpyLiquid: {
+        '-50': 0, '-40': 43, '-30': 87, '-20': 131, '-10': 176, 
+        '0': 221, '10': 268, '20': 315, '30': 363, '35': 387, '40': 411
+    },
+    // Temp (°C) : Specific Volume of Gas (v_g m³/kg)
+    specificVolume: {
+        '-50': 0.50, '-40': 0.37, '-30': 0.27, '-20': 0.21, '-10': 0.16, 
+        '0': 0.13, '10': 0.10, '20': 0.08, '30': 0.07, '35': 0.06, '40': 0.05
+    }
+};
+
+/**
+ * Get interpolated property value
+ * ENHANCED: More robust interpolation
+ */
+const getProperty = (propertyMap: any, temp: number): number => {
+    const temps = Object.keys(propertyMap).map(Number).sort((a, b) => a - b);
+    
+    // If exact match
+    if (propertyMap[temp.toString()]) {
+        return propertyMap[temp.toString()];
+    }
+    
+    // Out of bounds handling
+    if (temp <= temps[0]) return propertyMap[temps[0]];
+    if (temp >= temps[temps.length - 1]) return propertyMap[temps[temps.length - 1]];
+    
+    // Find surrounding temperatures for interpolation
+    let lowerTemp = temps[0];
+    let upperTemp = temps[temps.length - 1];
+    
+    for (let i = 0; i < temps.length - 1; i++) {
+        if (temp > temps[i] && temp < temps[i + 1]) {
+            lowerTemp = temps[i];
+            upperTemp = temps[i + 1];
+            break;
+        }
+    }
+    
+    // Linear interpolation: y = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+    const lowerValue = propertyMap[lowerTemp.toString()];
+    const upperValue = propertyMap[upperTemp.toString()];
+    const fraction = (temp - lowerTemp) / (upperTemp - lowerTemp);
+    
+    return lowerValue + fraction * (upperValue - lowerValue);
+};
+
+/**
+ * REFRIGERATION MATH HELPER - FIXED VERSION
+ * CRITICAL FIX: Proper unit handling and sanity checks
+ * Based on R717 enthalpy and density tables
+ */
+const RefrigerationMath = {
+    /**
+     * Calculate mass flow rate using proper enthalpy difference
+     * m_dot = Q / Δh (Net Refrigerating Effect)
+     * SANITY CHECK: For 200 kW at -40°C, m_dot should be ~0.2 kg/s NOT 200 kg/s
+     */
+    calculateMassFlow(capacity_kW: number, evapTemp: number, condensingTemp: number = 35): number {
+        // UNIT CHECK: Ensure capacity is in kW
+        if (capacity_kW > 100000) {
+            console.warn(`⚠️ UNIT ERROR: Capacity ${capacity_kW} seems too high. Converting from W to kW.`);
+            capacity_kW = capacity_kW / 1000;
+        }
+        
+        // Get gas enthalpy at evaporator outlet (kJ/kg)
+        const h_gas_evap = getProperty(R717_TABLES.enthalpyGas, evapTemp);
+        // Get liquid enthalpy at condenser outlet (kJ/kg)
+        const h_liq_cond = getProperty(R717_TABLES.enthalpyLiquid, condensingTemp);
+        
+        // Net Refrigerating Effect (NRE) in kJ/kg
+        // For -40°C evap / +35°C cond: ~1400 - 387 = 1013 kJ/kg
+        const nre = h_gas_evap - h_liq_cond;
+        
+        // SANITY CHECK
+        if (nre < 800 || nre > 1500) {
+            console.warn(`⚠️ NRE out of normal range: ${nre} kJ/kg. Check temperatures.`);
+        }
+        
+        // Mass flow rate: m_dot = Q (kW) / Δh (kJ/kg) = kg/s
+        // Example: 200 kW / 1000 kJ/kg = 0.2 kg/s ✅
+        const massFlow = capacity_kW / nre;
+        
+        // FINAL SANITY CHECK
+        if (massFlow > capacity_kW) {
+            console.error(`🔴 CRITICAL ERROR: Mass flow (${massFlow} kg/s) > Capacity (${capacity_kW} kW). Unit mismatch!`);
+        }
+        
+        return massFlow;
+    },
+    
+    /**
+     * Calculate pipe diameter based on volumetric flow and target velocity
+     * Area (m²) = V_dot / velocity
+     * Diameter (m) = sqrt(4 * Area / π)
+     */
+    calculatePipeDiameter(
+        massFlow: number,
+        density_kg_m3: number,
+        targetVelocity: number
+    ): { diameter_mm: number } {
+        // Volumetric flow rate: V_dot = m_dot / ρ (m³/s)
+        const volumeFlow = massFlow / density_kg_m3;
+        
+        // Required cross-sectional area: A = V_dot / velocity (m²)
+        const area = volumeFlow / targetVelocity;
+        
+        // Diameter: D = sqrt(4A/π) (m)
+        const diameter_m = Math.sqrt((4 * area) / Math.PI);
+        const diameter_mm = diameter_m * 1000;
+        
+        return { diameter_mm };
+    },
+    
+    
+    /**
+     * Select nearest standard DN size
+     * DN50, DN80, DN100, DN150, DN200, DN250
+     */
+    selectStandardDN(calculated_mm: number): number {
+        const standardDN = [50, 65, 80, 100, 125, 150, 200, 250, 300, 350, 400, 500];
+        return standardDN.find(dn => dn >= calculated_mm) || 500;
+    },
+    
+    
+    /**
+     * Calculate actual velocity with selected pipe size
+     */
+    calculateActualVelocity(
+        massFlow: number,
+        density_kg_m3: number,
+        dn_mm: number
+    ): number {
+        const volumeFlow = massFlow / density_kg_m3; // m³/s
+        const diameter_m = dn_mm / 1000;
+        const area = Math.PI * Math.pow(diameter_m / 2, 2); // m²
+        return volumeFlow / area; // m/s
+    },
+    
+    
+    /**
+     * Complete pipe sizing calculation - DEBUGGED & FIXED
+     * Returns DN size, actual velocity, mass flow, and volume flow
+     * Uses DENSITY (ρ = 1/v) instead of specific volume for clarity
+     */
+    sizePipe(
+        capacity_kW: number,
+        evapTemp: number,
+        condensingTemp: number,
+        service: 'suction' | 'discharge' | 'liquid'
+    ): { dn: number; velocity: number; massFlow: number; volumeFlow: number } {
+        // Calculate mass flow (with unit checks)
+        const massFlow = this.calculateMassFlow(capacity_kW, evapTemp, condensingTemp);
+        
+        // Get density and target velocity based on service
+        let density_kg_m3: number; // Using density for clearer physics
+        let targetVelocity: number;
+        
+        if (service === 'suction') {
+            // Suction: low pressure, low density
+            const specificVolume = getProperty(R717_TABLES.specificVolume, evapTemp); // m³/kg
+            density_kg_m3 = 1 / specificVolume; // kg/m³
+            targetVelocity = 10; // 10 m/s for wet suction (IIAR 2-2014)
+        } else if (service === 'discharge') {
+            // Discharge: high pressure, higher density
+            const specificVolume = getProperty(R717_TABLES.specificVolume, condensingTemp);
+            density_kg_m3 = (1 / specificVolume) * 1.25; // Higher density due to compression
+            targetVelocity = 20; // 18-25 m/s for hot gas (IIAR 2-2014)
+        } else {
+            // Liquid line: very high density
+            density_kg_m3 = 625; // kg/m³ for liquid ammonia at typical conditions
+            targetVelocity = 1.2; // 1.0-1.5 m/s for liquid (IIAR 2-2014)
+        }
+        
+        // Calculate required diameter
+        const { diameter_mm } = this.calculatePipeDiameter(massFlow, density_kg_m3, targetVelocity);
+        
+        // Select standard DN
+        const dn = this.selectStandardDN(diameter_mm);
+        
+        // Calculate actual velocity with selected size
+        const actualVelocity = this.calculateActualVelocity(massFlow, density_kg_m3, dn);
+        
+        // Volumetric flow
+        const volumeFlow = massFlow / density_kg_m3;
+        
+        // Logging for debug
+        console.log(`📊 Pipe Sizing [${service}]: m_dot=${massFlow.toFixed(3)} kg/s, ρ=${density_kg_m3.toFixed(1)} kg/m³, DN${dn}, v=${actualVelocity.toFixed(1)} m/s`);
+        
+        return {
+            dn,
+            velocity: parseFloat(actualVelocity.toFixed(1)),
+            massFlow: parseFloat(massFlow.toFixed(3)),
+            volumeFlow: parseFloat(volumeFlow.toFixed(4))
+        };
+    },
+    
+    /**
+     * Calculate Kv value for control valve sizing
+     * Kv = flow / sqrt(ΔP)
+     */
+    calculateControlValveSize(
+        lineDN: number,
+        massFlow: number,
+        targetPressureDrop_bar: number = 0.2
+    ): number {
+        // Control authority rule: valve typically 1-2 sizes smaller
+        if (lineDN >= 150) return lineDN - 50;
+        if (lineDN >= 100) return lineDN - 25;
+        if (lineDN >= 50) return lineDN - 15;
+        return lineDN;
+    }
+};
+
+// ==============================================
+// CUSTOM REACT FLOW NODE COMPONENTS
+// (Enhanced with Engineering Details)
+// ==============================================
+
+// Compressor Node
+const CompressorNode: React.FC<NodeProps> = ({ data, selected }) => (
+    <Box sx={{
+        padding: 2,
+        borderRadius: 2,
+        border: selected ? '3px solid #2563eb' : '2px solid #3b82f6',
+        background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+        minWidth: 160,
+        boxShadow: selected ? '0 8px 16px rgba(37, 99, 235, 0.4)' : '0 4px 8px rgba(59, 130, 246, 0.3)',
+        color: 'white',
+        position: 'relative'
+    }}>
+        <Handle type="target" position={Position.Left} style={{ background: '#1e40af' }} />
+        <Typography variant="body2" fontWeight="bold" fontSize="0.85rem">{data.label}</Typography>
+        {data.model && <Typography variant="caption" fontSize="0.7rem">Model: {data.model}</Typography>}
+        {data.power && <Typography variant="caption" fontSize="0.7rem" display="block">Power: {data.power}</Typography>}
+        {data.capacity && <Typography variant="caption" fontSize="0.7rem" display="block">Cap: {data.capacity}</Typography>}
+        <Handle type="source" position={Position.Right} style={{ background: '#1e40af' }} />
+    </Box>
+);
+
+// Valve Node - Enhanced with visual distinction
+const ValveNode: React.FC<NodeProps> = ({ data, selected }) => {
+    const getValveColor = (type: string) => {
+        if (type?.includes('Stop') || type?.includes('SVA')) return '#ef4444';
+        if (type?.includes('Check') || type?.includes('NRVA')) return '#059669';
+        if (type?.includes('Solenoid') || type?.includes('EVRA')) return '#8b5cf6';
+        if (type?.includes('Control') || type?.includes('ICS') || type?.includes('PM')) return '#f59e0b';
+        return '#ef4444';
+    };
+    
+    const getValveSymbol = (type: string) => {
+        if (type?.includes('Stop') || type?.includes('SVA')) return '◇'; // Empty bowtie
+        if (type?.includes('Check') || type?.includes('NRVA')) return '◇→'; // Bowtie with arrow
+        if (type?.includes('Solenoid') || type?.includes('EVRA')) return '□◇'; // Square coil + bowtie
+        if (type?.includes('Control') || type?.includes('ICS') || type?.includes('PM')) return '▲◇'; // Pilot + bowtie
+        return '◇';
+    };
+    
+    const color = getValveColor(data.valveType);
+    const symbol = getValveSymbol(data.valveType);
+    
+    return (
+        <Box sx={{
+            padding: 1.5,
+            borderRadius: 1.5,
+            border: selected ? `3px solid ${color}` : `2px solid ${color}`,
+            background: `linear-gradient(135deg, ${color}22 0%, ${color}44 100%)`,
+            minWidth: 100,
+            boxShadow: selected ? `0 6px 12px ${color}66` : `0 3px 6px ${color}44`,
+            textAlign: 'center',
+            position: 'relative'
+        }}>
+            <Handle type="target" position={Position.Left} style={{ background: color }} />
+            <Typography variant="body2" fontWeight="bold" fontSize="0.9rem" sx={{ color }}>
+                {symbol} {data.label}
+            </Typography>
+            {data.model && <Typography variant="caption" fontSize="0.65rem" display="block" sx={{ color: '#666' }}>{data.model}</Typography>}
+            {data.valveType && <Typography variant="caption" fontSize="0.65rem" display="block" sx={{ color: '#888' }}>{data.valveType}</Typography>}
+            {data.size && <Typography variant="caption" fontSize="0.7rem" display="block" fontWeight="bold" sx={{ color }}>{data.size}</Typography>}
+            <Handle type="source" position={Position.Right} style={{ background: color }} />
+        </Box>
+    );
+};
+
+// Condenser Node
+const CondenserNode: React.FC<NodeProps> = ({ data, selected }) => (
+    <Box sx={{
+        padding: 2,
+        borderRadius: 2,
+        border: selected ? '3px solid #059669' : '2px solid #10b981',
+        background: 'linear-gradient(135deg, #6ee7b7 0%, #10b981 100%)',
+        minWidth: 180,
+        boxShadow: selected ? '0 8px 16px rgba(5, 150, 105, 0.4)' : '0 4px 8px rgba(16, 185, 129, 0.3)',
+        color: 'white',
+        position: 'relative'
+    }}>
+        <Handle type="target" position={Position.Top} style={{ background: '#047857' }} />
+        <Typography variant="body2" fontWeight="bold" fontSize="0.85rem">{data.label}</Typography>
+        {data.model && <Typography variant="caption" fontSize="0.7rem">Model: {data.model}</Typography>}
+        {data.capacity && <Typography variant="caption" fontSize="0.7rem" display="block">Capacity: {data.capacity}</Typography>}
+        <Handle type="source" position={Position.Bottom} style={{ background: '#047857' }} />
+    </Box>
+);
+
+// Separator Node
+const SeparatorNode: React.FC<NodeProps> = ({ data, selected }) => (
+    <Box sx={{
+        padding: 2,
+        borderRadius: 2,
+        border: selected ? '3px solid #d97706' : '2px solid #f59e0b',
+        background: 'linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%)',
+        minWidth: 160,
+        boxShadow: selected ? '0 8px 16px rgba(217, 119, 6, 0.4)' : '0 4px 8px rgba(245, 158, 11, 0.3)',
+        color: 'white',
+        position: 'relative'
+    }}>
+        <Handle type="target" position={Position.Top} style={{ background: '#92400e' }} />
+        <Typography variant="body2" fontWeight="bold" fontSize="0.85rem">{data.label}</Typography>
+        {data.model && <Typography variant="caption" fontSize="0.7rem">Model: {data.model}</Typography>}
+        {data.temperature && <Typography variant="caption" fontSize="0.7rem" display="block">Temp: {data.temperature}</Typography>}
+        {data.pressure && <Typography variant="caption" fontSize="0.7rem" display="block">Press: {data.pressure}</Typography>}
+        <Handle type="source" position={Position.Bottom} style={{ background: '#92400e' }} />
+    </Box>
+);
+
+// Types
+interface AmmoniaProject {
+    _id: string;
+    projectInfo: {
+        name: string;
+        client?: string;
+        location?: {
+            city?: string;
+            country?: string;
+        };
+    };
+    currentPhase: string;
+    phaseCompletion: {
+        dataCollection: boolean;
+        loadCalculation: boolean;
+        equipmentSelection: boolean;
+        calculationBook: boolean;
+        pidDrawing: boolean;
+        wiringDiagram: boolean;
+        plcProgramming: boolean;
+    };
+    designData?: any;
+    calculations?: any;
+    equipmentSelection?: any;
+    calculationBook?: any;
+    pidDrawing?: any;
+    wiringDiagram?: any;
+    plcProgram?: any;
+}
+
+interface DesignWizardProps {
+    chatId: string;
+    onPhaseChange?: (phase: string) => void;
+}
+
+// Styled Components
+const WizardContainer = styled(Paper)(({ theme }) => ({
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: theme.shape.borderRadius,
+}));
+
+const WizardHeader = styled(Box)(({ theme }) => ({
+    padding: theme.spacing(2),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[900] : theme.palette.grey[50],
+}));
+
+const StepperContainer = styled(Box)(({ theme }) => ({
+    padding: theme.spacing(2, 3),
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper,
+}));
+
+const ContentContainer = styled(Box)(({ theme }) => ({
+    flexGrow: 1,
+    overflow: 'auto',
+    padding: theme.spacing(2),
+    '&::-webkit-scrollbar': { width: '8px' },
+    '&::-webkit-scrollbar-thumb': {
+        backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[400],
+        borderRadius: '4px'
+    }
+}));
+
+// Phase definitions
+const phases = [
+    { id: 'data_collection', label: 'Data Collection', icon: <CalculateIcon /> },
+    { id: 'load_calculation', label: 'Load Calculation', icon: <CalculateIcon /> },
+    { id: 'equipment_selection', label: 'Equipment Selection', icon: <DevicesIcon /> },
+    { id: 'calculation_book', label: 'Calculation Book', icon: <DescriptionIcon /> },
+    { id: 'pid_drawing', label: 'P&ID Drawing', icon: <AccountTreeIcon /> },
+    { id: 'wiring_diagram', label: 'Wiring Diagram', icon: <ElectricalServicesIcon /> },
+    { id: 'plc_programming', label: 'PLC Programming', icon: <MemoryIcon /> }
+];
+
+const AmmoniaDesignWizard: React.FC<DesignWizardProps> = ({ chatId, onPhaseChange }) => {
+    const [project, setProject] = useState<AmmoniaProject | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [activeStep, setActiveStep] = useState(0);
+    const [selectedTier, setSelectedTier] = useState<'economic' | 'best' | 'premium'>('best');
+    const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({});
+
+    // Load project data
+    useEffect(() => {
+        loadProjectData();
+    }, [chatId]);
+
+    const loadProjectData = async () => {
+        try {
+            setLoading(true);
+            // Get or create project for this chat
+            const response = await axios.get(`/api/ammonia-design/projects/by-chat/${chatId}`);
+            setProject(response.data.project);
+            
+            // Set active step based on current phase
+            const phaseIndex = phases.findIndex(p => p.id === response.data.project.currentPhase);
+            if (phaseIndex >= 0) {
+                setActiveStep(phaseIndex);
+            }
+        } catch (error: any) {
+            console.error('Error loading project:', error);
+            // If project doesn't exist, it will be created when user starts the wizard
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const createDemoProject = async () => {
+        try {
+            setLoading(true);
+            const response = await axios.post('/api/ammonia-design/create-demo');
+            if (response.data.success) {
+                setProject(response.data.project);
+                setActiveStep(6); // Go to PLC Programming phase (last phase) to show all completed
+                alert('✅ Complete Demo Loaded! Ardabil Poultry Slaughterhouse - All 7 phases completed.');
+            }
+        } catch (error: any) {
+            console.error('Error creating demo project:', error);
+            alert('Error creating demo project');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleStepClick = async (stepIndex: number) => {
+        if (!project) return;
+
+        // For demo projects (in-memory), just change the step locally
+        if (project._id.startsWith('demo-project-')) {
+            setActiveStep(stepIndex);
+            if (onPhaseChange) {
+                onPhaseChange(phases[stepIndex].id);
+            }
+            return;
+        }
+
+        // For real projects, update backend
+        const newPhase = phases[stepIndex].id;
+        try {
+            await axios.put(`/api/ammonia-design/projects/${project._id}/phase`, {
+                phase: newPhase
+            });
+
+            setActiveStep(stepIndex);
+            if (onPhaseChange) {
+                onPhaseChange(newPhase);
+            }
+
+            await loadProjectData();
+        } catch (error) {
+            console.error('Error changing phase:', error);
+        }
+    };
+
+    const toggleSection = (section: string) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
+
+    // Render phase content
+    const renderPhaseContent = () => {
+        if (!project) {
+            return (
+                <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={3}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No Active Design Project
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" textAlign="center">
+                        Start by chatting about your refrigeration requirements
+                        <br />
+                        or load a demo project to see how it works
+                    </Typography>
+                    <Button 
+                        variant="contained" 
+                        color="primary" 
+                        onClick={createDemoProject}
+                        startIcon={<CalculateIcon />}
+                        size="large"
+                    >
+                        Load Demo Project
+                    </Button>
+                </Box>
+            );
+        }
+
+        const currentPhase = phases[activeStep].id;
+
+        switch (currentPhase) {
+            case 'data_collection':
+                return <DataCollectionView project={project} />;
+            case 'load_calculation':
+                return <LoadCalculationView project={project} />;
+            case 'equipment_selection':
+                return <EquipmentSelectionView project={project} selectedTier={selectedTier} onTierChange={setSelectedTier} />;
+            case 'calculation_book':
+                return <CalculationBookView project={project} />;
+            case 'pid_drawing':
+                return <PIDDrawingView project={project} />;
+            case 'wiring_diagram':
+                return <WiringDiagramView project={project} />;
+            case 'plc_programming':
+                return <PLCProgrammingView project={project} />;
+            default:
+                return <Typography>Select a phase to view details</Typography>;
+        }
+    };
+
+    if (loading) {
+        return (
+            <WizardContainer>
+                <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                    <CircularProgress />
+                </Box>
+            </WizardContainer>
+        );
+    }
+
+    return (
+        <WizardContainer>
+            {/* Header */}
+            <WizardHeader>
+                <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                        Ammonia System Design
+                    </Typography>
+                    {project && (
+                        <Typography variant="body2" color="text.secondary">
+                            {project.projectInfo.name}
+                        </Typography>
+                    )}
+                </Box>
+                <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={createDemoProject}
+                    startIcon={<CalculateIcon />}
+                >
+                    Load Demo
+                </Button>
+            </WizardHeader>
+
+            {/* Progress Stepper */}
+            <StepperContainer>
+                <Stepper activeStep={activeStep} alternativeLabel nonLinear>
+                    {phases.map((phase, index) => (
+                        <Step key={phase.id} completed={project?.phaseCompletion[phase.id as keyof typeof project.phaseCompletion]}>
+                            <StepButton onClick={() => handleStepClick(index)}>
+                                <StepLabel
+                                    StepIconComponent={() => (
+                                        project?.phaseCompletion[phase.id as keyof typeof project.phaseCompletion] ? (
+                                            <CheckCircleIcon color="success" />
+                                        ) : (
+                                            <RadioButtonUncheckedIcon color={index === activeStep ? 'primary' : 'disabled'} />
+                                        )
+                                    )}
+                                >
+                                    {phase.label}
+                                </StepLabel>
+                            </StepButton>
+                        </Step>
+                    ))}
+                </Stepper>
+            </StepperContainer>
+
+            {/* Content */}
+            <ContentContainer>
+                {renderPhaseContent()}
+            </ContentContainer>
+        </WizardContainer>
+    );
+};
+
+// ============================================================================
+// Phase View Components
+// ============================================================================
+
+const DataCollectionView: React.FC<{ project: AmmoniaProject }> = ({ project }) => {
+    const [userText, setUserText] = React.useState('');
+    const [analyzing, setAnalyzing] = React.useState(false);
+    const [analysisResult, setAnalysisResult] = React.useState<any>(
+        (project as any).intelligentAnalysis || null  // Load from demo project if available
+    );
+
+    const handleIntelligentAnalysis = async () => {
+        if (!userText.trim()) {
+            alert('Please enter project description');
+            return;
+        }
+
+        setAnalyzing(true);
+        try {
+            const response = await axios.post('/api/ammonia-design/intelligent-analyze', {
+                chatId: 'demo-chat-1',
+                userText: userText
+            });
+
+            if (response.data.success) {
+                setAnalysisResult(response.data.analysis);
+                alert('✅ Analysis complete! Check the results below.');
+            }
+        } catch (error: any) {
+            console.error('Analysis error:', error);
+            alert('Error: ' + (error.response?.data?.error || error.message));
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
+    const data = project.designData;
+
+    if (!data || Object.keys(data).length === 0) {
+        return (
+            <Box>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    Describe your refrigeration project requirements in detail. The AI will analyze and extract design parameters.
+                </Alert>
+
+                {/* Intelligent Input Section */}
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>🤖 AI-Powered Design Analysis</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Describe your project in natural language (Persian or English). Include room dimensions, temperatures, 
+                            product flow, insulation, doors, etc.
+                        </Typography>
+                        
+                        <TextField
+                            multiline
+                            rows={12}
+                            fullWidth
+                            variant="outlined"
+                            placeholder="مثال: برام سردخانه‌های یک کشتارگاه مرغ رو طراحی کن، که یک سالن چیلینگ روم با ابعاد 20×8 متر و ارتفاع 4 متر داشته باشد برای دمای -5 درجه..."
+                            value={userText}
+                            onChange={(e) => setUserText(e.target.value)}
+                            sx={{ mb: 2, fontFamily: 'monospace' }}
+                        />
+
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleIntelligentAnalysis}
+                            disabled={analyzing || !userText.trim()}
+                            startIcon={analyzing ? <CircularProgress size={20} /> : <CalculateIcon />}
+                            fullWidth
+                            size="large"
+                        >
+                            {analyzing ? 'Analyzing...' : 'Analyze with AI'}
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* Analysis Results */}
+                {analysisResult && (
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>✅ Analysis Results</Typography>
+                            
+                            {/* Summary */}
+                            <Box sx={{ mb: 3, p: 2, bgcolor: 'success.light', borderRadius: 1 }}>
+                                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                                    {analysisResult.projectInfo?.name || 'Project'}
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={3}>
+                                        <Typography variant="caption">Total Rooms</Typography>
+                                        <Typography variant="h6">{analysisResult.summary.totalRooms}</Typography>
+                                    </Grid>
+                                    <Grid item xs={3}>
+                                        <Typography variant="caption">Total Load</Typography>
+                                        <Typography variant="h6">{analysisResult.summary.totalLoad} kW</Typography>
+                                    </Grid>
+                                    <Grid item xs={3}>
+                                        <Typography variant="caption">Simultaneity</Typography>
+                                        <Typography variant="h6">{(analysisResult.summary.simultaneityFactor * 100).toFixed(0)}%</Typography>
+                                    </Grid>
+                                    <Grid item xs={3}>
+                                        <Typography variant="caption">Design Load</Typography>
+                                        <Typography variant="h6" color="primary">{analysisResult.summary.designLoad} kW</Typography>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+
+                            {/* Applied Standards & Regional Settings */}
+                            {analysisResult.designCriteria && (
+                                <Box sx={{ mb: 3, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                                    <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                                        📋 Applied Standards & Regional Settings
+                                    </Typography>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" display="block" color="text.secondary">Region</Typography>
+                                            <Typography variant="body2" fontWeight="bold">
+                                                {analysisResult.designCriteria.region?.replace(/_/g, ' ').toUpperCase() || 'N/A'}
+                                            </Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" display="block" color="text.secondary">Safety Factor</Typography>
+                                            <Typography variant="body2" fontWeight="bold">
+                                                {analysisResult.designCriteria.safetyFactor || '1.15'}
+                                            </Typography>
+                                        </Grid>
+                                        {analysisResult.designCriteria.standards && (
+                                            <>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" display="block" color="text.secondary">Piping Standard</Typography>
+                                                    <Typography variant="body2">{analysisResult.designCriteria.standards.piping}</Typography>
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" display="block" color="text.secondary">Safety Standard</Typography>
+                                                    <Typography variant="body2">{analysisResult.designCriteria.standards.safety}</Typography>
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" display="block" color="text.secondary">Refrigeration Standard</Typography>
+                                                    <Typography variant="body2">{analysisResult.designCriteria.standards.refrigeration}</Typography>
+                                                </Grid>
+                                                <Grid item xs={6}>
+                                                    <Typography variant="caption" display="block" color="text.secondary">Electrical Standard</Typography>
+                                                    <Typography variant="body2">{analysisResult.designCriteria.standards.electrical}</Typography>
+                                                </Grid>
+                                            </>
+                                        )}
+                                    </Grid>
+                                </Box>
+                            )}
+
+                            {/* Room Details */}
+                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Room Load Details</Typography>
+                            {analysisResult.roomDetails?.map((room: any, idx: number) => (
+                                <Box key={idx} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                    <Typography variant="body1" fontWeight="bold">{room.name} ({room.temperature}°C)</Typography>
+                                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption" color="text.secondary">Transmission</Typography>
+                                            <Typography variant="body2">{room.loads.transmission.toFixed(1)} kW</Typography>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption" color="text.secondary">Product</Typography>
+                                            <Typography variant="body2">{room.loads.product.toFixed(1)} kW</Typography>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption" color="text.secondary">Infiltration</Typography>
+                                            <Typography variant="body2">{room.loads.infiltration.toFixed(1)} kW</Typography>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption" color="text.secondary">Total</Typography>
+                                            <Typography variant="body2" fontWeight="bold">{room.loads.total.toFixed(1)} kW</Typography>
+                                        </Grid>
+                                    </Grid>
+                                    
+                                    {/* Evaporator Details */}
+                                    {room.evaporators && room.evaporators.length > 0 && (
+                                        <Box sx={{ mt: 2, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                                            <Typography variant="caption" fontWeight="bold">Evaporators: {room.evaporators.length}x {room.evaporators[0].model}</Typography>
+                                            <br />
+                                            <Typography variant="caption" color="text.secondary">
+                                                {room.evaporators[0].fans.quantity} fans × {room.evaporators[0].fans.motorPower} kW | 
+                                                {room.evaporators[0].fans.airflow} m³/h | 
+                                                Throw: {room.evaporators[0].fans.throwDistance}m | 
+                                                Ø{room.evaporators[0].fans.diameter}mm
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Box>
+                            ))}
+
+                            {/* Temperature Ranges */}
+                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 3 }}>Temperature Range Groups</Typography>
+                            {Object.entries(analysisResult.temperatureRanges || {}).map(([range, data]: [string, any]) => (
+                                <Box key={range} sx={{ mb: 1, p: 1.5, bgcolor: 'primary.light', borderRadius: 1 }}>
+                                    <Typography variant="body2" fontWeight="bold">
+                                        {range.replace(/_/g, ' ').toUpperCase()}: {data.totalLoad.toFixed(1)} kW ({data.rooms.length} rooms)
+                                    </Typography>
+                                </Box>
+                            ))}
+
+                            {/* Compressor Configuration */}
+                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 3 }}>Recommended Compressor Configuration</Typography>
+                            {Object.entries(analysisResult.compressorConfiguration || {}).map(([range, config]: [string, any]) => (
+                                <Box key={range} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'primary.main', borderRadius: 1 }}>
+                                    <Typography variant="body1" fontWeight="bold" color="primary">
+                                        {range.replace(/_/g, ' ').toUpperCase()}
+                                    </Typography>
+                                    <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption">Base Count</Typography>
+                                            <Typography variant="body2">{config.baseCount}</Typography>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption">Reserve</Typography>
+                                            <Typography variant="body2">+{config.reserveCount}</Typography>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption">Total</Typography>
+                                            <Typography variant="body2" fontWeight="bold">{config.totalCount}</Typography>
+                                        </Grid>
+                                        <Grid item xs={3}>
+                                            <Typography variant="caption">Swing</Typography>
+                                            <Typography variant="body2">{config.swingCapable ? '✅ Yes' : '❌ No'}</Typography>
+                                        </Grid>
+                                    </Grid>
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                        Capacity per unit: {config.capacityPerUnit} kW
+                                    </Typography>
+                                </Box>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+            </Box>
+        );
+    }
+
+    return (
+        <Box>
+            <Typography variant="h6" gutterBottom>Collected Data</Typography>
+
+            {/* Ambient Conditions */}
+            {data.ambient && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                            Ambient Conditions
+                        </Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <Typography variant="body2" color="text.secondary">Summer Temperature</Typography>
+                                <Typography variant="body1">{data.ambient.summerTemp}°C</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="body2" color="text.secondary">Winter Temperature</Typography>
+                                <Typography variant="body1">{data.ambient.winterTemp}°C</Typography>
+                            </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Cold Storage Rooms */}
+            {data.rooms && data.rooms.length > 0 && (
+                <Card>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                            Cold Storage Rooms ({data.rooms.length})
+                        </Typography>
+                        {data.rooms.map((room: any, index: number) => (
+                            <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                                <Typography variant="body1" fontWeight="bold">{room.name || `Room ${index + 1}`}</Typography>
+                                <Grid container spacing={1} sx={{ mt: 1 }}>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">Dimensions</Typography>
+                                        <Typography variant="body2">
+                                            {room.dimensions.length}m × {room.dimensions.width}m × {room.dimensions.height}m
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">Temperature</Typography>
+                                        <Typography variant="body2">{room.temperature}°C</Typography>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+        </Box>
+    );
+};
+
+const LoadCalculationView: React.FC<{ project: AmmoniaProject }> = ({ project }) => {
+    // Try to get data from intelligentAnalysis first, then fallback to calculations
+    const intelligentAnalysis = (project as any).intelligentAnalysis;
+    const calc = project.calculations;
+    
+    // Use intelligent analysis if available
+    if (intelligentAnalysis) {
+        return (
+            <Box>
+                <Typography variant="h6" gutterBottom>📊 Refrigeration Load Analysis - Intelligent Design</Typography>
+                
+                {/* Project Header */}
+                <Alert severity="success" sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                        {intelligentAnalysis.projectInfo?.name}
+                    </Typography>
+                    <Typography variant="body2">
+                        {intelligentAnalysis.projectInfo?.location} - {intelligentAnalysis.projectInfo?.type}
+                    </Typography>
+                </Alert>
+
+                {/* Regional Standards */}
+                {intelligentAnalysis.designCriteria && (
+                    <Card sx={{ mb: 2, bgcolor: 'info.light' }}>
+                        <CardContent>
+                            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                                📋 Applied Design Standards
+                            </Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={4}>
+                                    <Typography variant="caption" color="text.secondary">Region</Typography>
+                                    <Typography variant="body2" fontWeight="bold">
+                                        {intelligentAnalysis.designCriteria.region?.replace(/_/g, ' ').toUpperCase()}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <Typography variant="caption" color="text.secondary">Safety Factor</Typography>
+                                    <Typography variant="body2" fontWeight="bold">
+                                        {intelligentAnalysis.designCriteria.safetyFactor}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <Typography variant="caption" color="text.secondary">Units</Typography>
+                                    <Typography variant="body2" fontWeight="bold">
+                                        {intelligentAnalysis.designCriteria.units.toUpperCase()}
+                                    </Typography>
+                                </Grid>
+                                {intelligentAnalysis.designCriteria.standards && (
+                                    <>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Piping</Typography>
+                                            <Typography variant="body2">{intelligentAnalysis.designCriteria.standards.piping}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Safety</Typography>
+                                            <Typography variant="body2">{intelligentAnalysis.designCriteria.standards.safety}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Refrigeration</Typography>
+                                            <Typography variant="body2">{intelligentAnalysis.designCriteria.standards.refrigeration}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Electrical</Typography>
+                                            <Typography variant="body2">{intelligentAnalysis.designCriteria.standards.electrical}</Typography>
+                                        </Grid>
+                                    </>
+                                )}
+                            </Grid>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Summary Card */}
+                <Card sx={{ mb: 2, bgcolor: 'success.main', color: 'success.contrastText' }}>
+                    <CardContent>
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={3}>
+                                <Typography variant="h4" fontWeight="bold">
+                                    {intelligentAnalysis.summary.totalRooms}
+                                </Typography>
+                                <Typography variant="caption">Rooms</Typography>
+                            </Grid>
+                            <Grid item xs={3}>
+                                <Typography variant="h4" fontWeight="bold">
+                                    {intelligentAnalysis.summary.totalLoad.toFixed(1)}
+                                </Typography>
+                                <Typography variant="caption">Total Load (kW)</Typography>
+                            </Grid>
+                            <Grid item xs={3}>
+                                <Typography variant="h4" fontWeight="bold">
+                                    {(intelligentAnalysis.summary.simultaneityFactor * 100).toFixed(0)}%
+                                </Typography>
+                                <Typography variant="caption">Simultaneity</Typography>
+                            </Grid>
+                            <Grid item xs={3}>
+                                <Typography variant="h4" fontWeight="bold">
+                                    {intelligentAnalysis.summary.designLoad.toFixed(1)}
+                                </Typography>
+                                <Typography variant="caption">Design Load (kW)</Typography>
+                            </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
+
+                {/* Temperature Range Groups */}
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                            🌡️ Temperature Range Groups
+                        </Typography>
+                        {Object.entries(intelligentAnalysis.temperatureRanges || {}).map(([range, data]: [string, any]) => (
+                            <Box key={range} sx={{ mb: 2, p: 2, bgcolor: 'primary.light', borderRadius: 1 }}>
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid item xs={6}>
+                                        <Typography variant="body1" fontWeight="bold">
+                                            {range.replace(/_/g, ' ').toUpperCase()}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {data.count} rooms
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6} textAlign="right">
+                                        <Typography variant="h6" fontWeight="bold">
+                                            {data.totalLoad.toFixed(1)} kW
+                                        </Typography>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                {/* Compressor Configuration */}
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                            ⚙️ Compressor Configuration
+                        </Typography>
+                        {Object.entries(intelligentAnalysis.compressorConfiguration || {}).map(([range, config]: [string, any]) => (
+                            <Box key={range} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="body1" fontWeight="bold" gutterBottom>
+                                    {range.replace(/_/g, ' ').toUpperCase()}
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">Total Load</Typography>
+                                        <Typography variant="body2">{config.totalLoad.toFixed(1)} kW</Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">Configuration</Typography>
+                                        <Typography variant="body2" fontWeight="bold">{config.configuration}</Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">Base Compressors</Typography>
+                                        <Typography variant="body2">{config.baseCompressors}</Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">Total Units</Typography>
+                                        <Typography variant="body2">{config.totalUnits}</Typography>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <Typography variant="caption" color="text.secondary">Capacity per Unit</Typography>
+                                        <Typography variant="body2">{config.capacityPerUnit} kW</Typography>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                {/* Room Details */}
+                <Card>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                            🏢 Detailed Room Analysis ({intelligentAnalysis.roomDetails?.length || 0} rooms)
+                        </Typography>
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Room Name</TableCell>
+                                        <TableCell align="center">Temp (°C)</TableCell>
+                                        <TableCell align="center">Type</TableCell>
+                                        <TableCell align="right">Dimensions</TableCell>
+                                        <TableCell align="right">Total Load (kW)</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {intelligentAnalysis.roomDetails?.map((room: any, idx: number) => (
+                                        <TableRow key={idx} hover>
+                                            <TableCell>{room.name}</TableCell>
+                                            <TableCell align="center">
+                                                <Chip label={room.temperature + '°C'} size="small" color={room.temperature < 0 ? 'primary' : 'default'} />
+                                            </TableCell>
+                                            <TableCell align="center">{room.type}</TableCell>
+                                            <TableCell align="right">
+                                                {room.dimensions.length}×{room.dimensions.width}×{room.dimensions.height}m
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    {room.loads.total.toFixed(1)}
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
+            </Box>
+        );
+    }
+
+    // Fallback to old calculations format
+    if (!calc) {
+        return <Alert severity="warning">Load calculations not yet performed. Continue chatting to proceed.</Alert>;
+    }
+
+    return (
+        <Box>
+            <Typography variant="h6" gutterBottom>Refrigeration Load Summary</Typography>
+
+            {/* Total Load Card */}
+            <Card sx={{ mb: 2, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+                <CardContent>
+                    <Typography variant="h4" fontWeight="bold">
+                        {calc.totalLoad?.toFixed(1)} kW
+                    </Typography>
+                    <Typography variant="body2">Total Design Load</Typography>
+                </CardContent>
+            </Card>
+
+            {/* Load Breakdown */}
+            <Card sx={{ mb: 2 }}>
+                <CardContent>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Load Breakdown</Typography>
+                    <Table size="small">
+                        <TableBody>
+                            <TableRow>
+                                <TableCell>Transmission Load</TableCell>
+                                <TableCell align="right">{calc.transmissionLoad?.toFixed(1)} kW</TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>Product Load</TableCell>
+                                <TableCell align="right">{calc.productLoad?.toFixed(1)} kW</TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>Infiltration Load</TableCell>
+                                <TableCell align="right">{calc.infiltrationLoad?.toFixed(1)} kW</TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>Internal Load</TableCell>
+                                <TableCell align="right">{calc.internalLoad?.toFixed(1)} kW</TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell><strong>Subtotal</strong></TableCell>
+                                <TableCell align="right">
+                                    <strong>
+                                        {(calc.transmissionLoad + calc.productLoad + calc.infiltrationLoad + calc.internalLoad).toFixed(1)} kW
+                                    </strong>
+                                </TableCell>
+                            </TableRow>
+                            <TableRow>
+                                <TableCell>Safety Factor</TableCell>
+                                <TableCell align="right">×{calc.safetyFactor}</TableCell>
+                            </TableRow>
+                            <TableRow sx={{ bgcolor: 'action.hover' }}>
+                                <TableCell><strong>Total Design Load</strong></TableCell>
+                                <TableCell align="right"><strong>{calc.totalLoad?.toFixed(1)} kW</strong></TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            {/* Room by Room */}
+            {calc.rooms && calc.rooms.length > 0 && (
+                <Card>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Room by Room Analysis</Typography>
+                        {calc.rooms.map((room: any, index: number) => (
+                            <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                                <Typography variant="body1" fontWeight="bold">{room.roomId}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Temperature: {room.temperature}°C | Load: {room.subtotal?.toFixed(1)} kW
+                                </Typography>
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+        </Box>
+    );
+};
+
+const EquipmentSelectionView: React.FC<{
+    project: AmmoniaProject;
+    selectedTier: 'economic' | 'best' | 'premium';
+    onTierChange: (tier: 'economic' | 'best' | 'premium') => void;
+}> = ({ project, selectedTier, onTierChange }) => {
+    const equipment = project.equipmentSelection;
+
+    if (!equipment) {
+        return <Alert severity="warning">Equipment selection not yet performed. Continue with previous phases.</Alert>;
+    }
+
+    const tierData = equipment[selectedTier];
+
+    return (
+        <Box>
+            <Typography variant="h6" gutterBottom>Equipment Selection</Typography>
+
+            {/* Tier Selector */}
+            <Tabs value={selectedTier} onChange={(_, val) => onTierChange(val)} sx={{ mb: 2 }}>
+                <Tab label={`Economic - $${equipment.economic?.total?.toLocaleString()}`} value="economic" />
+                <Tab label={`Best - $${equipment.best?.total?.toLocaleString()}`} value="best" />
+                <Tab label={`Premium - $${equipment.premium?.total?.toLocaleString()}`} value="premium" />
+            </Tabs>
+
+            {/* Equipment List */}
+            {tierData && tierData.items && (
+                <TableContainer component={Paper}>
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Category</TableCell>
+                                <TableCell>Equipment</TableCell>
+                                <TableCell align="center">Qty</TableCell>
+                                <TableCell align="right">Unit Price</TableCell>
+                                <TableCell align="right">Total</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {tierData.items.map((item: any, index: number) => (
+                                <TableRow key={index}>
+                                    <TableCell>{item.category}</TableCell>
+                                    <TableCell>{item.equipment?.model || item.equipment?.name || 'N/A'}</TableCell>
+                                    <TableCell align="center">{item.quantity || 1}</TableCell>
+                                    <TableCell align="right">${item.price?.toLocaleString()}</TableCell>
+                                    <TableCell align="right">${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</TableCell>
+                                </TableRow>
+                            ))}
+                            <TableRow sx={{ bgcolor: 'action.hover' }}>
+                                <TableCell colSpan={4}><strong>Total</strong></TableCell>
+                                <TableCell align="right"><strong>${tierData.total?.toLocaleString()}</strong></TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            )}
+        </Box>
+    );
+};
+
+const CalculationBookView: React.FC<{ project: AmmoniaProject }> = ({ project }) => {
+    const book = project.calculationBook;
+
+    if (!book || !book.generated) {
+        return <Alert severity="warning">Calculation book not yet generated.</Alert>;
+    }
+
+    return (
+        <Box>
+            <Typography variant="h6" gutterBottom>📘 Calculation Book - Complete Design Documentation</Typography>
+            
+            <Alert severity="info" sx={{ mb: 2 }}>
+                Generated on: {new Date(book.generatedDate).toLocaleString()}
+            </Alert>
+
+            {book.sections && book.sections.map((section: any) => (
+                <Card key={section.number} sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
+                            Section {section.number}: {section.title}
+                        </Typography>
+                        <Divider sx={{ my: 2 }} />
+                        
+                        {/* Render section content based on structure */}
+                        {section.content && (
+                            <Box sx={{ pl: 2 }}>
+                                {/* Project Overview Section */}
+                                {section.content.projectName && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" fontWeight="bold">Project Name:</Typography>
+                                        <Typography variant="body2">{section.content.projectName}</Typography>
+                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>Location:</Typography>
+                                        <Typography variant="body2">{section.content.location}</Typography>
+                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>Refrigerant:</Typography>
+                                        <Typography variant="body2">{section.content.refrigerant}</Typography>
+                                        {section.content.standards && (
+                                            <Box sx={{ mt: 2 }}>
+                                                <Typography variant="subtitle2" fontWeight="bold">Applied Standards:</Typography>
+                                                <ul>
+                                                    {section.content.standards.map((std: string, idx: number) => (
+                                                        <li key={idx}><Typography variant="body2">{std}</Typography></li>
+                                                    ))}
+                                                </ul>
+                                            </Box>
+                                        )}
+                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>Safety Factor:</Typography>
+                                        <Typography variant="body2">{section.content.safetyFactor}</Typography>
+                                        {section.content.designConditions && (
+                                            <Box sx={{ mt: 2 }}>
+                                                <Typography variant="subtitle2" fontWeight="bold">Design Conditions:</Typography>
+                                                <Typography variant="body2">Summer: {section.content.designConditions.summerAmbient}</Typography>
+                                                <Typography variant="body2">Winter: {section.content.designConditions.winterAmbient}</Typography>
+                                                <Typography variant="body2">Elevation: {section.content.designConditions.elevation}</Typography>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                )}
+                                
+                                {/* Load Summary Section */}
+                                {section.content.totalRooms !== undefined && (
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Total Rooms</Typography>
+                                            <Typography variant="h6">{section.content.totalRooms}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Total Load</Typography>
+                                            <Typography variant="h6">{section.content.totalLoad}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Simultaneity Factor</Typography>
+                                            <Typography variant="h6">{section.content.simultaneityFactor}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Design Load</Typography>
+                                            <Typography variant="h6" color="primary">{section.content.designLoad}</Typography>
+                                        </Grid>
+                                        {section.content.breakdown && (
+                                            <Grid item xs={12}>
+                                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>Load Breakdown:</Typography>
+                                                <Table size="small" sx={{ mt: 1 }}>
+                                                    <TableBody>
+                                                        <TableRow><TableCell>Transmission</TableCell><TableCell align="right">{section.content.breakdown.transmission}</TableCell></TableRow>
+                                                        <TableRow><TableCell>Product</TableCell><TableCell align="right">{section.content.breakdown.product}</TableCell></TableRow>
+                                                        <TableRow><TableCell>Infiltration</TableCell><TableCell align="right">{section.content.breakdown.infiltration}</TableCell></TableRow>
+                                                        <TableRow><TableCell>Internal</TableCell><TableCell align="right">{section.content.breakdown.internal}</TableCell></TableRow>
+                                                        <TableRow sx={{ bgcolor: 'action.hover' }}>
+                                                            <TableCell><strong>Safety Margin (25%)</strong></TableCell>
+                                                            <TableCell align="right"><strong>{section.content.breakdown.safetyMargin}</strong></TableCell>
+                                                        </TableRow>
+                                                    </TableBody>
+                                                </Table>
+                                            </Grid>
+                                        )}
+                                    </Grid>
+                                )}
+                                
+                                {/* System Configuration Section */}
+                                {section.content.systems && (
+                                    <Box>
+                                        {section.content.systems.map((sys: any, idx: number) => (
+                                            <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                                                <Typography variant="subtitle2" fontWeight="bold">{sys.name}</Typography>
+                                                <Typography variant="body2">Rooms: {sys.rooms} | Load: {sys.load}</Typography>
+                                                <Typography variant="body2">Compressors: {sys.compressors}</Typography>
+                                                <Typography variant="body2">Evap Temp: {sys.evaporationTemp} | Cond Temp: {sys.condensingTemp}</Typography>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
+                                
+                                {/* Piping Design Section */}
+                                {section.content.lineSizing && (
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Line Sizing:</Typography>
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Line</TableCell>
+                                                    <TableCell>Size</TableCell>
+                                                    <TableCell align="right">Velocity</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {section.content.lineSizing.map((line: any, idx: number) => (
+                                                    <TableRow key={idx}>
+                                                        <TableCell>{line.line}</TableCell>
+                                                        <TableCell>{line.size}</TableCell>
+                                                        <TableCell align="right">{line.velocity}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                        <Typography variant="body2" sx={{ mt: 2 }}>Standards: {section.content.standards}</Typography>
+                                        <Typography variant="body2">Material: {section.content.material}</Typography>
+                                        <Typography variant="body2">Insulation: {section.content.insulationMaterial}</Typography>
+                                    </Box>
+                                )}
+                            </Box>
+                        )}
+                    </CardContent>
+                </Card>
+            ))}
+        </Box>
+    );
+};
+
+const PIDDrawingView: React.FC<{ project: AmmoniaProject }> = ({ project }) => {
+    const [diagram, setDiagram] = useState<{ nodes: any[], edges: any[] } | null>(null);
+    const [logs, setLogs] = useState<string[]>([]);
+
+    const generate = () => {
+        const nodes: any[] = [];
+        const edges: any[] = [];
+        const newLogs: string[] = [];
+        let id = 0;
+        const getId = () => `n${id++}`;
+
+        // --- SPACIOUS LAYOUT CONSTANTS ---
+        const START_X = 100;
+        const COMP_Y = 600;
+        const COMP_GAP = 500; // Huge gap to prevent overlap
+        const VALVE_GAP = 80; // Enough gap for 40px valves + labels
+
+        // Get Data
+        const compressors = project.equipmentSelection?.aboveZero?.compressors || [{ capacity: 200 }, { capacity: 200 }];
+        
+        // Create Separator (Top Left)
+        const sepId = getId();
+        nodes.push({
+            id: sepId, type: 'vesselNode', position: { x: 100, y: 200 },
+            data: { label: 'LP-SEP' }
+        });
+
+        // Create Condenser (Top Right)
+        const condId = getId();
+        nodes.push({
+            id: condId, type: 'condenserNode', position: { x: 1200, y: 100 },
+            data: { label: 'CONDENSER' }
+        });
+
+        // GENERATE COMPRESSOR RACK
+        compressors.forEach((comp: any, idx: number) => {
+            const cx = START_X + 300 + (idx * COMP_GAP);
+            
+            // Math Check
+            const cap = Number(comp.capacity) || 200;
+            const calc = RefrigerationEngine.calculate(cap, -40);
+            newLogs.push(`Comp ${idx + 1}: ${calc.capacityKW.toFixed(1)} kW -> DN${calc.dn}`);
+
+            // 1. Compressor Node
+            const cId = getId();
+            nodes.push({
+                id: cId, type: 'compressorNode', position: { x: cx, y: COMP_Y },
+                data: { label: `K-${idx + 1}`, subLabel: `DN${calc.dn}` }
+            });
+
+            // 2. Suction Train (Extending Left)
+            const valves = ['SVA', 'FIA', 'ICS', 'SVA']; // Order: close to comp -> far
+            let prevId: string = cId;
+            
+            valves.forEach((vType, vIdx) => {
+                const vid = getId();
+                // Position: Start from compressor, move left
+                const vx = cx - 100 - (vIdx * VALVE_GAP); 
+                
+                nodes.push({
+                    id: vid, type: 'valveNode', position: { x: vx, y: COMP_Y + 20 }, // Slightly lower to center
+                    data: { 
+                        label: `${vType}-${calc.dn}`, 
+                        size: `DN${calc.dn}`,
+                        type: vType === 'ICS' ? 'Control' : vType === 'FIA' ? 'Filter' : 'Stop'
+                    }
+                });
+
+                // Edge
+                edges.push({ 
+                    id: getId(), source: vid, target: prevId, type: 'step', 
+                    label: vIdx === 0 ? `DN${calc.dn}` : '' 
+                });
+                prevId = vid;
+            });
+
+            // Connect last suction valve to Separator
+            edges.push({ 
+                id: getId(), source: sepId, target: prevId, type: 'step', 
+                label: 'Suction Header', style: { strokeDasharray: '5 5' }
+            });
+
+            // 3. Discharge Train (Extending Right)
+            const dValves = ['NRVA', 'SVA'];
+            prevId = cId;
+
+            dValves.forEach((vType, vIdx) => {
+                const vid = getId();
+                const vx = cx + 100 + (vIdx * VALVE_GAP);
+                
+                nodes.push({
+                    id: vid, type: 'valveNode', position: { x: vx, y: COMP_Y + 20 },
+                    data: { 
+                        label: `${vType}-${calc.dn}`, 
+                        size: `DN${calc.dn}`,
+                        type: vType === 'NRVA' ? 'Check' : 'Stop' 
+                    }
+                });
+
+                edges.push({ id: getId(), source: prevId, target: vid, type: 'step' });
+                prevId = vid;
+            });
+
+            // Connect last discharge valve to Condenser
+            edges.push({ 
+                id: getId(), source: prevId, target: condId, type: 'step', 
+                label: 'Hot Gas' 
+            });
+        });
+
+        console.log('✅ CAD P&ID Generated:', newLogs);
+        setDiagram({ nodes, edges });
+        setLogs(newLogs);
+    };
+
+    return (
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Button variant="contained" onClick={generate} sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}>
+                    Generate CAD P&ID
+                </Button>
+                {logs.length > 0 && (
+                    <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                        {logs[logs.length - 1]}
+                    </Typography>
+                )}
+            </Box>
+            {diagram ? (
+                <>
+                    <Alert severity="success" sx={{ mx: 2, mb: 2 }}>
+                        ✅ Generated {diagram.nodes.length} CAD symbols with 40px micro valves and 500px compressor spacing
+                    </Alert>
+                    <Box sx={{ flexGrow: 1 }}>
+                        <PIDDrawingEngine nodes={diagram.nodes} edges={diagram.edges} />
+                    </Box>
+                </>
+            ) : (
+                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5' }}>
+                    <Typography variant="h6" color="text.secondary">Click "Generate CAD P&ID" to start</Typography>
+                </Box>
+            )}
+        </Box>
+    );
+};
+
+const WiringDiagramView: React.FC<{ project: AmmoniaProject }> = ({ project }) => {
+    const wiring = project.wiringDiagram;
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateWiring = () => {
+        setIsGenerating(true);
+        
+        const equipment = project.equipmentSelection;
+        if (!equipment) {
+            alert('Please complete equipment selection first');
+            setIsGenerating(false);
+            return;
+        }
+
+        // Generate wiring diagram from actual equipment
+        let layoutData = `WIRING DIAGRAM - ${project.projectInfo?.name || 'Ammonia Refrigeration System'}\n`;
+        layoutData += `==================================\n\n`;
+        layoutData += `MAIN POWER DISTRIBUTION:\n\n`;
+
+        let xPos = 50;
+        let yPos = 100;
+        const ySpacing = 100;
+        const xSpacing = 150;
+
+        // Power supply
+        layoutData += `COMPONENT "Main Power Supply 3-Phase 480VAC" ${xPos},${yPos} id="PWR-001" type="power"\n`;
+        xPos += xSpacing;
+
+        // Main distribution panel
+        layoutData += `COMPONENT "Main Distribution Panel MDP-01" ${xPos},${yPos} id="MDP-01" type="panel"\n`;
+        xPos += xSpacing;
+
+        // PLC
+        layoutData += `COMPONENT "Allen Bradley PLC" ${xPos},${yPos} id="PLC-01" type="controller"\n`;
+        
+        // Add compressor circuits
+        if (equipment.aboveZero?.compressors) {
+            equipment.aboveZero.compressors.forEach((comp: any, idx: number) => {
+                yPos += ySpacing;
+                xPos = xSpacing * 2;
+                layoutData += `COMPONENT "${comp.type} Starter" ${xPos},${yPos} id="START-K${idx + 401}" type="starter"\n`;
+                xPos += xSpacing;
+                layoutData += `COMPONENT "${comp.type} Motor" ${xPos},${yPos} id="M-K${idx + 401}" type="motor"\n`;
+            });
+        }
+
+        // Add condenser fan circuits
+        if (equipment.aboveZero?.condensers) {
+            equipment.aboveZero.condensers.forEach((cond: any, idx: number) => {
+                yPos += ySpacing;
+                xPos = xSpacing * 2;
+                layoutData += `COMPONENT "Condenser Fan ${idx + 1} Starter" ${xPos},${yPos} id="START-E${idx + 301}" type="starter"\n`;
+                xPos += xSpacing;
+                layoutData += `COMPONENT "Fan Motor ${idx + 1}" ${xPos},${yPos} id="M-E${idx + 301}" type="motor"\n`;
+            });
+        }
+
+        // Add wiring connections
+        layoutData += `\nELECTRICAL CONNECTIONS:\n\n`;
+        layoutData += `WIRE sourceId="PWR-001" targetId="MDP-01" wireType="power" label="480V 3-Phase (Red/Black/Blue)"\n`;
+        layoutData += `WIRE sourceId="MDP-01" targetId="PLC-01" wireType="control" label="24VDC Control Power"\n`;
+
+        // Compressor wiring
+        if (equipment.aboveZero?.compressors) {
+            equipment.aboveZero.compressors.forEach((comp: any, idx: number) => {
+                const starterId = `START-K${idx + 401}`;
+                const motorId = `M-K${idx + 401}`;
+                layoutData += `WIRE sourceId="MDP-01" targetId="${starterId}" wireType="power" label="480V Main Power"\n`;
+                layoutData += `WIRE sourceId="PLC-01" targetId="${starterId}" wireType="control" label="Start/Stop Signal"\n`;
+                layoutData += `WIRE sourceId="${starterId}" targetId="${motorId}" wireType="power" label="Motor Power L1/L2/L3"\n`;
+            });
+        }
+
+        // Condenser fan wiring
+        if (equipment.aboveZero?.condensers) {
+            equipment.aboveZero.condensers.forEach((cond: any, idx: number) => {
+                const starterId = `START-E${idx + 301}`;
+                const motorId = `M-E${idx + 301}`;
+                layoutData += `WIRE sourceId="MDP-01" targetId="${starterId}" wireType="power" label="480V Power"\n`;
+                layoutData += `WIRE sourceId="PLC-01" targetId="${starterId}" wireType="control" label="Fan Control"\n`;
+                layoutData += `WIRE sourceId="${starterId}" targetId="${motorId}" wireType="power" label="Fan Motor Power"\n`;
+            });
+        }
+
+        const wiringData = {
+            layout: layoutData,
+            description: `Electrical wiring diagram for ${project.projectInfo?.name || 'ammonia refrigeration system'} including main power distribution, motor starters, and PLC control circuits.`
+        };
+
+        localStorage.setItem('wiringDiagramData', JSON.stringify(wiringData));
+        window.open('/wiring-diagram', '_blank');
+        setIsGenerating(false);
+    };
+
+    return (
+        <Box>
+            <Typography variant="h6" gutterBottom>⚡ Electrical Wiring Diagram</Typography>
+            
+            {/* Always show generate button */}
+            <Box sx={{ mb: 3 }}>
+                <Button 
+                    variant="contained" 
+                    color="primary"
+                    onClick={handleGenerateWiring}
+                    disabled={isGenerating || !project.equipmentSelection}
+                    startIcon={isGenerating ? <CircularProgress size={20} /> : null}
+                    sx={{ bgcolor: '#6366f1', '&:hover': { bgcolor: '#4f46e5' } }}
+                >
+                    {isGenerating ? 'Generating Wiring...' : 'Generate Wiring Diagram'}
+                </Button>
+                {!project.equipmentSelection && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                        Complete equipment selection first to generate wiring diagram.
+                    </Typography>
+                )}
+            </Box>
+            
+            {wiring && wiring.generated && (
+                <>
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                        Last Generated: {new Date(wiring.generatedDate).toLocaleString()}
+                    </Alert>
+
+            {/* Main Panels */}
+            {wiring.mainPanels && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>📦 Main Electrical Panels</Typography>
+                        {wiring.mainPanels.map((panel: any, idx: number) => (
+                            <Box key={idx} sx={{ mb: 1, p: 1.5, bgcolor: 'primary.light', borderRadius: 1 }}>
+                                <Typography variant="body1" fontWeight="bold">{panel.tag}</Typography>
+                                <Typography variant="body2">{panel.type} - {panel.location}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {panel.rating || panel.cpu}
+                                </Typography>
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Power Distribution */}
+            {wiring.powerDistribution && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>🔌 Power Distribution</Typography>
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Equipment</TableCell>
+                                        <TableCell>Motor</TableCell>
+                                        <TableCell>Starter</TableCell>
+                                        <TableCell>Cable</TableCell>
+                                        <TableCell>Protection</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {wiring.powerDistribution.map((item: any, idx: number) => (
+                                        <TableRow key={idx}>
+                                            <TableCell>{item.equipment}</TableCell>
+                                            <TableCell>{item.motor}</TableCell>
+                                            <TableCell>{item.starter}</TableCell>
+                                            <TableCell><Chip label={item.cable} size="small" /></TableCell>
+                                            <TableCell>{item.protection}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Control Wiring */}
+            {wiring.controlWiring && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>🔌 Control & Signal Wiring</Typography>
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Device</TableCell>
+                                        <TableCell>Signal Type</TableCell>
+                                        <TableCell>Destination</TableCell>
+                                        <TableCell>Cable</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {wiring.controlWiring.map((item: any, idx: number) => (
+                                        <TableRow key={idx}>
+                                            <TableCell>{item.instrument || item.valve}</TableCell>
+                                            <TableCell><Chip label={item.signal} size="small" color="info" /></TableCell>
+                                            <TableCell>{item.destination}</TableCell>
+                                            <TableCell>{item.cable}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Network Cabling */}
+            {wiring.networkCabling && (
+                <Card>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>🌐 Network & Communication</Typography>
+                        {wiring.networkCabling.map((item: any, idx: number) => (
+                            <Box key={idx} sx={{ mb: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="body2">
+                                    {item.from} → {item.to}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {item.type} | {item.cable}
+                                </Typography>
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+                </>
+            )}
+        </Box>
+    );
+};
+
+const PLCProgrammingView: React.FC<{ project: AmmoniaProject }> = ({ project }) => {
+    const plc = project.plcProgram;
+
+    if (!plc || !plc.generated) {
+        return <Alert severity="warning">PLC program not yet generated.</Alert>;
+    }
+
+    return (
+        <Box>
+            <Typography variant="h6" gutterBottom>💻 PLC Programming - Control Logic</Typography>
+            
+            <Alert severity="success" sx={{ mb: 2 }}>
+                Generated on: {new Date(plc.generatedDate).toLocaleString()}
+            </Alert>
+
+            {/* Platform Info */}
+            <Card sx={{ mb: 2, bgcolor: 'primary.light' }}>
+                <CardContent>
+                    <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">Platform</Typography>
+                            <Typography variant="h6">{plc.platform}</Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">CPU Model</Typography>
+                            <Typography variant="h6">{plc.cpuModel}</Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">Language</Typography>
+                            <Typography variant="body2">{plc.language}</Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">Firmware</Typography>
+                            <Typography variant="body2">{plc.firmwareVersion}</Typography>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </Card>
+
+            {/* Program Organization */}
+            {plc.organization && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>📁 Program Organization</Typography>
+                        {plc.organization.map((block: any, idx: number) => (
+                            <Box key={idx} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="body1" fontWeight="bold">
+                                    {block.name} <Chip label={block.type} size="small" sx={{ ml: 1 }} />
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                    {block.description}
+                                </Typography>
+                                {block.scanTime && (
+                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                        Scan Time: {block.scanTime}
+                                    </Typography>
+                                )}
+                                {block.features && (
+                                    <Box sx={{ mt: 1 }}>
+                                        <Typography variant="caption" fontWeight="bold">Features:</Typography>
+                                        <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                                            {block.features.map((feat: string, fIdx: number) => (
+                                                <li key={fIdx}>
+                                                    <Typography variant="caption">{feat}</Typography>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </Box>
+                                )}
+                                {block.inputs && (
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Inputs: {block.inputs.join(', ')}
+                                    </Typography>
+                                )}
+                                {block.outputs && (
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Outputs: {block.outputs.join(', ')}
+                                    </Typography>
+                                )}
+                                {block.size && (
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Size: {block.size}
+                                    </Typography>
+                                )}
+                                {block.alarms && (
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Alarms: {block.alarms}
+                                    </Typography>
+                                )}
+                            </Box>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* I/O Configuration */}
+            {plc.io_configuration && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>🔌 I/O Configuration</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Digital Inputs</Typography>
+                                <Typography variant="h6">{plc.io_configuration.digitalInputs}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Digital Outputs</Typography>
+                                <Typography variant="h6">{plc.io_configuration.digitalOutputs}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Analog Inputs</Typography>
+                                <Typography variant="h6">{plc.io_configuration.analogInputs}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Analog Outputs</Typography>
+                                <Typography variant="h6">{plc.io_configuration.analogOutputs}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Profibus Devices</Typography>
+                                <Typography variant="h6">{plc.io_configuration.profibusDevices}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Profinet Devices</Typography>
+                                <Typography variant="h6">{plc.io_configuration.profinetDevices}</Typography>
+                            </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Features */}
+            {plc.features && (
+                <Card>
+                    <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>✨ Control System Features</Typography>
+                        <Grid container spacing={1}>
+                            {plc.features.map((feature: string, idx: number) => (
+                                <Grid item xs={6} key={idx}>
+                                    <Box sx={{ p: 1, bgcolor: 'success.light', borderRadius: 1 }}>
+                                        <Typography variant="body2">✔️ {feature}</Typography>
+                                    </Box>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </CardContent>
+                </Card>
+            )}
+        </Box>
+    );
+};
+
+export default AmmoniaDesignWizard;

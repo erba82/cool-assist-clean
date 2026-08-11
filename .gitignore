@@ -26,3 +26,9 @@ yarn-error.log*
 .idea/
 .DS_Store
 *.tsbuildinfo
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials

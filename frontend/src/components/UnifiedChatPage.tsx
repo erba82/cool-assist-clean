@@ -26,8 +26,28 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 import ProfessionalPIDCanvas from './ProfessionalPIDCanvas';
+import CalculationBook from './CalculationBook';
+
+const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refrigerant?: string }) => {
+  const declared = Array.isArray(compliance?.checks) ? compliance.checks : (Array.isArray(compliance?.standards) ? compliance.standards : []);
+  const isAmmonia = /717|ammonia|nh3/i.test(String(refrigerant || ''));
+  const checks = declared.length ? declared : [
+    { standard: 'ASHRAE 15 / 34', status: 'REVIEW REQUIRED', note: 'No machine-verifiable ASHRAE review record was returned by the active design calculation.' },
+    { standard: 'ASME BPVC VIII / B31.5', status: 'REVIEW REQUIRED', note: 'Pressure-vessel and piping ratings must be verified against the generated equipment and line register.' },
+    ...(isAmmonia ? [{ standard: 'IIAR 2 / IIAR 9', status: 'REVIEW REQUIRED', note: 'Ammonia safety review applies to R717 systems and has not been automatically approved.' }] : [])
+  ];
+  const hasFailure = checks.some((check: any) => /fail|non.?compliant|action/i.test(String(check.status || '')));
+  const allPassed = declared.length > 0 && checks.every((check: any) => /pass|approved|compliant/i.test(String(check.status || '')));
+  const overallStatus = compliance?.overallStatus || (hasFailure ? 'ACTION REQUIRED' : allPassed ? 'REVIEWED' : 'REVIEW REQUIRED');
+  const chipColor: 'success' | 'warning' | 'error' = hasFailure ? 'error' : allPassed ? 'success' : 'warning';
+  return <Box p={2}>
+    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}><Typography variant="h6" color="primary">Industrial Compliance Review</Typography><Chip label={overallStatus} color={chipColor} size="small" /></Box>
+    <Alert severity={allPassed ? 'success' : 'warning'} sx={{ mb: 2 }}>{allPassed ? 'Only the checks returned by the active design are displayed as reviewed.' : 'This page does not imply compliance. Complete the listed engineering reviews before issue for construction.'}</Alert>
+    <Table size="small"><TableHead><TableRow><TableCell><b>Standard</b></TableCell><TableCell><b>Status</b></TableCell><TableCell><b>Review Note</b></TableCell></TableRow></TableHead><TableBody>{checks.map((check: any, index: number) => { const status = check.status || 'REVIEW REQUIRED'; const color: 'success' | 'warning' | 'error' = /fail|non.?compliant|action/i.test(status) ? 'error' : /pass|approved|compliant/i.test(status) ? 'success' : 'warning'; return <TableRow key={check.standard || check.code || index}><TableCell>{check.standard || check.code || 'Standard'}</TableCell><TableCell><Chip label={status} color={color} variant="outlined" size="small" /></TableCell><TableCell>{check.note || check.details || 'No review narrative was returned by the calculation engine.'}</TableCell></TableRow>; })}</TableBody></Table>
+  </Box>;
+};
 // Lazy load 3D component to prevent react-three-fiber from crashing on initial load
-const Refrigeration3DCanvas = lazy(() => import('./3D/Refrigeration3DCanvas'));
+const Refrigeration3DCanvasV2 = lazy(() => import('./3D/Refrigeration3DCanvasV2')); const Refrigeration3DCanvas = lazy(() => import('./3D/Refrigeration3DCanvas')); const TopologyIndustrialCanvas = lazy(() => import('./3D/TopologyIndustrialCanvas'));
 import { AnnualEnergyChart, EnergySankeyDiagram, StrategySelection } from './EnergyVisualization';
 import InformationGatheringPanel from './InformationGatheringPanel';
 import { ToolsPanel, CalculatorWidget, UnitConverterWidget, RefrigerantPropsWidget } from './FloatingTools';
@@ -1059,7 +1079,7 @@ const UnifiedChatPage: React.FC = () => {
 
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [chatMode, setChatMode] = useState<'general' | 'design'>('general');
+    const [chatMode, setChatMode] = useState<'general' | 'design'>('design');
     const endRef = useRef<HTMLDivElement>(null);
 
     // Floating Tools State
@@ -1086,7 +1106,7 @@ const UnifiedChatPage: React.FC = () => {
         localStorage.setItem('cool-assist-unified-chat', JSON.stringify(textMessages));
     }, [messages]);
 
-    useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+    useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth"}); }, [messages]);
 
     const handleSend = async () => {
         if (!input.trim()) return;
@@ -1421,10 +1441,10 @@ const UnifiedChatPage: React.FC = () => {
                                     receivedInfo={(m.infoRequestData?.filled || []).map((f: any) =>
                                         typeof f === 'string' ? f : (f.field || f.text || JSON.stringify(f))
                                     )}
-                                    missingFields={(m.infoRequestData?.questions || []).map((q: any) => ({
+                                    missingFields={(m.infoRequestData?.questions || m.infoRequestData?.missing || []).map((q: any) => ({
                                         field: q.field || 'information',
-                                        question: typeof q === 'string' ? q : (q.text || q.question || q.field || JSON.stringify(q)),
-                                        example: q.placeholder || q.example || ''
+                                        question: typeof q === 'string' ? q : (q.text || q.question || q.config?.questions?.en || q.config?.questions?.fa || q.field || JSON.stringify(q)),
+                                        example: q.placeholder || q.example || q.config?.placeholder?.en || q.config?.placeholder?.fa || ''
                                     }))}
                                     recommendations={m.infoRequestData?.recommendations}
                                     onSubmitAnswer={(answer: string) => {
@@ -1564,7 +1584,7 @@ const UnifiedChatPage: React.FC = () => {
                     <>
                         <Paper elevation={1} sx={{ p: 1, borderRadius: 0, bgcolor: theme.palette.background.paper, borderBottom: `1px solid ${theme.palette.divider}` }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center">
-                                <Typography variant="subtitle1" fontWeight="bold">📊 {activeDesign.project?.name || 'Design Preview'}</Typography>
+                                <Typography variant="subtitle1" fontWeight="bold">📊 {activeDesign.projectInfo?.name || 'Design Preview'}</Typography>
                                 <Box>
                                     <Button size="small" startIcon={<DownloadIcon />} onClick={() => handleDownloadReport(activeDesign)}>Download</Button>
                                     <Button size="small" startIcon={<RefreshIcon />} onClick={handleNewDesign}>New</Button>
@@ -1575,23 +1595,26 @@ const UnifiedChatPage: React.FC = () => {
                         <Tabs value={previewTab} onChange={(_, v) => setPreviewTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Summary" />
                             <Tab label="Load Calculation" />
+                            <Tab label="Calculation Book" />
                             <Tab label="Equipment" />
                             <Tab label="P&ID 2D" />
                             <Tab label="P&ID 3D" />
                             <Tab label="Energy" />
+                            <Tab label="Compliance" />
                         </Tabs>
 
                         <Box flexGrow={1} overflow="auto" p={2}>
                             {previewTab === 0 && <ProjectSummaryCard data={activeDesign} />}
                             {previewTab === 1 && <LoadsSection loads={activeDesign.loads} />}
-                            {previewTab === 2 && <EquipmentSection equipment={activeDesign.equipment} />}
-                            {previewTab === 3 && (
+                            {previewTab === 2 && <CalculationBook data={activeDesign} />}
+                            {previewTab === 3 && <EquipmentSection equipment={activeDesign.proposals?.best || activeDesign.equipment || {}} />}
+                            {previewTab === 4 && (
                                 <Box height="100%" minHeight="500px">
                                     <ProfessionalPIDCanvas
-                                        data={activeDesign.pidData}
+                                        data={activeDesign}
                                         projectInfo={{
-                                            client: activeDesign.project?.location?.city || 'Client',
-                                            projectName: activeDesign.project?.name || 'Project',
+                                            client: activeDesign.projectInfo?.location?.city || activeDesign.project?.location?.city || 'Client',
+                                            projectName: activeDesign.projectInfo?.name || activeDesign.project?.name || 'Project',
                                             drawingTitle: 'GENERAL PIPING DIAGRAM',
                                             drawingNo: 'PID-001',
                                             designer: 'GFDDE AI',
@@ -1600,7 +1623,7 @@ const UnifiedChatPage: React.FC = () => {
                                     />
                                 </Box>
                             )}
-                            {previewTab === 4 && (
+                            {previewTab === 5 && (
                                 <Box height="100%" minHeight="600px">
                                     <Suspense fallback={
                                         <Box display="flex" alignItems="center" justifyContent="center" height="100%">
@@ -1608,17 +1631,18 @@ const UnifiedChatPage: React.FC = () => {
                                             <Typography sx={{ ml: 2 }}>Loading 3D View...</Typography>
                                         </Box>
                                     }>
-                                        <Refrigeration3DCanvas
-                                            data={activeDesign.pidData}
+                                        <TopologyIndustrialCanvas
+                                            data={activeDesign}
                                             projectInfo={{
-                                                projectName: activeDesign.project?.name || 'Refrigeration System',
-                                                client: activeDesign.project?.location?.city || 'Client'
+                                                projectName: activeDesign.projectInfo?.name || activeDesign.project?.name || 'Refrigeration System',
+                                                client: activeDesign.projectInfo?.location?.city || 'Client'
                                             }}
                                         />
                                     </Suspense>
                                 </Box>
                             )}
-                            {previewTab === 5 && <EnergyAnalysisView data={activeDesign} />}
+                            {previewTab === 6 && <EnergyAnalysisView data={activeDesign} />}
+                            {previewTab === 7 && <ComplianceSection compliance={activeDesign.compliance} refrigerant={activeDesign.project?.refrigerant || activeDesign.projectInfo?.refrigerant} />}
                         </Box>
                     </>
                 ) : (

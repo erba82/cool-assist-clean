@@ -93,6 +93,7 @@ class DesignOrchestrator {
                     product: preParsedData.product || { type: 'chicken' },
                     rooms: preParsedData.rooms || [],
                     requirements: preParsedData.requirements || [],
+                    designIntent: preParsedData.designIntent || {},
                     wallMaterial: preParsedData.wallMaterial,
                     parsedAt: new Date().toISOString()
                 };
@@ -166,6 +167,9 @@ class DesignOrchestrator {
             success: true,
             project: { name: project.name, location: project.location, refrigerant: project.refrigerant, roomCount: project.rooms?.length || 0 },
             summary: results.summary,
+            projectInfo: { name: project.name, location: project.location, refrigerant: project.refrigerant, rooms: project.rooms || [] },
+            calculations: results.calculations || {},
+            compliance: { standards: standards || {}, safety: results.safety || {} },
             loads: (results.calculations?.loads || []).map(l => ({
                 room: l.roomName, temperature: l.temperature, load: l.total,
                 breakdown: { transmission: l.transmission?.total || 0, product: l.product?.total || 0, infiltration: l.infiltration?.total || 0, internal: l.internal?.total || 0 }

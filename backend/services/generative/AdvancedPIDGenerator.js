@@ -1,139 +1,282 @@
-/**
- * GFDDE Advanced P&ID Generator v2.1
- * Fixed: Crash bugs + Proper Node Formatting
- */
-
-const { EquipmentPositioner } = require('./PIDLayoutEngine');
-const AIServiceRouter = require('../AIServiceRouter');
-
 class AdvancedPIDGenerator {
-    constructor() {
-        this.aiRouter = new AIServiceRouter();
+    _isAmmonia(refrigerant) {
+        return /^(R?717|NH3|AMMONIA)$/i.test(String(refrigerant || '').replace(/[\s-]/g, ''));
     }
 
-    async generate(results, project) {
-        console.log('🎨 GFDDE P&ID: Generating with Layout Engine...');
-
-        // Format proposal properly
-        const calc = results.calculations || {};
-        const proposal = {
-            compressors: calc.compressors || [],
-            condenser: (calc.condensers && calc.condensers.length > 0) ? calc.condensers[0] : null,
-            evaporators: calc.evaporators || []
+    _serviceStyle(service) {
+        const styles = {
+            discharge: { stroke: '#c62828', strokeWidth: 4 },
+            hotGas: { stroke: '#c62828', strokeWidth: 4 },
+            liquid: { stroke: '#2e7d32', strokeWidth: 3.5 },
+            suction: { stroke: '#1565c0', strokeWidth: 3.5, strokeDasharray: '8,4' },
+            oil: { stroke: '#c89a18', strokeWidth: 2.5 }
         };
+        return styles[service] || { stroke: '#64748b', strokeWidth: 2.5 };
+    }
 
+    _findNominalDiameter(calculations, service, fallback) {
+        const piping = calculations?.piping || {};
+        const lines = Array.isArray(piping.lines) ? piping.lines
+            : Array.isArray(piping.segments) ? piping.segments
+                : Array.isArray(piping.sizes) ? piping.sizes : [];
+        const candidate = lines.find(line => {
+            const name = String(line.service || line.type || line.name || line.description || '').toLowerCase();
+            return name.includes(service.toLowerCase());
+        });
+        const value = Number(candidate?.dn || candidate?.nominalDiameter || candidate?.sizeDN || candidate?.diameter);
+        return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
+    }
+
+    _compressorType(compressor, refrigerant, totalLoad) {
+        const description = `${compressor?.type || ''} ${compressor?.model || ''} ${compressor?.technology || ''}`.toLowerCase();
+        if (/screw/.test(description) || (this._isAmmonia(refrigerant) && totalLoad >= 100)) return 'screw_compressor';
+        return 'reciprocating_compressor';
+    }
+
+    async generate(results = {}, project = {}) {
+        const calculations = results.calculations || {};
+        const refrigerant = String(project.refrigerant || results?.project?.refrigerant || 'R404A').toUpperCase().replace(/\s+/g, '');
+        const isAmmonia = this._isAmmonia(refrigerant);
+        const totalLoad = Number(results?.summary?.totalCoolingLoad || calculations?.totalCoolingLoad || 0);
+        const selectedCompressors = Array.isArray(calculations.compressors) && calculations.compressors.length
+            ? calculations.compressors
+            : [{ model: isAmmonia ? 'HSN8571' : 'Copeland ZB Series', type: isAmmonia ? 'Screw' : 'Reciprocating' }];
+        const requestedCount = Number(project?.designIntent?.compressorCount);
+        const compressorCount = Number.isFinite(requestedCount) && requestedCount > 0 ? requestedCount : selectedCompressors.length;
+        const compressors = Array.from({ length: compressorCount }, (_, index) => {
+            const source = selectedCompressors[index] || selectedCompressors[index % selectedCompressors.length] || {};
+            return {
+                ...source,
+                tag: source.tag || `COMP-${String(index + 1).padStart(2, '0')}`,
+                model: source.model || (isAmmonia ? 'HSN8571' : 'Copeland ZB Series')
+            };
+        });
+        const rawEvaporators = Array.isArray(calculations.evaporators) && calculations.evaporators.length
+            ? calculations.evaporators : [];
+        const rooms = Array.isArray(project.rooms) && project.rooms.length ? project.rooms : [];
+        const evaporatorCount = Math.max(rawEvaporators.length, rooms.length, 1);
+        const evaporators = Array.from({ length: evaporatorCount }, (_, index) => {
+            const source = rawEvaporators[index] || rawEvaporators[index % Math.max(1, rawEvaporators.length)] || {};
+            const room = rooms[index] || {};
+            return {
+                ...source,
+                tag: source.tag || `EVP-${String(index + 1).padStart(2, '0')}`,
+                model: source.model || (isAmmonia ? 'Industrial Unit Cooler' : 'DX Unit Cooler'),
+                roomId: source.roomId || room.id || `ROOM-${String(index + 1).padStart(2, '0')}`,
+                roomName: source.roomName || room.name || `Cold Room ${index + 1}`,
+                roomType: source.roomType || room.type || 'cold-storage',
+                temperature: source.temperature ?? room.temperature ?? null,
+                capacity: source.capacity || source.capacityPerUnit || room.capacity || null
+            };
+        });
+
+        const dn = {
+            discharge: this._findNominalDiameter(calculations, 'discharge', isAmmonia ? 100 : 50),
+            liquid: this._findNominalDiameter(calculations, 'liquid', isAmmonia ? 80 : 32),
+            suction: this._findNominalDiameter(calculations, 'suction', isAmmonia ? 125 : 65),
+            branchLiquid: this._findNominalDiameter(calculations, 'branch liquid', isAmmonia ? 32 : 20),
+            branchSuction: this._findNominalDiameter(calculations, 'branch suction', isAmmonia ? 50 : 32),
+            oil: this._findNominalDiameter(calculations, 'oil', 25)
+        };
         const nodes = [];
         const edges = [];
-        let nodeId = 1;
-        let edgeId = 1;
-
-        const positioner = new EquipmentPositioner();
-
-        // 1. CONDENSER
-        const condenserId = `node-${nodeId++}`;
-        const condPos = positioner.placeCondenser(condenserId, {});
-        nodes.push({
-            id: condenserId,
-            type: 'industrial',
-            position: condPos.position,
-            data: { label: proposal.condenser?.model || 'Evaporative Condenser', componentType: 'evaporative_condenser', tag: 'COND-01' }
-        });
-
-        // 2. HP RECEIVER
-        const hpReceiverId = `node-${nodeId++}`;
-        const hpRecPos = positioner.placeReceiver(hpReceiverId, { volume: '500L' }, 'HP');
-        nodes.push({
-            id: hpReceiverId,
-            type: 'industrial',
-            position: hpRecPos.position,
-            data: { label: 'HP Receiver', componentType: 'horizontal_vessel', tag: 'REC-HP-01' }
-        });
-
-        // 3. SERVICE VALVE
-        const hpValveId = `node-${nodeId++}`;
-        nodes.push({
-            id: hpValveId,
-            type: 'industrial',
-            position: { x: hpRecPos.position.x + 100, y: hpRecPos.position.y + 100 },
-            data: { label: 'Liquid Service', componentType: 'globe_valve', tag: 'HV-01', details: 'DN80' }
-        });
-
-        // 4. COMPRESSORS
-        let compIds = [];
-        (proposal.compressors || []).forEach((comp, i) => {
-            const id = `node-${nodeId++}`;
-            compIds.push(id);
-            const compPos = positioner.placeCompressor(id, {}, i);
-
+        let nodeNumber = 1;
+        let edgeNumber = 1;
+        const addNode = ({ x, y, label, componentType, tag, details = {}, roomId, roomName, mounting, elevation }) => {
+            const id = `node-${nodeNumber++}`;
             nodes.push({
-                id: id,
+                id,
                 type: 'industrial',
-                position: compPos.position,
-                data: { label: comp.model || `Compressor ${i+1}`, componentType: comp.type === 'Screw' ? 'screw_compressor' : 'reciprocating_compressor', tag: comp.tag || `CMP-0${i+1}` }
+                position: { x, y },
+                data: { label, componentType, tag, details, roomId, roomName, mounting, elevation, refrigerant }
             });
+            return id;
+        };
+        const connect = (source, target, service, nominalDiameter, label, extra = {}) => {
+            const id = `edge-${edgeNumber++}`;
+            edges.push({
+                id,
+                source,
+                target,
+                type: 'smoothstep',
+                label: label || `${refrigerant} ${service} DN${nominalDiameter}`,
+                service,
+                dn: nominalDiameter,
+                data: {
+                    service,
+                    dn: nominalDiameter,
+                    nominalDiameter,
+                    medium: refrigerant,
+                    jointType: 'welded',
+                    connectionType: 'welded',
+                    ...extra
+                },
+                style: this._serviceStyle(service)
+            });
+            return id;
+        };
+
+        const condenser = calculations.condensers?.[0] || {};
+        const condenserId = addNode({
+            x: 700, y: 110,
+            label: condenser.model || (isAmmonia ? 'Evaporative Condenser' : 'Air-Cooled Condenser'),
+            componentType: isAmmonia ? 'evaporative_condenser' : 'air_cooled_condenser',
+            tag: condenser.tag || 'COND-01',
+            mounting: 'roof',
+            elevation: 7.3,
+            details: { capacity: condenser.capacity || condenser.heatRejection || null, refrigerant }
         });
 
-        // 5. EVAPORATORS
-        let evapIds = [];
-        (proposal.evaporators || []).forEach((evap, i) => {
-            const id = `node-${nodeId++}`;
-            evapIds.push(id);
+        const receiverId = addNode({
+            x: 700, y: 270,
+            label: isAmmonia ? 'HP Receiver' : 'Liquid Receiver',
+            componentType: 'horizontal_vessel',
+            tag: isAmmonia ? 'REC-HP-01' : 'REC-LP-01',
+            details: { function: 'liquid receiver', volume: calculations.receiver?.volume || null, refrigerant }
+        });
 
-            const evapPos = positioner.placeEvaporator(id, {}, i, proposal.evaporators.length);
-            
-            // TEV Valve
-            const tevId = `node-${nodeId++}`;
-            const tevPos = positioner.placeValve(tevId, {}, id, { row: -2, col: 0 });
-            nodes.push({ id: tevId, type: 'industrial', position: tevPos.position, data: { label: 'TEV', componentType: 'tev', tag: `TEV-0${i+1}` } });
+        const needsOilSeparator = isAmmonia || compressors.length > 1 || Boolean(calculations.oilSeparators?.length);
+        const oilSeparatorId = needsOilSeparator ? addNode({
+            x: 510, y: 360,
+            label: 'Oil Separator',
+            componentType: 'oil_separator',
+            tag: 'SEP-OIL-01',
+            details: { function: 'discharge oil separation', refrigerant }
+        }) : null;
 
-            // Evaporator
-            nodes.push({
-                id: id,
-                type: 'industrial',
-                position: evapPos.position,
-                data: { label: evap.model || 'Evaporator', componentType: 'evaporator', tag: `EVP-0${i+1}` }
+        const liquidConditioningId = isAmmonia ? addNode({
+            x: 845, y: 270,
+            label: 'Liquid Pump',
+            componentType: 'centrifugal_pump',
+            tag: 'PMP-LIQ-01',
+            details: { function: 'pumped liquid feed', refrigerant }
+        }) : addNode({
+            x: 845, y: 270,
+            label: 'Filter Drier',
+            componentType: 'strainer',
+            tag: 'FD-01',
+            details: { function: 'liquid line filtration', refrigerant }
+        });
+        const liquidHeaderId = addNode({
+            x: 980, y: 300,
+            label: 'Liquid Header',
+            componentType: 'horizontal_vessel',
+            tag: 'HDR-LIQ-01',
+            details: { function: 'liquid distribution header', refrigerant }
+        });
+        const suctionHeaderId = addNode({
+            x: 465, y: 650,
+            label: isAmmonia ? 'Low-Pressure Suction Separator' : 'Suction Accumulator',
+            componentType: 'horizontal_vessel',
+            tag: isAmmonia ? 'SEP-LP-01' : 'ACC-SUC-01',
+            details: { function: 'common suction header / liquid protection', refrigerant }
+        });
+
+        const compressorTrain = compressors.map((compressor, index) => {
+            const y = 440 + index * 175;
+            const compressorId = addNode({
+                x: 225, y,
+                label: compressor.model,
+                componentType: this._compressorType(compressor, refrigerant, totalLoad),
+                tag: compressor.tag,
+                details: { capacity: compressor.capacity || compressor.capacityKW || null, refrigerant, type: compressor.type || null }
             });
-
-            // Suction Valve 🚨 FIX: Replaced undefined variables with correct object properties
-            const suctionValveId = `node-${nodeId++}`;
-            nodes.push({
-                id: suctionValveId,
-                type: 'industrial',
-                position: { x: evapPos.position.x - 50, y: evapPos.position.y + 80 },
-                data: { label: 'Suction', componentType: 'globe_valve', tag: `SV-0${i+1}` }
+            const dischargeCheckId = addNode({
+                x: 350, y: y - 35,
+                label: 'Discharge Check Valve',
+                componentType: 'check_valve',
+                tag: `CV-DIS-${String(index + 1).padStart(2, '0')}`,
+                details: { service: 'discharge', refrigerant }
             });
+            const suctionStrainerId = addNode({
+                x: 350, y: y + 50,
+                label: 'Suction Strainer',
+                componentType: 'strainer',
+                tag: `STR-SUC-${String(index + 1).padStart(2, '0')}`,
+                details: { service: 'suction', refrigerant }
+            });
+            connect(suctionStrainerId, compressorId, 'suction', dn.suction, `${refrigerant} suction DN${dn.suction}`);
+            connect(compressorId, dischargeCheckId, 'discharge', dn.discharge, `${refrigerant} discharge DN${dn.discharge}`);
+            return { compressorId, dischargeCheckId, suctionStrainerId };
+        });
 
-            // Distribution Piping
-            edges.push({ id: `edge-${edgeId++}`, source: hpValveId, target: tevId, type: 'smoothstep', style: { stroke: '#43a047', strokeWidth: 2.5 } });
-            edges.push({ id: `edge-${edgeId++}`, source: tevId, target: id, type: 'smoothstep', style: { stroke: '#66bb6a', strokeWidth: 2 } });
-            edges.push({ id: `edge-${edgeId++}`, source: id, target: suctionValveId, type: 'smoothstep', style: { stroke: '#1e88e5', strokeWidth: 2.5, strokeDasharray: '6,3' } });
-            
-            if (compIds.length > 0) {
-                edges.push({ id: `edge-${edgeId++}`, source: suctionValveId, target: compIds[0], type: 'smoothstep', style: { stroke: '#1565c0', strokeWidth: 3.5, strokeDasharray: '8,4' } });
+        compressorTrain.forEach((train, index) => {
+            if (oilSeparatorId) {
+                connect(train.dischargeCheckId, oilSeparatorId, 'discharge', dn.discharge, `${refrigerant} discharge header DN${dn.discharge}`);
+            } else {
+                connect(train.dischargeCheckId, condenserId, 'discharge', dn.discharge, `${refrigerant} discharge DN${dn.discharge}`);
             }
+            connect(suctionHeaderId, train.suctionStrainerId, 'suction', dn.suction, `${refrigerant} suction header DN${dn.suction}`, { branch: `compressor-${index + 1}` });
+        });
+        if (oilSeparatorId) {
+            connect(oilSeparatorId, condenserId, 'discharge', dn.discharge, `${refrigerant} hot gas DN${dn.discharge}`);
+            connect(oilSeparatorId, compressorTrain[0].compressorId, 'oil', dn.oil, 'Oil return DN25', { function: 'oil return' });
+        }
+        connect(condenserId, receiverId, 'liquid', dn.liquid, `${refrigerant} liquid DN${dn.liquid}`);
+        connect(receiverId, liquidConditioningId, 'liquid', dn.liquid, `${refrigerant} liquid DN${dn.liquid}`);
+        connect(liquidConditioningId, liquidHeaderId, 'liquid', dn.liquid, `${refrigerant} liquid header DN${dn.liquid}`);
+
+        evaporators.forEach((evaporator, index) => {
+            const column = Math.floor(index / 3);
+            const row = index % 3;
+            const x = 1170 + column * 420;
+            const y = 250 + row * 240;
+            const solenoidId = addNode({
+                x: x - 170, y,
+                label: 'Liquid Solenoid',
+                componentType: 'solenoid_valve',
+                tag: `SV-LIQ-${String(index + 1).padStart(2, '0')}`,
+                roomId: evaporator.roomId,
+                roomName: evaporator.roomName,
+                details: { service: 'liquid', refrigerant }
+            });
+            const tevId = addNode({
+                x: x - 80, y,
+                label: isAmmonia ? 'Hand Expansion Valve' : 'Thermostatic Expansion Valve',
+                componentType: 'tev',
+                tag: `TEV-${String(index + 1).padStart(2, '0')}`,
+                roomId: evaporator.roomId,
+                roomName: evaporator.roomName,
+                details: { service: 'liquid expansion', refrigerant }
+            });
+            const evaporatorId = addNode({
+                x, y,
+                label: evaporator.model,
+                componentType: 'evaporator',
+                tag: evaporator.tag,
+                roomId: evaporator.roomId,
+                roomName: evaporator.roomName,
+                details: { capacity: evaporator.capacity, temperature: evaporator.temperature, refrigerant }
+            });
+            const suctionValveId = addNode({
+                x: x + 125, y: y + 60,
+                label: 'Suction Service Valve',
+                componentType: 'globe_valve',
+                tag: `SV-SUC-${String(index + 1).padStart(2, '0')}`,
+                roomId: evaporator.roomId,
+                roomName: evaporator.roomName,
+                details: { service: 'suction', refrigerant }
+            });
+            connect(liquidHeaderId, solenoidId, 'liquid', dn.branchLiquid, `${refrigerant} liquid branch DN${dn.branchLiquid}`, { branch: evaporator.roomId });
+            connect(solenoidId, tevId, 'liquid', dn.branchLiquid, `${refrigerant} liquid DN${dn.branchLiquid}`);
+            connect(tevId, evaporatorId, 'liquid', dn.branchLiquid, `${refrigerant} expansion feed DN${dn.branchLiquid}`);
+            connect(evaporatorId, suctionValveId, 'suction', dn.branchSuction, `${refrigerant} suction branch DN${dn.branchSuction}`);
+            connect(suctionValveId, suctionHeaderId, 'suction', dn.branchSuction, `${refrigerant} suction header branch DN${dn.branchSuction}`, { branch: evaporator.roomId });
         });
 
-        // Main Piping
-        compIds.forEach(compId => {
-            edges.push({ id: `edge-${edgeId++}`, source: compId, target: condenserId, type: 'smoothstep', animated: true, style: { stroke: '#c62828', strokeWidth: 4 } });
-        });
-
-        edges.push({ id: `edge-${edgeId++}`, source: condenserId, target: hpReceiverId, type: 'smoothstep', style: { stroke: '#2e7d32', strokeWidth: 3.5 } });
-        edges.push({ id: `edge-${edgeId++}`, source: hpReceiverId, target: hpValveId, type: 'smoothstep', style: { stroke: '#388e3c', strokeWidth: 3 } });
-
-        // Optional AI Metadata
-        let aiMetadata = "Standard Generation";
-        try {
-            const prompt = `Recommend standard pipe material for ${project.refrigerant} refrigeration system. Answer in 1 short sentence.`;
-            const aiRes = await this.aiRouter.chat(prompt, 'pid_generation');
-            if (aiRes.success) aiMetadata = aiRes.message;
-        } catch (e) { /* ignore */ }
-
-        console.log(`✅ P&ID Done: ${nodes.length} nodes, ${edges.length} edges`);
-
+        const assemblyTitle = `${refrigerant} P&ID TO BIM ASSEMBLY`;
         return {
-            nodes, edges,
-            metadata: { generator: 'GFDDE Layout', ai_note: aiMetadata, timestamp: new Date().toISOString() }
+            nodes,
+            edges,
+            metadata: {
+                generator: 'GFDDE Refrigerant-Aware Topology',
+                refrigerant,
+                topology: isAmmonia ? 'pumped-ammonia-industrial' : 'direct-expansion-refrigeration',
+                assemblyTitle,
+                jointPolicy: isAmmonia ? 'R717 process piping: welded connections by default; flanges only when explicitly specified.' : `${refrigerant} design: refrigerant-specific equipment and closed-loop topology generated from the submitted design.`,
+                sizingStatus: 'preliminary DN values; final sizes require verified pressure-drop calculation inputs.',
+                timestamp: new Date().toISOString()
+            }
         };
     }
 }

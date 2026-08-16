@@ -1778,9 +1778,9 @@ const Refrigeration3DCanvas: React.FC<any> = ({ data, projectInfo }) => {
 
     return (
         <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: '#1a1a1a' }}>
-            <Canvas shadows camera={{ position: [25, 18, 25], fov: 45 }}>
-                <PerspectiveCamera makeDefault position={[25, 18, 25]} />
-                <OrbitControls target={[0, 2, 0]} maxPolarAngle={Math.PI / 2.1} minDistance={5} maxDistance={60} />
+            <Canvas shadows dpr={[1, 2]} camera={{ position: [14, 10, 14], fov: 34 }}>
+                <PerspectiveCamera makeDefault position={[14, 10, 14]} fov={34} />
+                <OrbitControls target={[0, 1.6, 0]} maxPolarAngle={Math.PI / 2.15} minDistance={3} maxDistance={36} enableDamping dampingFactor={0.06} />
 
                 {/* PROFESSIONAL LIGHTING */}
                 <ambientLight intensity={0.35} />

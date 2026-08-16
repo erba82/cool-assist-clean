@@ -175,23 +175,19 @@ class CondenserSelector {
     }
 
     _selectType(project, wetBulb, dryBulb) {
-        // If user specified, use that
+        // An explicit engineering choice always wins. Otherwise, DX/HFC systems
+        // use air-cooled condensers rather than inheriting the ammonia default.
         if (project.condenserType) return project.condenserType;
-
-        // Auto-select based on conditions
-        // Evaporative is more efficient when WB is much lower than DB
+        const refrigerant = String(project.refrigerant || 'R717').toUpperCase().replace(/[\s-]/g, '');
+        const isAmmonia = /^(R?717|NH3|AMMONIA)$/.test(refrigerant);
+        if (!isAmmonia) return 'air_cooled';
         const deltaT = dryBulb - wetBulb;
-
-        if (deltaT >= 10) return 'evaporative';  // Good wet bulb depression
-        if (deltaT <= 5) return 'air_cooled';    // High humidity
-
-        // Consider water availability in region
+        if (deltaT >= 10) return 'evaporative';
+        if (deltaT <= 5) return 'air_cooled';
         const region = project.climate?.region || 'default';
-        if (region === 'middle_east') return 'evaporative';  // Water treatment needed but efficient
-
-        return 'evaporative';  // Default to evaporative
+        if (region === 'middle_east') return 'evaporative';
+        return 'evaporative';
     }
-
     _getAltitudeFactor(altitude) {
         // Air density decreases with altitude
         // This affects air-cooled more than evaporative

@@ -121,7 +121,7 @@ class CompressorSelector {
             this._calculatePressures(evapTemp, condensingTemp, refProps);
 
         // Select compressor type and size
-        const selection = this._selectCompressor(designLoad, evapTemp, compressionRatio);
+        const selection = this._selectCompressor(designLoad, evapTemp, compressionRatio, project);
 
         // Determine number of compressors + standby
         // SAFUGUARD: Ensure load is valid
@@ -371,26 +371,33 @@ class CompressorSelector {
         };
     }
 
-    _selectCompressor(load, evapTemp, compressionRatio) {
-        // Select series based on load
+    _selectCompressor(load, evapTemp, compressionRatio, project = {}) {
+        const refrigerant = String(project.refrigerant || 'R717').toUpperCase();
+        const isAmmonia = /^(R?717|NH3|AMMONIA)$/.test(refrigerant.replace(/[\s-]/g, ''));
+        const requestedType = String(project?.designIntent?.compressorType || project?.compressorType || '').toLowerCase();
         let selectedSeries;
         let selectedSize;
 
-        if (load < 30) {
+        // DX and HFC projects should not silently inherit an ammonia screw-bank default.
+        if (!isAmmonia && requestedType !== 'screw' && load <= 150) {
             selectedSeries = 'REC';
-            selectedSize = load < 15 ? 'small' : load < 40 ? 'medium' : 'large';
+            selectedSize = load < 15 ? 'small' : load < 45 ? 'medium' : 'large';
+        } else if (requestedType === 'reciprocating' || requestedType === 'piston') {
+            selectedSeries = 'REC';
+            selectedSize = load < 15 ? 'small' : load < 45 ? 'medium' : 'large';
+        } else if (load < 30) {
+            selectedSeries = 'REC';
+            selectedSize = load < 15 ? 'small' : 'medium';
         } else if (load < 500) {
             selectedSeries = 'HS';
             selectedSize = load < 100 ? 'small' : load < 250 ? 'medium' : 'large';
         } else {
             selectedSeries = 'OS';
-            selectedSize = load < 200 ? 'small' : load < 500 ? 'medium' :
-                load < 1000 ? 'large' : 'xlarge';
+            selectedSize = load < 200 ? 'small' : load < 500 ? 'medium' : load < 1000 ? 'large' : 'xlarge';
         }
 
         const series = this.compressorSeries[selectedSeries];
         const model = series.models[selectedSize];
-
         return {
             series: selectedSeries,
             type: series.type,
@@ -402,7 +409,6 @@ class CompressorSelector {
             economizer: series.economizer
         };
     }
-
     _determineCount(load, selection) {
         // Calculate number of operating units
         if (!load || load <= 0) return { operating: 1, standby: 0 };

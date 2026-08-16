@@ -1,0 +1,131 @@
+import React, { useMemo, Suspense } from 'react';
+import { Canvas } from '@react-three/fiber';
+import {
+  OrbitControls,
+  PerspectiveCamera,
+  Grid,
+  Environment,
+  Bounds,
+  ContactShadows,
+} from '@react-three/drei';
+import { Box, Typography } from '@mui/material';
+import * as THREE from 'three';
+import { buildSceneGraph, SceneGraph } from '../../engines/RefrigerationSceneEngine';
+import { ThreeDModelFactory } from '../../engines/ThreeDModelFactory';
+
+const OrthoPipe = ({ waypoints, color, radius, type }: any) => {
+  const segments = useMemo(() => {
+    const res: any[] = [];
+    const points = (waypoints || []);
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = new THREE.Vector3(...points[i]);
+      const b = new THREE.Vector3(...points[i + 1]);
+      const dist = a.distanceTo(b);
+      if (dist < 0.01) continue;
+      const mid = a.clone().add(b).multiplyScalar(0.5);
+      const dir = b.clone().sub(a).normalize();
+      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      res.push({ mid, quat, len: dist, id: i });
+    }
+    return res;
+  }, [waypoints]);
+
+  const isInsulated = type === "suction" || type === "liquid" || type === "hot_gas";
+  const jacketColor = "#ecf0f1";
+
+  return (
+    <group>
+      {segments.map((s) => (
+        <group key={s.id} position={s.mid} quaternion={s.quat}>
+          <mesh castShadow receiveShadow>
+            <cylinderGeometry args={[radius, radius, s.len, 16]} />
+            <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
+          </mesh>
+          {isInsulated && (
+            <mesh castShadow receiveShadow>
+              <cylinderGeometry args={[radius * 2, radius * 2, s.len - 0.02, 16]} />
+              <meshStandardMaterial color={jacketColor} metalness={0.1} roughness={0.7} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {waypoints.slice(1, -1).map((wp: any, i: number) => (
+        <mesh key={i} position={new THREE.Vector3(...wp)} castShadow receiveShadow>
+          <sphereGeometry args={[isInsulated ? radius * 2 : radius * 1.05, 16, 16]} />
+          <meshStandardMaterial color={isInsulated ? jacketColor : color} metalness={0.8} roughness={0.2} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+const Refrigeration3DCanvasV2: React.FC<any> = ({ data, projectInfo }) => {
+  const factory = useMemo(() => new ThreeDModelFactory(), []);
+  const graph: SceneGraph = useMemo(() => {
+    try {
+      
+      return buildSceneGraph(data);
+    } catch (e) {
+      console.error("BIM Graph Build Error:", e);
+      return { 
+        room: { width: 50, depth: 40, height: 10 }, 
+        equipment: [], 
+        pipes: [], 
+        meta: { refrigerant: "R717", cycle: "flooded", colors: {}, capacity: 150, source: "ERROR" } 
+      };
+    }
+  }, [data]);
+
+  return (
+    <Box sx={{ width: "100%", height: "100%", minHeight: 600, position: "relative", bgcolor: "#e4e8ed", overflow: "hidden" }}>
+      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}>
+        <PerspectiveCamera makeDefault position={[13, 8, 15]} fov={31} />
+        <OrbitControls makeDefault target={[0, 1.0, 0]} enableDamping dampingFactor={0.07} screenSpacePanning minDistance={2.5} maxDistance={34} />
+        <color attach="background" args={["#e4e8ed"]} />
+        <fog attach="fog" args={["#e4e8ed", 80, 300]} />
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[18, 30, 20]} intensity={1.35} castShadow shadow-mapSize={[2048, 2048]} />
+        <directionalLight position={[-16, 18, -14]} intensity={0.42} />
+        <Suspense fallback={null}><Environment preset="warehouse" /></Suspense>
+        <Grid args={[400, 400]} sectionSize={10} sectionThickness={1.5} sectionColor="#cbd5e1" cellColor="#e2e8f0" fadeDistance={300} position={[0, -0.02, 0]} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+          <planeGeometry args={[80, 80]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.9} metalness={0.0} />
+        </mesh>
+        <ContactShadows position={[0, 0, 0]} scale={80} blur={2.2} far={30} opacity={0.42} />
+        
+        {graph.equipment.length === 0 && graph.pipes.length === 0 ? (
+          <group position={[0, 2, 0]}>
+            <mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="orange" /></mesh>
+          </group>
+        ) : (
+          <Bounds fit clip observe margin={1.18}>
+            <group>
+              {graph.equipment.filter((e: any) => e.kind !== 'platform' && e.kind !== 'coldroom').map((e, idx) => {
+                if (e.kind === 'platform') return <mesh key={e.id} position={new THREE.Vector3(...e.position)} receiveShadow castShadow><boxGeometry args={[e.params.width, 0.2, e.params.depth]} /><meshStandardMaterial color="#566573" metalness={0.9} roughness={0.2} /></mesh>;
+                if (e.kind === 'coldroom') return <mesh key={e.id} position={[e.position[0], e.params.height/2, e.position[2]]}><boxGeometry args={[e.params.width, e.params.height, e.params.depth]} /><meshStandardMaterial color="#3498db" transparent opacity={0.1} wireframe /></mesh>;
+                
+                const typeId = e.params?.proId || e.id;
+                try {
+                  const placed = factory.createEquipment(typeId, e.id, new THREE.Vector3(...e.position), new THREE.Euler(0, e.rotation || 0, 0));
+                  if (!placed) return null;
+                  return <primitive key={`eq_${e.id}_${idx}`} object={placed.group} />;
+                } catch (err) {
+                  return null;
+                }
+              })}
+              {graph.pipes.map((p, idx) => (
+                <OrthoPipe key={`p_${p.id}_${idx}`} waypoints={p.waypoints} color={graph.meta.colors[p.type] || '#95a5a6'} radius={p.radius} type={p.type} />
+              ))}
+            </group>
+          </Bounds>
+        )}
+      </Canvas>
+      <Box sx={{ position: 'absolute', top: 20, left: 20, pointerEvents: 'none' }}>
+        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 'bold', letterSpacing: 1 }}>BIM ENGINE V6.2 | HIGH-DETAIL {graph.meta.source} MODE</Typography>
+      </Box>
+    </Box>
+  );
+};
+
+export default Refrigeration3DCanvasV2;

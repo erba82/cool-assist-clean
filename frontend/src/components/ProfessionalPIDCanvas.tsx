@@ -1,14 +1,14 @@
 /**
  * Professional P&ID Canvas - CAD Quality Rendering
  * ISO 14617 Compliant - Professional Industrial Standard
- * 
+ *
  * Features:
  * - ISO 14617 symbol library
  * - DN pipe sizing
  * - Valve placement
  * - Instrumentation
  * - Professional title block
- * 
+ *
  * @version 2.0.0
  */
 
@@ -749,69 +749,69 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
     }, []);
 
     const layout = useMemo(() => {
-        console.log('[PIDCanvas] Received data:', data, 'Keys:', data ? Object.keys(data) : 'null');
+        console.log('[PIDCanvas] Received data:', data);
+        if (!data) return demoLayout;
 
-        if (!data) {
-            console.log('[PIDCanvas] No data - using demo layout');
-            return demoLayout;
+        // Normalize the two real P&ID contracts without inventing equipment.
+        // DesignOrchestrator emits { equipment, pipes }; imported GFDDE emits { nodes, edges }.
+        const pidTopology = data?.pidData || data?.pidData2D || data?.diagram || data;
+        const nodes = Array.isArray(pidTopology?.nodes)
+            ? pidTopology.nodes
+            : (Array.isArray(pidTopology?.equipment) ? pidTopology.equipment : []);
+        const edges = Array.isArray(pidTopology?.edges)
+            ? pidTopology.edges
+            : (Array.isArray(pidTopology?.pipes) ? pidTopology.pipes : []);
+        if (nodes.length > 0 || edges.length > 0) {
+            console.log('[PIDCanvas] Mapping P&ID topology:', nodes.length, 'equipment nodes and', edges.length, 'pipe edges');
+            return {
+                compressors: nodes.filter((n: any) => n.data?.componentType?.includes('compressor')).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label, power: n.data.details })),
+                condensers: nodes.filter((n: any) => n.data?.componentType === 'evaporative_condenser').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label, capacity: n.data.details })),
+                evaporators: nodes.filter((n: any) => n.data?.componentType === 'evaporator').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, capacity: n.data.details })),
+                vessels: nodes.filter((n: any) => n.data?.componentType?.includes('vessel')).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, type: n.data.label, volume: n.data.details })),
+                oilSeparators: nodes.filter((n: any) => n.data?.componentType === 'oil_separator').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag })),
+                pumps: nodes.filter((n: any) => n.data?.componentType === 'pump').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label })),
+
+                pipes: edges.map((e: any) => {
+                    const sourceNode = nodes.find((n: any) => n.id === e.source);
+                    const targetNode = nodes.find((n: any) => n.id === e.target);
+                    let points = e.style?.points || [];
+
+                    if (points.length === 0 && sourceNode && targetNode) {
+                        // Generate simple orthogonal path if no points provided
+                        const sx = sourceNode.position.x * 2.5 + 200;
+                        const sy = sourceNode.position.y * 2.5 + 100;
+                        const tx = targetNode.position.x * 2.5 + 200;
+                        const ty = targetNode.position.y * 2.5 + 100;
+
+                        points = [
+                            {x: sx, y: sy},
+                            {x: sx, y: ty},
+                            {x: tx, y: ty}
+                        ];
+                    } else if (points.length > 0) {
+                        // Scale existing points
+                        points = points.map((p: any) => ({
+                            x: p.x * 2.5 + 200,
+                            y: p.y * 2.5 + 100
+                        }));
+                    }
+
+                    return {
+                        points,
+                        fluidType: e.style?.stroke === '#c62828' ? 'hotGas' : (e.style?.stroke === '#1e88e5' ? 'suction' : 'liquid'),
+                        size: e.label || ''
+                    };
+                }),
+
+                valves: nodes.filter((n: any) => n.data?.componentType?.includes('valve') || n.data?.componentType === 'tev').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, symbolType: n.data.componentType === 'tev' ? 'ExpansionValve' : 'GlobeValve' })),
+                instruments: nodes.filter((n: any) => n.data?.componentType === 'instrument').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, type: n.data.label }))
+            };
         }
-
-        // If data is already in the specific format (legacy/demo)
-        if (data.compressors || data.evaporators) {
-            console.log('[PIDCanvas] Using legacy format (compressors/evaporators)');
-            return data;
-        }
-
-        // Map backend "equipment" array to specific categories for rendering
-        const equipment = data.equipment || [];
-        console.log('[PIDCanvas] Mapping from equipment array, count:', equipment.length);
-
-        if (equipment.length === 0) {
-            console.log('[PIDCanvas] Equipment array is empty - using demo layout');
-            return demoLayout;
-        }
-
+        // Avoid a renderer crash for incomplete source data; do not substitute a generic P&ID.
         return {
-            compressors: equipment.filter((e: any) => e.type === 'compressor').map((e: any) => ({
-                x: e.x, y: e.y,
-                tag: e.id,
-                model: e.label?.split?.('\n')?.[1] || e.specs?.model || 'N/A', // Safely extract model
-                power: e.specs?.power || 'N/A'
-            })),
-            condensers: equipment.filter((e: any) => e.type === 'condenser').map((e: any) => ({
-                x: e.x, y: e.y,
-                tag: e.id,
-                model: e.label?.split?.('\n')?.[1] || e.specs?.model || 'N/A',
-                capacity: e.specs?.capacity
-            })),
-            evaporators: equipment.filter((e: any) => e.type === 'evaporator').map((e: any) => ({
-                x: e.x, y: e.y,
-                tag: e.id,
-                capacity: e.specs?.capacity
-            })),
-            vessels: equipment.filter((e: any) => e.type === 'separator' || e.type === 'receiver').map((e: any) => ({
-                x: e.x, y: e.y,
-                tag: e.id,
-                type: e.type === 'separator' ? 'AMMONIA SEPARATOR' : 'AMMONIA RECEIVER',
-                volume: e.specs?.volume
-            })),
-            oilSeparators: equipment.filter((e: any) => e.type === 'oil_separator').map((e: any) => ({
-                x: e.x, y: e.y,
-                tag: e.id
-            })),
-            pumps: equipment.filter((e: any) => e.type === 'pump').map((e: any) => ({
-                x: e.x, y: e.y,
-                tag: e.id,
-                model: e.specs?.model || 'Hermetic',
-                capacity: e.specs?.capacity,
-                status: e.specs?.status
-            })),
-            pipes: data.pipes || [], // Pipes are already in correct format
-            valves: data.valves || [], // Valves with x,y positions and symbolType
-            instruments: data.instruments || [] // Instrumentation from backend
-        };
-
-    }, [data, demoLayout]);
+            compressors: [], condensers: [], evaporators: [], vessels: [],
+            oilSeparators: [], pumps: [], pipes: [], valves: [], instruments: []
+        };    }, [data, demoLayout]);
 
     const handleDownload = () => {
         if (!svgRef.current) return;

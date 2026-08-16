@@ -1,0 +1,225 @@
+
+import * as THREE from 'three';
+
+export interface BimConnection {
+  id: string;
+  type: 'in' | 'out' | 'both';
+  pos: { x: number; y: number; z: number };
+  dir: { x: number; y: number; z: number };
+  dn: number;
+}
+
+export interface BimEquipmentDef {
+  id: string;
+  name: string;
+  category: string;
+  primitives: Array<{
+    type: 'box' | 'cylinder' | 'sphere' | 'torus';
+    params: any[];
+    pos: { x: number; y: number; z: number };
+    rot: { x: number; y: number; z: number };
+    mat: string;
+  }>;
+  connections: BimConnection[];
+}
+
+export const BIM_MATERIALS = {
+  STAINLESS_STEEL: { color: '#bdc3c7', metalness: 0.9, roughness: 0.1, envMapIntensity: 1.5 },
+  CARBON_STEEL: { color: '#2c3e50', metalness: 0.7, roughness: 0.4 },
+  INSULATION_JACKET: { color: '#ecf0f1', metalness: 0.1, roughness: 0.8 },
+  PAINTED_BLUE: { color: 0x2980b9, metalness: 0.5, roughness: 0.4 },
+  BRASS: { color: 0xb8860b, metalness: 0.78, roughness: 0.25, envMapIntensity: 1.4 },
+  MOTOR_BLACK: { color: '#1a1a1a', metalness: 0.5, roughness: 0.5 },
+  DANGER_RED: { color: '#c0392b', metalness: 0.5, roughness: 0.5 },
+  SAFETY_YELLOW: { color: '#f1c40f', metalness: 0.5, roughness: 0.5 },
+  GLASS: { color: '#aed6f1', metalness: 0.9, roughness: 0.0, transparent: true, opacity: 0.4 }
+};
+
+export const BIM_LIBRARY: BimEquipmentDef[] = [
+  {
+    id: 'BIM_COMP_SCREW',
+    name: 'Industrial Screw Compressor',
+    category: 'Compressors',
+    primitives: [
+      // Main Compressor Body
+      { type: 'cylinder', params: [0.6, 0.6, 2.0, 32], pos: { x: 0, y: 0.6, z: 0 }, rot: { x: 0, y: 0, z: Math.PI/2 }, mat: 'STAINLESS_STEEL' },
+      // Motor
+      { type: 'cylinder', params: [0.5, 0.5, 1.2, 32], pos: { x: 1.6, y: 0.6, z: 0 }, rot: { x: 0, y: 0, z: Math.PI/2 }, mat: 'MOTOR_BLUE' },
+      // Base Frame
+      { type: 'box', params: [3.5, 0.2, 1.2], pos: { x: 0.5, y: 0.1, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      // Control Panel
+      { type: 'box', params: [0.6, 0.8, 0.2], pos: { x: 0, y: 1.2, z: 0.5 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      // Oil Separator (Attached)
+      { type: 'cylinder', params: [0.4, 0.4, 1.5, 32], pos: { x: -0.5, y: 1.5, z: -0.4 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' }
+    ],
+    connections: [
+      { id: 'suction', type: 'in', pos: { x: -1.0, y: 0.6, z: 0 }, dir: { x: -1, y: 0, z: 0 }, dn: 150 },
+      { id: 'discharge', type: 'out', pos: { x: 0, y: 1.2, z: 0 }, dir: { x: 0, y: 1, z: 0 }, dn: 100 }
+    ]
+  },
+  {
+    id: 'BIM_VESSEL_HORIZ',
+    name: 'Horizontal High Pressure Receiver',
+    category: 'Vessels',
+    primitives: [
+      // Main Tank
+      { type: 'cylinder', params: [0.8, 0.8, 4.0, 32], pos: { x: 0, y: 1.2, z: 0 }, rot: { x: 0, y: 0, z: Math.PI/2 }, mat: 'INSULATION_JACKET' },
+      // End Caps
+      { type: 'sphere', params: [0.8, 32, 32], pos: { x: 2.0, y: 1.2, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'INSULATION_JACKET' },
+      { type: 'sphere', params: [0.8, 32, 32], pos: { x: -2.0, y: 1.2, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'INSULATION_JACKET' },
+      // Supports
+      { type: 'box', params: [0.2, 0.8, 1.2], pos: { x: 1.2, y: 0.4, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'box', params: [0.2, 0.8, 1.2], pos: { x: -1.2, y: 0.4, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'in', pos: { x: 0, y: 2.0, z: 0 }, dir: { x: 0, y: 1, z: 0 }, dn: 80 },
+      { id: 'outlet', type: 'out', pos: { x: 0, y: 0.4, z: 0 }, dir: { x: 0, y: -1, z: 0 }, dn: 80 }
+    ]
+  },
+  {
+    id: 'BIM_CONDENSER_EVAP',
+    name: 'Evaporative Condenser Unit',
+    category: 'Heat Exchangers',
+    primitives: [
+      // Main Housing
+      { type: 'box', params: [3.0, 3.0, 2.0], pos: { x: 0, y: 1.5, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      // Fan Cylinders
+      { type: 'cylinder', params: [0.8, 0.8, 0.4, 32], pos: { x: 0.7, y: 3.1, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'MOTOR_BLACK' },
+      { type: 'cylinder', params: [0.8, 0.8, 0.4, 32], pos: { x: -0.7, y: 3.1, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'MOTOR_BLACK' },
+      // Access Door
+      { type: 'box', params: [0.1, 1.5, 0.8], pos: { x: 1.5, y: 1.0, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' }
+    ],
+    connections: [
+      { id: 'gas_in', type: 'in', pos: { x: 0, y: 2.5, z: 1.0 }, dir: { x: 0, y: 0, z: 1 }, dn: 100 },
+      { id: 'liq_out', type: 'out', pos: { x: 0, y: 0.5, z: 1.0 }, dir: { x: 0, y: 0, z: 1 }, dn: 80 }
+    ]
+  },
+  {
+    id: 'BIM_EVAP_UNIT',
+    name: 'Industrial Air Cooler',
+    category: 'Evaporators',
+    primitives: [
+      // Coil Housing
+      { type: 'box', params: [2.5, 1.2, 1.0], pos: { x: 0, y: 0.6, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'INSULATION_JACKET' },
+      // Fans
+      { type: 'cylinder', params: [0.4, 0.4, 0.2, 32], pos: { x: 0.8, y: 0.6, z: 0.6 }, rot: { x: Math.PI/2, y: 0, z: 0 }, mat: 'MOTOR_BLACK' },
+      { type: 'cylinder', params: [0.4, 0.4, 0.2, 32], pos: { x: -0.8, y: 0.6, z: 0.6 }, rot: { x: Math.PI/2, y: 0, z: 0 }, mat: 'MOTOR_BLACK' },
+      // Drip Tray
+      { type: 'box', params: [2.7, 0.1, 1.2], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' }
+    ],
+    connections: [
+      { id: 'liq_in', type: 'in', pos: { x: -1.3, y: 0.6, z: 0 }, dir: { x: -1, y: 0, z: 0 }, dn: 40 },
+      { id: 'suc_out', type: 'out', pos: { x: 1.3, y: 0.6, z: 0 }, dir: { x: 1, y: 0, z: 0 }, dn: 80 }
+    ]
+  },
+  {
+    id: 'BIM_PUMP_CENTRIFUGAL',
+    name: 'Ammonia Centrifugal Pump',
+    category: 'Pumps',
+    primitives: [
+      { type: 'cylinder', params: [0.58, 0.58, 0.55, 32], pos: { x: -0.35, y: 0.58, z: 0 }, rot: { x: Math.PI / 2, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.34, 0.34, 1.3, 32], pos: { x: 0.7, y: 0.58, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'MOTOR_BLUE' },
+      { type: 'box', params: [2.4, 0.18, 1.15], pos: { x: 0.25, y: 0.1, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'cylinder', params: [0.22, 0.22, 0.7, 20], pos: { x: -0.75, y: 0.95, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'torus', params: [0.24, 0.045, 12, 28], pos: { x: -0.9, y: 0.58, z: 0 }, rot: { x: 0, y: Math.PI / 2, z: 0 }, mat: 'SAFETY_YELLOW' }
+    ],
+    connections: [
+      { id: 'suction', type: 'in', pos: { x: -0.95, y: 0.58, z: 0 }, dir: { x: -1, y: 0, z: 0 }, dn: 65 },
+      { id: 'discharge', type: 'out', pos: { x: -0.35, y: 1.3, z: 0 }, dir: { x: 0, y: 1, z: 0 }, dn: 50 }
+    ]
+  },
+  {
+    id: 'BIM_COMP_RECIP',
+    name: 'Industrial Reciprocating Compressor',
+    category: 'Compressors',
+    primitives: [
+      { type: 'box', params: [3.2, 0.24, 1.35], pos: { x: 0, y: 0.12, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'box', params: [1.45, 0.95, 0.92], pos: { x: -0.55, y: 0.72, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' },
+      { type: 'cylinder', params: [0.31, 0.31, 1.35, 20], pos: { x: 1.08, y: 0.58, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'MOTOR_BLACK' },
+      { type: 'cylinder', params: [0.18, 0.18, 0.58, 16], pos: { x: -1.13, y: 1.26, z: -0.29 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.18, 0.18, 0.58, 16], pos: { x: -0.48, y: 1.26, z: -0.29 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.18, 0.18, 0.58, 16], pos: { x: 0.17, y: 1.26, z: -0.29 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.18, 0.18, 0.58, 16], pos: { x: -1.13, y: 1.26, z: 0.29 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.18, 0.18, 0.58, 16], pos: { x: -0.48, y: 1.26, z: 0.29 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.18, 0.18, 0.58, 16], pos: { x: 0.17, y: 1.26, z: 0.29 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' }
+    ],
+    connections: [
+      { id: 'suction', type: 'suction', dn: 125, pos: { x: -1.72, y: 0.82, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'discharge', type: 'discharge', dn: 80, pos: { x: -0.35, y: 1.72, z: 0 }, dir: { x: 0, y: 1, z: 0 } }
+    ]
+  },
+  {
+    id: 'BIM_VESSEL_VERTICAL',
+    name: 'Vertical Ammonia Accumulator',
+    category: 'Vessels',
+    primitives: [
+      { type: 'cylinder', params: [0.75, 0.75, 3.9, 32], pos: { x: 0, y: 2.15, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'sphere', params: [0.75, 28, 20], pos: { x: 0, y: 4.1, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'sphere', params: [0.75, 28, 20], pos: { x: 0, y: 0.2, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'box', params: [1.55, 0.18, 1.55], pos: { x: 0, y: 0.05, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'box', params: [0.18, 0.75, 0.18], pos: { x: -0.48, y: 0.42, z: -0.48 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'box', params: [0.18, 0.75, 0.18], pos: { x: 0.48, y: 0.42, z: 0.48 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' }
+    ],
+    connections: [
+      { id: 'vapor-inlet', type: 'suction', dn: 125, pos: { x: -0.75, y: 3.1, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'liquid-outlet', type: 'liquid', dn: 80, pos: { x: 0, y: 0.3, z: 0 }, dir: { x: 0, y: -1, z: 0 } },
+      { id: 'relief', type: 'gas', dn: 25, pos: { x: 0, y: 4.85, z: 0 }, dir: { x: 0, y: 1, z: 0 } }
+    ]
+  },
+  {
+    id: 'BIM_VALVE_GLOBE',
+    name: 'Industrial Globe Isolation Valve',
+    category: 'Valves',
+    primitives: [
+      { type: 'cylinder', params: [0.23, 0.23, 0.85, 20], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'STAINLESS_STEEL' },
+      { type: 'sphere', params: [0.32, 20, 16], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' },
+      { type: 'cylinder', params: [0.07, 0.07, 0.48, 12], pos: { x: 0, y: 0.45, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'torus', params: [0.24, 0.045, 10, 24], pos: { x: 0, y: 0.72, z: 0 }, rot: { x: Math.PI / 2, y: 0, z: 0 }, mat: 'PAINTED_RED' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'liquid', dn: 50, pos: { x: -0.46, y: 0, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'outlet', type: 'liquid', dn: 50, pos: { x: 0.46, y: 0, z: 0 }, dir: { x: 1, y: 0, z: 0 } }
+    ]
+  },
+  {
+    id: 'BIM_VALVE_EXPANSION',
+    name: 'Thermostatic Expansion Valve',
+    category: 'Valves',
+    primitives: [
+      { type: 'cylinder', params: [0.18, 0.18, 0.72, 20], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'BRASS' },
+      { type: 'box', params: [0.42, 0.38, 0.42], pos: { x: 0, y: 0.16, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' },
+      { type: 'cylinder', params: [0.08, 0.08, 0.42, 12], pos: { x: 0, y: 0.52, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'liquid', dn: 32, pos: { x: -0.38, y: 0, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'outlet', type: 'liquid', dn: 25, pos: { x: 0.38, y: 0, z: 0 }, dir: { x: 1, y: 0, z: 0 } }
+    ]
+  },
+  {
+    id: 'BIM_VALVE_CHECK',
+    name: 'Swing Check Valve',
+    category: 'Valves',
+    primitives: [
+      { type: 'cylinder', params: [0.22, 0.22, 0.75, 20], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'STAINLESS_STEEL' },
+      { type: 'sphere', params: [0.28, 20, 16], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'liquid', dn: 50, pos: { x: -0.40, y: 0, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'outlet', type: 'liquid', dn: 50, pos: { x: 0.40, y: 0, z: 0 }, dir: { x: 1, y: 0, z: 0 } }
+    ]
+  },
+  {
+    id: 'BIM_STRAINER_Y',
+    name: 'Y Strainer',
+    category: 'Valves',
+    primitives: [
+      { type: 'cylinder', params: [0.19, 0.19, 0.72, 20], pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'STAINLESS_STEEL' },
+      { type: 'cylinder', params: [0.17, 0.17, 0.58, 20], pos: { x: 0.06, y: -0.26, z: 0 }, rot: { x: 0, y: 0, z: -0.65 }, mat: 'STAINLESS_STEEL' },
+      { type: 'torus', params: [0.16, 0.035, 10, 22], pos: { x: 0.20, y: -0.48, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'liquid', dn: 50, pos: { x: -0.39, y: 0, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'outlet', type: 'liquid', dn: 50, pos: { x: 0.39, y: 0, z: 0 }, dir: { x: 1, y: 0, z: 0 } }
+    ]
+  }
+];

@@ -94,6 +94,9 @@ class DesignOrchestrator {
                     rooms: preParsedData.rooms || [],
                     requirements: preParsedData.requirements || [],
                     designIntent: preParsedData.designIntent || {},
+                    capacity: Number(preParsedData.capacity) || Number(preParsedData.specifiedCoolingLoadKW) || null,
+                    specifiedCoolingLoadKW: Number(preParsedData.specifiedCoolingLoadKW) || null,
+                    operatingConditions: preParsedData.operatingConditions || {},
                     wallMaterial: preParsedData.wallMaterial,
                     parsedAt: new Date().toISOString()
                 };
@@ -302,8 +305,14 @@ class DesignOrchestrator {
 
     async _generateRecommendations(conversation, classification) {
         const info = conversation.parsedInfo;
-        let estimatedLoad = info.dimensions ? (info.dimensions.length || 10) * (info.dimensions.width || 10) * (info.dimensions.height || 3) * 2 : 100;
-        const temperature = info.temperature || -20;
+        const specifiedLoad = Number(info.specifiedCoolingLoadKW ?? info.capacity);
+        let estimatedLoad = Number.isFinite(specifiedLoad) && specifiedLoad > 0
+            ? specifiedLoad
+            : (info.dimensions ? (info.dimensions.length || 10) * (info.dimensions.width || 10) * (info.dimensions.height || 3) * 2 : 100);
+        const explicitEvaporatingTemperature = Number(info.operatingConditions?.evaporatingTemperatureC);
+        const temperature = Number.isFinite(explicitEvaporatingTemperature)
+            ? explicitEvaporatingTemperature
+            : (info.temperature || -20);
         const location = info.location || 'International';
 
         const matRec = this.materialRecommender.recommend({ temperature, location, roomDimensions: info.dimensions, applicationType: info.applicationType });

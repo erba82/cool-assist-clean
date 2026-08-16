@@ -1108,10 +1108,11 @@ const UnifiedChatPage: React.FC = () => {
 
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth"}); }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
-        const msg = input;
-        setInput('');
+    const handleSend = async (messageOverride?: any) => {
+        const rawMsg = messageOverride !== undefined ? messageOverride : input;
+        const msg = typeof rawMsg === 'string' ? rawMsg : String(rawMsg?.target?.value ?? rawMsg?.message ?? rawMsg?.text ?? '');
+        if (!msg.trim()) return;
+        if (!messageOverride) setInput('');
 
         const userMessage = { id: Date.now(), text: msg, sender: 'user' as const, type: 'text' as const, timestamp: Date.now() };
         setMessages(p => [...p, userMessage]);
@@ -1465,12 +1466,10 @@ const UnifiedChatPage: React.FC = () => {
                                 <RecommendationsCard
                                     data={m.recommendationsData}
                                     onConfirm={() => {
-                                        setInput('confirm');
-                                        setTimeout(() => handleSend(), 100);
+                                        void handleSend('confirm');
                                     }}
                                     onModify={(what: string) => {
-                                        setInput(`change ${what}`);
-                                        setTimeout(() => handleSend(), 100);
+                                        void handleSend(`change ${what}`);
                                     }}
                                 />
                             ) : m.type === 'info_request' ? (
@@ -1486,8 +1485,7 @@ const UnifiedChatPage: React.FC = () => {
                                     }))}
                                     recommendations={m.infoRequestData?.recommendations}
                                     onSubmitAnswer={(answer: string) => {
-                                        setInput(answer);
-                                        setTimeout(() => handleSend(), 100);
+                                        void handleSend(answer);
                                     }}
                                 />
                             ) : (

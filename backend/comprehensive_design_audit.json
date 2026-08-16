@@ -1,0 +1,504 @@
+﻿{
+  "topLevelKeys": [
+    "project",
+    "summary",
+    "pidData"
+  ],
+  "rootKeys": [
+    "equipment",
+    "pipes",
+    "valves",
+    "instruments",
+    "metadata",
+    "refrigerant",
+    "projectName"
+  ],
+  "metadata": {
+    "generator": "GFDDE Layout",
+    "ai_note": "Standard Generation",
+    "timestamp": "2026-08-16T05:36:00.946Z"
+  },
+  "refrigerant": "R717",
+  "projectName": "has two cold rooms: a 500 m2 chilled room at +2 C and a 300 m2 freezer at -20 C",
+  "nodeCount": 17,
+  "edgeCount": 20,
+  "nodes": [
+    {
+      "id": "node-1",
+      "tag": "SEP-01",
+      "label": "Oil Separator",
+      "componentType": "oil_separator",
+      "position": {
+        "x": 400,
+        "y": 300
+      },
+      "ports": null
+    },
+    {
+      "id": "node-2",
+      "tag": "COND-01",
+      "label": "CXV-200",
+      "componentType": "evaporative_condenser",
+      "position": {
+        "x": 340,
+        "y": 180
+      },
+      "ports": null
+    },
+    {
+      "id": "node-3",
+      "tag": "REC-HP-01",
+      "label": "HP Receiver",
+      "componentType": "horizontal_vessel",
+      "position": {
+        "x": 420,
+        "y": 300
+      },
+      "ports": null
+    },
+    {
+      "id": "node-4",
+      "tag": "PMP-01",
+      "label": "Liquid Pump",
+      "componentType": "centrifugal_pump",
+      "position": {
+        "x": 570,
+        "y": 300
+      },
+      "ports": null
+    },
+    {
+      "id": "node-5",
+      "tag": "HV-01",
+      "label": "Liquid Service",
+      "componentType": "globe_valve",
+      "position": {
+        "x": 720,
+        "y": 300
+      },
+      "ports": null
+    },
+    {
+      "id": "node-6",
+      "tag": "COMP-S-01",
+      "label": "HSN8571",
+      "componentType": "screw_compressor",
+      "position": {
+        "x": 180,
+        "y": 380
+      },
+      "ports": null
+    },
+    {
+      "id": "node-7",
+      "tag": "STR-01",
+      "label": "Y-Strainer",
+      "componentType": "strainer",
+      "position": {
+        "x": 80,
+        "y": 380
+      },
+      "ports": null
+    },
+    {
+      "id": "node-8",
+      "tag": "CV-01",
+      "label": "Check Valve",
+      "componentType": "check_valve",
+      "position": {
+        "x": 280,
+        "y": 330
+      },
+      "ports": null
+    },
+    {
+      "id": "node-9",
+      "tag": "COMP-S-02",
+      "label": "HSN8571",
+      "componentType": "screw_compressor",
+      "position": {
+        "x": 180,
+        "y": 500
+      },
+      "ports": null
+    },
+    {
+      "id": "node-10",
+      "tag": "STR-02",
+      "label": "Y-Strainer",
+      "componentType": "strainer",
+      "position": {
+        "x": 80,
+        "y": 500
+      },
+      "ports": null
+    },
+    {
+      "id": "node-11",
+      "tag": "CV-02",
+      "label": "Check Valve",
+      "componentType": "check_valve",
+      "position": {
+        "x": 280,
+        "y": 450
+      },
+      "ports": null
+    },
+    {
+      "id": "node-13",
+      "tag": "TEV-01",
+      "label": "TEV",
+      "componentType": "tev",
+      "position": {
+        "x": 180,
+        "y": 520
+      },
+      "ports": null
+    },
+    {
+      "id": "node-12",
+      "tag": "EVP-01",
+      "label": "DD-24-2",
+      "componentType": "evaporator",
+      "position": {
+        "x": 180,
+        "y": 620
+      },
+      "ports": null
+    },
+    {
+      "id": "node-14",
+      "tag": "SV-01",
+      "label": "Suction",
+      "componentType": "globe_valve",
+      "position": {
+        "x": 280,
+        "y": 720
+      },
+      "ports": null
+    },
+    {
+      "id": "node-16",
+      "tag": "TEV-02",
+      "label": "TEV",
+      "componentType": "tev",
+      "position": {
+        "x": 540,
+        "y": 520
+      },
+      "ports": null
+    },
+    {
+      "id": "node-15",
+      "tag": "EVP-02",
+      "label": "DJ-54-3",
+      "componentType": "evaporator",
+      "position": {
+        "x": 540,
+        "y": 620
+      },
+      "ports": null
+    },
+    {
+      "id": "node-17",
+      "tag": "SV-02",
+      "label": "Suction",
+      "componentType": "globe_valve",
+      "position": {
+        "x": 640,
+        "y": 720
+      },
+      "ports": null
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-str-comp-0",
+      "source": "node-7",
+      "sourceTag": "STR-01",
+      "target": "node-6",
+      "targetTag": "COMP-S-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1565c0",
+        "strokeWidth": 3
+      }
+    },
+    {
+      "id": "edge-comp-cv-0",
+      "source": "node-6",
+      "sourceTag": "COMP-S-01",
+      "target": "node-8",
+      "targetTag": "CV-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#c62828",
+        "strokeWidth": 4
+      }
+    },
+    {
+      "id": "edge-cv-sep-0",
+      "source": "node-8",
+      "sourceTag": "CV-01",
+      "target": "node-1",
+      "targetTag": "SEP-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#c62828",
+        "strokeWidth": 4
+      }
+    },
+    {
+      "id": "edge-str-comp-1",
+      "source": "node-10",
+      "sourceTag": "STR-02",
+      "target": "node-9",
+      "targetTag": "COMP-S-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1565c0",
+        "strokeWidth": 3
+      }
+    },
+    {
+      "id": "edge-comp-cv-1",
+      "source": "node-9",
+      "sourceTag": "COMP-S-02",
+      "target": "node-11",
+      "targetTag": "CV-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#c62828",
+        "strokeWidth": 4
+      }
+    },
+    {
+      "id": "edge-cv-sep-1",
+      "source": "node-11",
+      "sourceTag": "CV-02",
+      "target": "node-1",
+      "targetTag": "SEP-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#c62828",
+        "strokeWidth": 4
+      }
+    },
+    {
+      "id": "edge-liq-tev-0",
+      "source": "node-5",
+      "sourceTag": "HV-01",
+      "target": "node-13",
+      "targetTag": "TEV-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#43a047",
+        "strokeWidth": 2.5
+      }
+    },
+    {
+      "id": "edge-tev-evap-0",
+      "source": "node-13",
+      "sourceTag": "TEV-01",
+      "target": "node-12",
+      "targetTag": "EVP-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#66bb6a",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "edge-evap-sv-0",
+      "source": "node-12",
+      "sourceTag": "EVP-01",
+      "target": "node-14",
+      "targetTag": "SV-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1e88e5",
+        "strokeWidth": 2.5,
+        "strokeDasharray": "6,3"
+      }
+    },
+    {
+      "id": "edge-sv-str-0-0",
+      "source": "node-14",
+      "sourceTag": "SV-01",
+      "target": "node-7",
+      "targetTag": "STR-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1565c0",
+        "strokeWidth": 3.5,
+        "strokeDasharray": "8,4"
+      }
+    },
+    {
+      "id": "edge-sv-str-0-1",
+      "source": "node-14",
+      "sourceTag": "SV-01",
+      "target": "node-10",
+      "targetTag": "STR-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1565c0",
+        "strokeWidth": 3.5,
+        "strokeDasharray": "8,4"
+      }
+    },
+    {
+      "id": "edge-liq-tev-1",
+      "source": "node-5",
+      "sourceTag": "HV-01",
+      "target": "node-16",
+      "targetTag": "TEV-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#43a047",
+        "strokeWidth": 2.5
+      }
+    },
+    {
+      "id": "edge-tev-evap-1",
+      "source": "node-16",
+      "sourceTag": "TEV-02",
+      "target": "node-15",
+      "targetTag": "EVP-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#66bb6a",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "id": "edge-evap-sv-1",
+      "source": "node-15",
+      "sourceTag": "EVP-02",
+      "target": "node-17",
+      "targetTag": "SV-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1e88e5",
+        "strokeWidth": 2.5,
+        "strokeDasharray": "6,3"
+      }
+    },
+    {
+      "id": "edge-sv-str-1-0",
+      "source": "node-17",
+      "sourceTag": "SV-02",
+      "target": "node-7",
+      "targetTag": "STR-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1565c0",
+        "strokeWidth": 3.5,
+        "strokeDasharray": "8,4"
+      }
+    },
+    {
+      "id": "edge-sv-str-1-1",
+      "source": "node-17",
+      "sourceTag": "SV-02",
+      "target": "node-10",
+      "targetTag": "STR-02",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#1565c0",
+        "strokeWidth": 3.5,
+        "strokeDasharray": "8,4"
+      }
+    },
+    {
+      "id": "edge-sep-cond",
+      "source": "node-1",
+      "sourceTag": "SEP-01",
+      "target": "node-2",
+      "targetTag": "COND-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#c62828",
+        "strokeWidth": 4
+      }
+    },
+    {
+      "id": "edge-cond-rec",
+      "source": "node-2",
+      "sourceTag": "COND-01",
+      "target": "node-3",
+      "targetTag": "REC-HP-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#2e7d32",
+        "strokeWidth": 3.5
+      }
+    },
+    {
+      "id": "edge-rec-pump",
+      "source": "node-3",
+      "sourceTag": "REC-HP-01",
+      "target": "node-4",
+      "targetTag": "PMP-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#2e7d32",
+        "strokeWidth": 3.5
+      }
+    },
+    {
+      "id": "edge-pump-val",
+      "source": "node-4",
+      "sourceTag": "PMP-01",
+      "target": "node-5",
+      "targetTag": "HV-01",
+      "service": "",
+      "dn": "",
+      "size": "",
+      "style": {
+        "stroke": "#388e3c",
+        "strokeWidth": 3
+      }
+    }
+  ],
+  "calculations": null,
+  "equipmentSchedule": null
+}

@@ -118,5 +118,20 @@
     "isLearned": false,
     "feedbackScore": 0,
     "usageCount": 1
+  },
+  {
+    "id": "1786910118035",
+    "timestamp": "2026-08-16T19:55:18.035Z",
+    "userId": "user-session-1",
+    "query": "can you help me?",
+    "response": "Of course! I'd be happy to help. What do you need assistance with? Let me know the details, and I'll do my best to assist you. 😊",
+    "context": {
+      "sessionId": "user-session-1",
+      "language": "en",
+      "context": "general_chat"
+    },
+    "isLearned": false,
+    "feedbackScore": 0,
+    "usageCount": 1
   }
 ]

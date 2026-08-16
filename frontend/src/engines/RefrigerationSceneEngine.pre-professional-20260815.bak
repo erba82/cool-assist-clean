@@ -1,0 +1,394 @@
+import { BIM_LIBRARY, BimConnection } from './GfDdeBimLibrary';
+
+export type Vec3 = [number, number, number];
+export type LineService = 'suction' | 'discharge' | 'hotGas' | 'liquid' | 'oil' | 'defrost' | 'water' | 'default';
+
+export interface ScenePort {
+  id: string;
+  service: LineService;
+  dn: number;
+  position: Vec3;
+  direction: Vec3;
+}
+
+export interface SceneEquipment {
+  id: string;
+  kind: string;
+  position: Vec3;
+  rotation?: number;
+  params: {
+    proId: string;
+    tag: string;
+    label: string;
+    componentType: string;
+    roomId: string;
+    manufacturer?: string;
+    model?: string;
+    details?: any;
+  };
+  ports: ScenePort[];
+}
+
+export interface SceneValve {
+  id: string;
+  kind: string;
+  position: Vec3;
+  rotation: number;
+  service: LineService;
+  dn: number;
+  manufacturer: string;
+  tag: string;
+  sourceEdgeId?: string;
+}
+
+export interface SceneSupport {
+  id: string;
+  kind: 'floor' | 'trapeze' | 'hanger';
+  position: Vec3;
+  pipeId: string;
+  height: number;
+}
+
+export interface SceneRoom {
+  id: string;
+  name: string;
+  center: Vec3;
+  width: number;
+  depth: number;
+  height: number;
+  type: 'machine-room' | 'cold-room' | 'service-area' | 'unknown';
+}
+
+export interface SceneGraph {
+  room: { width: number; depth: number; height: number };
+  rooms: SceneRoom[];
+  equipment: SceneEquipment[];
+  pipes: Array<{
+    id: string;
+    type: LineService;
+    radius: number;
+    dn: number;
+    service: LineService;
+    waypoints: Vec3[];
+    sourceEquipmentId: string;
+    targetEquipmentId: string;
+    sourcePortId: string;
+    targetPortId: string;
+    flowDirection: 'forward' | 'reverse';
+    edgeLabel?: string;
+  }>;
+  valves: SceneValve[];
+  supports: SceneSupport[];
+  meta: {
+    refrigerant: string;
+    cycle: string;
+    colors: Record<string, string>;
+    capacity: number;
+    source: string;
+    manufacturer: string;
+    topologyValid: boolean;
+  };
+}
+
+const COLORS: Record<string, string> = {
+  suction: '#1e88e5',
+  discharge: '#c62828',
+  hotGas: '#e67e22',
+  liquid: '#16a085',
+  oil: '#6d4c41',
+  defrost: '#8e24aa',
+  water: '#00838f',
+  default: '#95a5a6',
+};
+
+const TIER_HEIGHT: Record<LineService, number> = {
+  discharge: 4.7,
+  hotGas: 4.5,
+  suction: 4.0,
+  liquid: 3.35,
+  oil: 2.8,
+  defrost: 3.0,
+  water: 3.1,
+  default: 3.5,
+};
+
+const DEFAULT_DN: Record<LineService, number> = {
+  discharge: 100,
+  hotGas: 100,
+  suction: 150,
+  liquid: 50,
+  oil: 25,
+  defrost: 32,
+  water: 50,
+  default: 50,
+};
+
+const SCALE = 0.075;
+const DEFAULT_MANUFACTURER = 'Danfoss Industrial Refrigeration';
+
+const normalizeDiagram = (data: any): any => {
+  if (data?.nodes && Array.isArray(data.nodes)) return data;
+  if (data?.diagram?.nodes && Array.isArray(data.diagram.nodes)) return data.diagram;
+  if (data?.pidData?.nodes && Array.isArray(data.pidData.nodes)) return data.pidData;
+  if (data?.pidData2D?.nodes && Array.isArray(data.pidData2D.nodes)) return data.pidData2D;
+  return null;
+};
+
+const words = (...values: any[]) => values.filter(Boolean).join(' ').toLowerCase();
+
+const lineService = (edge: any, source?: any, target?: any): LineService => {
+  const text = words(
+    edge?.service, edge?.lineService, edge?.label, edge?.data?.service,
+    edge?.data?.lineService, edge?.data?.medium, edge?.data?.type,
+    source?.data?.lineService, target?.data?.lineService
+  );
+  const stroke = edge?.style?.stroke || edge?.data?.style?.stroke || '';
+  if (/suction|vapou?r|low.?pressure/.test(text) || stroke === '#1e88e5') return 'suction';
+  if (/hot.?gas|defrost/.test(text) || stroke === '#f1c40f') return 'hotGas';
+  if (/discharge|high.?pressure/.test(text) || stroke === '#c62828') return 'discharge';
+  if (/oil/.test(text)) return 'oil';
+  if (/water|glycol|brine/.test(text)) return 'water';
+  if (/defrost/.test(text)) return 'defrost';
+  if (/liquid|feed|receiver|condensate/.test(text) || stroke === '#16a085') return 'liquid';
+  return 'default';
+};
+
+const familyForNode = (node: any): string | null => {
+  const type = words(node?.data?.componentType, node?.data?.subtype, node?.data?.model, node?.data?.label, node?.type);
+  if (/recip|piston/.test(type)) return 'BIM_COMP_RECIP';
+  if (/compressor|screw/.test(type)) return 'BIM_COMP_SCREW';
+  if (/evaporative.?condenser|condenser/.test(type)) return 'BIM_CONDENSER_EVAP';
+  if (/unit.?cooler|air.?cooler|evaporator/.test(type)) return 'BIM_EVAP_UNIT';
+  if (/vertical.*(vessel|receiver|separator)|accumulator/.test(type)) return 'BIM_VESSEL_VERTICAL';
+  if (/vessel|receiver|separator|oil.?separator/.test(type)) return 'BIM_VESSEL_HORIZ';
+  if (/pump|circulator/.test(type)) return 'BIM_PUMP_CENTRIFUGAL';
+  if (/expansion|tev|txv/.test(type)) return 'BIM_VALVE_EXPANSION';
+  if (/check.?valve/.test(type)) return 'BIM_VALVE_CHECK';
+  if (/valve|solenoid|globe|shut.?off/.test(type)) return 'BIM_VALVE_GLOBE';
+  if (/strainer/.test(type)) return 'BIM_STRAINER_Y';
+  return null;
+};
+
+const nodeWorldPosition = (node: any, index: number): Vec3 => {
+  const x = Number(node?.position?.x ?? node?.data?.x ?? index * 120);
+  const z = Number(node?.position?.y ?? node?.data?.y ?? 0);
+  return [x * SCALE, 0, z * SCALE];
+};
+
+const nodeRotation = (node: any): number => {
+  const raw = Number(node?.rotation ?? node?.data?.rotation ?? 0);
+  return Math.abs(raw) > Math.PI * 2 ? raw * Math.PI / 180 : raw;
+};
+
+const rotateY = (point: Vec3, yaw: number): Vec3 => {
+  const [x, y, z] = point;
+  return [x * Math.cos(yaw) - z * Math.sin(yaw), y, x * Math.sin(yaw) + z * Math.cos(yaw)];
+};
+
+const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const scale = (v: Vec3, factor: number): Vec3 => [v[0] * factor, v[1] * factor, v[2] * factor];
+const samePoint = (a: Vec3, b: Vec3) => Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01 && Math.abs(a[2] - b[2]) < 0.01;
+
+const portsFor = (familyId: string, position: Vec3, rotation: number): ScenePort[] => {
+  const def = BIM_LIBRARY.find(item => item.id === familyId);
+  if (!def) return [];
+  return def.connections.map((connection: BimConnection) => {
+    const local: Vec3 = [connection.pos.x, connection.pos.y, connection.pos.z];
+    const localDir: Vec3 = [connection.dir.x, connection.dir.y, connection.dir.z];
+    return {
+      id: connection.id,
+      service: (connection.type === 'gas' ? 'hotGas' : connection.type) as LineService,
+      dn: connection.dn,
+      position: add(position, rotateY(local, rotation)),
+      direction: rotateY(localDir, rotation),
+    };
+  });
+};
+
+const portMatchScore = (port: ScenePort, service: LineService, requested: any): number => {
+  const request = String(requested || '').toLowerCase();
+  let score = 0;
+  if (request && (port.id.toLowerCase() === request || port.id.toLowerCase().includes(request))) score += 100;
+  if (port.service === service) score += 20;
+  if (service === 'hotGas' && (port.service === 'discharge' || /discharge|hot/.test(port.id))) score += 18;
+  if (service === 'discharge' && (port.service === 'hotGas' || /discharge|hot/.test(port.id))) score += 18;
+  if (service === 'liquid' && /liquid|inlet|outlet|feed/.test(port.id)) score += 8;
+  return score;
+};
+
+const selectPort = (equipment: SceneEquipment, service: LineService, requested: any): ScenePort => {
+  const sorted = [...equipment.ports].sort((a, b) => portMatchScore(b, service, requested) - portMatchScore(a, service, requested));
+  return sorted[0] || {
+    id: 'center', service, dn: DEFAULT_DN[service], position: [equipment.position[0], 1.2, equipment.position[2]], direction: [0, 1, 0],
+  };
+};
+
+const pipeRadius = (dn: number): number => Math.max(0.032, Math.min(0.20, dn / 1200));
+
+const routePipe = (start: ScenePort, end: ScenePort, service: LineService): Vec3[] => {
+  const tier = Math.max(TIER_HEIGHT[service], start.position[1] + 0.55, end.position[1] + 0.55);
+  const startLead = add(start.position, scale(start.direction, 0.35));
+  const endLead = add(end.position, scale(end.direction, 0.35));
+  const route: Vec3[] = [
+    start.position,
+    startLead,
+    [startLead[0], tier, startLead[2]],
+    [endLead[0], tier, startLead[2]],
+    [endLead[0], tier, endLead[2]],
+    endLead,
+    end.position,
+  ];
+  return route.filter((point, index, all) => index === 0 || !samePoint(point, all[index - 1]));
+};
+
+const supportPoints = (pipeId: string, waypoints: Vec3[]): SceneSupport[] => {
+  const supports: SceneSupport[] = [];
+  for (let i = 2; i < waypoints.length - 2; i += 1) {
+    const point = waypoints[i];
+    supports.push({
+      id: `${pipeId}-support-${i}`,
+      kind: point[1] >= 3.5 ? 'trapeze' : 'floor',
+      position: [point[0], 0, point[2]],
+      pipeId,
+      height: point[1],
+    });
+  }
+  return supports;
+};
+
+const resolveRoomId = (node: any) => String(node?.data?.roomId || node?.data?.zoneId || node?.parentId || node?.data?.area || 'machine-room');
+
+const deriveRooms = (equipment: SceneEquipment[], rawRooms: any[]): SceneRoom[] => {
+  const explicit = (rawRooms || []).map((room: any, index: number): SceneRoom => ({
+    id: String(room.id || room.name || `room-${index + 1}`),
+    name: room.name || room.label || `Room ${index + 1}`,
+    center: [Number(room.x || room.position?.x || 0) * SCALE, 0, Number(room.y || room.position?.y || 0) * SCALE],
+    width: Math.max(8, Number(room.width || 160) * SCALE),
+    depth: Math.max(8, Number(room.height || room.depth || 120) * SCALE),
+    height: Number(room.ceilingHeight || room.height3D || 6),
+    type: /cold|evap|hall/i.test(room.type || room.name || '') ? 'cold-room' : 'machine-room',
+  }));
+  if (explicit.length) return explicit;
+
+  const groups = new Map<string, SceneEquipment[]>();
+  equipment.forEach(item => groups.set(item.params.roomId, [...(groups.get(item.params.roomId) || []), item]));
+  return [...groups.entries()].map(([id, items]): SceneRoom => {
+    const xs = items.map(item => item.position[0]);
+    const zs = items.map(item => item.position[2]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
+    return {
+      id,
+      name: id === 'machine-room' ? 'Central Machine Room' : id,
+      center: [(minX + maxX) / 2, 0, (minZ + maxZ) / 2],
+      width: Math.max(10, maxX - minX + 8),
+      depth: Math.max(10, maxZ - minZ + 8),
+      height: id === 'machine-room' ? 6 : 5,
+      type: /cold|hall|room/i.test(id) && id !== 'machine-room' ? 'cold-room' : 'machine-room',
+    };
+  });
+};
+
+const valvesFromNodes = (nodes: any[], equipmentById: Map<string, SceneEquipment>, manufacturer: string): SceneValve[] => nodes
+  .filter(node => /valve|tev|txv|strainer|check/.test(words(node?.data?.componentType, node?.data?.label)))
+  .map((node, index) => {
+    const instance = equipmentById.get(node.id);
+    const service = lineService({ data: node.data });
+    return {
+      id: node.id || `valve-${index + 1}`,
+      kind: node.data?.componentType || 'globe_valve',
+      position: instance?.position || nodeWorldPosition(node, index),
+      rotation: instance?.rotation || nodeRotation(node),
+      service,
+      dn: Number(node.data?.dn || node.data?.size || DEFAULT_DN[service]),
+      manufacturer: node.data?.manufacturer || manufacturer,
+      tag: node.data?.tag || node.data?.label || `V-${index + 1}`,
+    };
+  });
+
+export const buildSceneGraph = (data: any): SceneGraph => {
+  const diagram = normalizeDiagram(data);
+  const refrigerant = String(data?.systemParams?.refrigerant || data?.project?.refrigerant || data?.metadata?.refrigerant || diagram?.metadata?.refrigerant || 'R717').replace('-', '');
+  const manufacturer = data?.specification?.valveManufacturer || data?.metadata?.valveManufacturer || DEFAULT_MANUFACTURER;
+  const nodes = diagram?.nodes || [];
+  const edges = diagram?.edges || [];
+  const equipment: SceneEquipment[] = [];
+  const equipmentById = new Map<string, SceneEquipment>();
+
+  nodes.forEach((node: any, index: number) => {
+    const family = familyForNode(node);
+    if (!family) return;
+    const position = nodeWorldPosition(node, index);
+    const rotation = nodeRotation(node);
+    const item: SceneEquipment = {
+      id: String(node.id || `equipment-${index + 1}`),
+      kind: String(node.data?.componentType || node.type || 'equipment'),
+      position,
+      rotation,
+      params: {
+        proId: family,
+        tag: String(node.data?.tag || node.id || `EQ-${index + 1}`),
+        label: String(node.data?.label || node.data?.componentType || family),
+        componentType: String(node.data?.componentType || node.type || 'equipment'),
+        roomId: resolveRoomId(node),
+        manufacturer: node.data?.manufacturer,
+        model: node.data?.model,
+        details: node.data?.details,
+      },
+      ports: portsFor(family, position, rotation),
+    };
+    equipment.push(item);
+    equipmentById.set(item.id, item);
+  });
+
+  const pipes: SceneGraph['pipes'] = [];
+  const supports: SceneSupport[] = [];
+  edges.forEach((edge: any, index: number) => {
+    const source = equipmentById.get(String(edge.source));
+    const target = equipmentById.get(String(edge.target));
+    if (!source || !target) return;
+    const service = lineService(edge, source, target);
+    const sourcePort = selectPort(source, service, edge.sourcePort || edge.data?.sourcePort || edge.data?.fromPort);
+    const targetPort = selectPort(target, service, edge.targetPort || edge.data?.targetPort || edge.data?.toPort);
+    const dn = Number(edge.data?.dn || edge.data?.nominalDiameter || edge.dn || Math.max(sourcePort.dn, targetPort.dn, DEFAULT_DN[service]));
+    const id = String(edge.id || `line-${index + 1}`);
+    const waypoints = routePipe(sourcePort, targetPort, service);
+    const line = {
+      id,
+      type: service,
+      radius: pipeRadius(dn),
+      dn,
+      service,
+      waypoints,
+      sourceEquipmentId: source.id,
+      targetEquipmentId: target.id,
+      sourcePortId: sourcePort.id,
+      targetPortId: targetPort.id,
+      flowDirection: 'forward' as const,
+      edgeLabel: edge.label || edge.data?.label,
+    };
+    pipes.push(line);
+    supports.push(...supportPoints(id, waypoints));
+  });
+
+  const rooms = deriveRooms(equipment, data?.rooms || data?.layout?.rooms || diagram?.rooms || []);
+  const width = rooms.length ? Math.max(...rooms.map(room => room.width + Math.abs(room.center[0]) * 2)) : 20;
+  const depth = rooms.length ? Math.max(...rooms.map(room => room.depth + Math.abs(room.center[2]) * 2)) : 20;
+
+  return {
+    room: { width: Math.max(14, width), depth: Math.max(14, depth), height: Math.max(6, ...rooms.map(room => room.height)) },
+    rooms,
+    equipment,
+    pipes,
+    valves: valvesFromNodes(nodes, equipmentById, manufacturer),
+    supports,
+    meta: {
+      refrigerant,
+      cycle: data?.systemParams?.cycle || data?.cycle || diagram?.metadata?.cycle || 'DESIGN_SPECIFIC',
+      colors: COLORS,
+      capacity: Number(data?.summary?.totalCoolingLoad || data?.capacity || 0),
+      source: diagram ? 'PID_TO_BIM_TOPOLOGY' : 'NO_PID_DATA',
+      manufacturer,
+      topologyValid: Boolean(diagram && equipment.length && pipes.length),
+    },
+  };
+};

@@ -1,0 +1,47 @@
+⚠️  No Gemini API key - AI features disabled
+⚠️ GEMINI_API_KEY not found - attempting to use Ollama as fallback
+⚠️ GEMINI_API_KEY not found - attempting to use Ollama as fallback
+Compliance Validation Error: TypeError: Cannot read properties of undefined (reading 'refrigerant')
+    at ASHRAEValidator.validateStandard15 (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\services\standards\ASHRAEValidator.js:22:36)
+    at C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\routes\ammoniaDesign.js:66:42
+    at Layer.handle [as handle_request] (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\layer.js:95:5)
+    at C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:280:10)
+    at Function.handle (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:175:3)
+Compliance Validation Error: TypeError: Cannot read properties of undefined (reading 'refrigerant')
+    at ASHRAEValidator.validateStandard15 (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\services\standards\ASHRAEValidator.js:22:36)
+    at C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\routes\ammoniaDesign.js:66:42
+    at Layer.handle [as handle_request] (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\layer.js:95:5)
+    at C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:280:10)
+    at Function.handle (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\express\lib\router\index.js:175:3)
+SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at parse (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\body-parser\lib\types\json.js:92:19)
+    at C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\body-parser\lib\read.js:128:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at invokeCallback (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\raw-body\index.js:238:16)
+    at done (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:524:28)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at parse (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\body-parser\lib\types\json.js:92:19)
+    at C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\body-parser\lib\read.js:128:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at invokeCallback (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\raw-body\index.js:238:16)
+    at done (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (C:\Users\Erfan\cool-assist-final\cool-assist-clean\backend\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:524:28)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)

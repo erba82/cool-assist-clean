@@ -141,7 +141,7 @@ class RefrigerationEngine extends EventEmitter {
             results.calculations.loads = await this._calculateLoads(project);
 
             // Step 4: Group by temperature levels
-            results.calculations.temperatureLevels = this._groupByTemperature(results.calculations.loads);
+            results.calculations.temperatureLevels = this._groupByTemperature(results.calculations.loads, project);
 
             // Step 5: Select evaporators
             results.calculations.evaporators = await this._selectEvaporators(
@@ -273,11 +273,14 @@ class RefrigerationEngine extends EventEmitter {
         return roomLoads;
     }
 
-    _groupByTemperature(loads) {
+    _groupByTemperature(loads, project) {
         const groups = {};
 
         for (const load of loads) {
-            const evapTemp = this._getEvaporatingTemp(load.room.temperature);
+            const explicitEvapTemp = Number(project?.operatingConditions?.evaporatingTemperatureC);
+            const evapTemp = Number.isFinite(explicitEvapTemp)
+                ? explicitEvapTemp
+                : this._getEvaporatingTemp(load.room.temperature);
             const key = `T${evapTemp}`;
 
             if (!groups[key]) {

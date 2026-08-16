@@ -87,9 +87,10 @@ class CondenserSelector {
         const selection = this._selectModel(designCapacity, type);
 
         // Calculate condensing temperature
-        const condensingTemp = type === 'evaporative' ?
-            wetBulb + selection.approach :
-            dryBulb + selection.approach;
+        const specifiedCondensingTemp = Number(project?.operatingConditions?.condensingTemperatureC);
+        const condensingTemp = Number.isFinite(specifiedCondensingTemp)
+            ? specifiedCondensingTemp
+            : (type === 'evaporative' ? wetBulb + selection.approach : dryBulb + selection.approach);
 
         return {
             type: type,

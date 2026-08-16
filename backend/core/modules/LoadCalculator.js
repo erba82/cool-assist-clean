@@ -73,7 +73,9 @@ class LoadCalculator {
             product: room.product || null,
             insulation: room.insulation || null,
             door: room.door || null,
-            doorProtection: room.doorProtection || 0.7 // Strip curtain default
+            doorProtection: room.doorProtection || 0.7, // Strip curtain default
+            specifiedCoolingLoadKW: Number(room.specifiedCoolingLoadKW ?? project.specifiedCoolingLoadKW) || null,
+            designLoadBasis: room.designLoadBasis || null
         };
 
         const results = {
@@ -111,6 +113,16 @@ class LoadCalculator {
 
         // Round to 2 decimal places
         results.total = Math.round(results.total * 100) / 100;
+        if (Number.isFinite(safeRoom.specifiedCoolingLoadKW) && safeRoom.specifiedCoolingLoadKW > 0) {
+            results.calculatedThermalLoad = results.total;
+            results.total = safeRoom.specifiedCoolingLoadKW;
+            results.designLoad = {
+                basis: safeRoom.designLoadBasis || 'user-specified',
+                specifiedCoolingLoadKW: safeRoom.specifiedCoolingLoadKW,
+                calculatedThermalLoadKW: results.calculatedThermalLoad,
+                note: 'User-specified design cooling load governs equipment sizing; component heat-load calculation is retained for engineering review.'
+            };
+        }
         results.totalTR = Math.round((results.total / 3.517) * 100) / 100;
 
         return results;

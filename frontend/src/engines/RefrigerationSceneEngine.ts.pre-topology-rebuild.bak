@@ -1,0 +1,116 @@
+
+export interface SceneGraph {
+  room: { width: number; depth: number; height: number };
+  equipment: Array<{
+    id: string;
+    kind: string;
+    position: [number, number, number];
+    rotation?: number;
+    params: any;
+  }>;
+  pipes: Array<{
+    id: string;
+    type: string;
+    radius: number;
+    waypoints: Array<[number, number, number]>;
+  }>;
+  meta: {
+    refrigerant: string;
+    cycle: string;
+    colors: Record<string, string>;
+    capacity: number;
+    source: string;
+  };
+}
+
+export const buildSceneGraph = (data: any): SceneGraph => {
+  const colors: Record<string, string> = {
+    suction: '#3498db',
+    discharge: '#e74c3c',
+    liquid: '#2ecc71',
+    hotGas: '#f1c40f',
+    oil: '#34495e',
+    default: '#95a5a6'
+  };
+
+  const equipment: any[] = [];
+  const pipes: any[] = [];
+  const diagram = data?.nodes ? data : (data?.diagram?.nodes ? data.diagram : (data?.pidData?.nodes ? data.pidData : null));
+
+  // Scale factor to convert 2D canvas coordinates to 3D world space
+  const scale = 0.05; 
+
+  if (diagram && diagram.nodes && Array.isArray(diagram.nodes)) {
+    // Map nodes to high-fidelity BIM equipment
+    diagram.nodes.forEach((node: any) => {
+      const type = node.data?.componentType || '';
+      let proId = '';
+      
+      if (type.includes('compressor')) proId = 'BIM_COMP_SCREW';
+      else if (type === 'evaporative_condenser') proId = 'BIM_CONDENSER_EVAP';
+      else if (type === 'evaporator') proId = 'BIM_EVAP_UNIT';
+      else if (/vessel|receiver|separator|oil_separator/.test(type)) proId = 'BIM_VESSEL_HORIZ';
+      else if (/pump|circulator/.test(type)) proId = 'BIM_PUMP_CENTRIFUGAL';
+      
+      if (proId) {
+        equipment.push({
+          id: node.id,
+          kind: type,
+          // Convert 2D (x, y) to 3D (x, 0, z)
+          position: [node.position.x * scale, 0, node.position.y * scale],
+          rotation: 0,
+          params: { proId, tag: node.data.tag, label: node.data.label }
+        });
+      }
+    });
+
+    // Map edges to 3D Orthogonal Piping
+    if (diagram.edges && Array.isArray(diagram.edges)) {
+      diagram.edges.forEach((edge: any) => {
+        const sourceNode = diagram.nodes.find((n: any) => n.id === edge.source);
+        const targetNode = diagram.nodes.find((n: any) => n.id === edge.target);
+        
+        if (sourceNode && targetNode) {
+          const fluidType = edge.style?.stroke === '#c62828' ? 'hotGas' : (edge.style?.stroke === '#1e88e5' ? 'suction' : 'liquid');
+          
+          const sx = sourceNode.position.x * scale;
+          const sz = sourceNode.position.y * scale;
+          const tx = targetNode.position.x * scale;
+          const tz = targetNode.position.y * scale;
+          
+          // Elevation for piping (industrial standard)
+          const elevation = 2.5; 
+          
+          // Industrial Routing Logic: Up -> Over -> Down
+          const waypoints: Array<[number, number, number]> = [
+            [sx, 1.2, sz],       // Start at nozzle height
+            [sx, elevation, sz], // Up to pipe rack
+            [sx, elevation, tz], // Move along X-Z plane
+            [tx, elevation, tz], // Reach target X-Z
+            [tx, 1.2, tz]        // Down to target nozzle
+          ];
+          
+          pipes.push({
+            id: edge.id,
+            type: fluidType,
+            radius: fluidType === 'suction' ? 0.12 : 0.08, // DN150 vs DN100
+            waypoints
+          });
+        }
+      });
+    }
+  }
+
+  return {
+    room: { width: 200, depth: 200, height: 20 },
+    equipment,
+    pipes,
+    meta: {
+      refrigerant: (diagram || data)?.metadata?.refrigerant || 'R717',
+      cycle: 'GFDDE_BIM_PRO',
+      colors,
+      capacity: 0,
+      source: diagram ? 'BIM_PRO_V6' : 'BIM_FALLBACK'
+    }
+  };
+};

@@ -73,11 +73,23 @@ class InputParser {
             rooms: this._extractRooms(userInput),
             requirements: this._extractRequirements(userInput),
             designIntent: this._extractDesignIntent(userInput),
+            specifiedCoolingLoadKW: this._extractCoolingLoadKW(userInput),
+            operatingConditions: this._extractOperatingConditions(userInput),
             parsedAt: new Date().toISOString()
         };
 
         // Validate and set defaults
         project.rooms = project.rooms.length > 0 ? project.rooms : this._getDefaultRoom();
+        if (Number.isFinite(project.specifiedCoolingLoadKW) && project.specifiedCoolingLoadKW > 0) {
+            project.capacity = project.specifiedCoolingLoadKW;
+            if (project.rooms.length === 1) {
+                project.rooms[0] = {
+                    ...project.rooms[0],
+                    specifiedCoolingLoadKW: project.specifiedCoolingLoadKW,
+                    designLoadBasis: 'user-specified'
+                };
+            }
+        }
         // project.refrigerant = project.refrigerant || 'R717'; // Let Orchestrator handle defaults/recommendations
 
         return project;
@@ -518,6 +530,26 @@ class InputParser {
         }];
     }
 
+    _extractCoolingLoadKW(input) {
+        const match = String(input || '').match(/(?:design\s*)?(?:cooling\s*)?load\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:kW|kw|kilowatts?)/i);
+        const value = match ? Number(match[1]) : null;
+        return Number.isFinite(value) && value > 0 ? value : null;
+    }
+    _extractOperatingConditions(input) {
+        const text = String(input || '');
+        const parseTemperature = (expression) => {
+            const match = text.match(expression);
+            const value = match ? Number(match[1]) : null;
+            return Number.isFinite(value) ? value : null;
+        };
+        const evaporatingTemperatureC = parseTemperature(/(?:evaporating|evaporation|evap)\s*(?:temperature|temp)?\s*[:=]?\s*([+-]?\d+(?:\.\d+)?)\s*(?:°\s*C|°C|C|degrees?\s*C)?/i);
+        const condensingTemperatureC = parseTemperature(/(?:condensing|condensation|cond)\s*(?:temperature|temp)?\s*[:=]?\s*([+-]?\d+(?:\.\d+)?)\s*(?:°\s*C|°C|C|degrees?\s*C)?/i);
+        return {
+            evaporatingTemperatureC,
+            condensingTemperatureC,
+            source: evaporatingTemperatureC !== null || condensingTemperatureC !== null ? 'user-specified' : null
+        };
+    }
     _extractRequirements(input) {
         const requirements = [];
 

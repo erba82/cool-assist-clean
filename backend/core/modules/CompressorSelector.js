@@ -328,6 +328,8 @@ class CompressorSelector {
     }
 
     _getCondensingTemp(project) {
+        const specified = Number(project?.operatingConditions?.condensingTemperatureC);
+        if (Number.isFinite(specified)) return specified;
         // Based on ambient and condenser type
         const ambientWB = project.climate?.summerWB || 24;
         const condenserType = project.condenserType || 'evaporative';

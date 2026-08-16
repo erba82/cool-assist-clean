@@ -1,0 +1,2987 @@
+{
+  "success": true,
+  "project": {
+    "name": "New Project",
+    "location": {
+      "city": "Tehran",
+      "country": "Iran"
+    },
+    "refrigerant": "R404A",
+    "roomCount": 1
+  },
+  "summary": {
+    "totalCoolingLoad": 100.24,
+    "totalCoolingLoadTR": 28.501563832812057,
+    "roomCount": 1,
+    "temperatureLevels": [
+      "T-28"
+    ],
+    "equipmentCount": 3,
+    "refrigerant": "R404A",
+    "totalCost": 0,
+    "currency": "USD"
+  },
+  "projectInfo": {
+    "name": "New Project",
+    "location": {
+      "city": "Tehran",
+      "country": "Iran"
+    },
+    "refrigerant": "R404A",
+    "rooms": [
+      {
+        "name": "Cold Storage",
+        "type": "storage",
+        "length": 20,
+        "width": 15,
+        "height": 6,
+        "temperature": -18
+      }
+    ]
+  },
+  "calculations": {
+    "loads": [
+      {
+        "room": {
+          "name": "Cold Storage",
+          "type": "storage",
+          "length": 20,
+          "width": 15,
+          "height": 6,
+          "temperature": -18
+        },
+        "roomName": "Cold Storage",
+        "dimensions": {
+          "length": 20,
+          "width": 15,
+          "height": 6,
+          "volume": 1800,
+          "floorArea": 300,
+          "wallArea": 420,
+          "ceilingArea": 300
+        },
+        "temperature": -18,
+        "ambientTemp": 35,
+        "transmission": {
+          "walls": 4.31,
+          "ceiling": 3.08,
+          "floor": 1.53,
+          "total": 8.91,
+          "parameters": {
+            "U_value": 0.193,
+            "deltaT": 53,
+            "insulationType": "polyurethane_40",
+            "insulationThickness": 120
+          }
+        },
+        "product": {
+          "sensible": 20.66,
+          "latent": 43.69,
+          "respiration": 0,
+          "total": 64.34,
+          "parameters": {
+            "productType": "beef",
+            "productMass": 16200,
+            "entryTemp": 25,
+            "exitTemp": -18,
+            "cycleTime": 24,
+            "calculationMethod": "storage_turnover_estimate"
+          }
+        },
+        "infiltration": {
+          "total": 17.03,
+          "parameters": {
+            "airChangesPerDay": 8.7,
+            "doorOpenTimeMinutes": 100,
+            "enthalpyDifference": 96.9,
+            "protectionFactor": 0.7
+          }
+        },
+        "internal": {
+          "people": 0.1,
+          "lighting": 0.75,
+          "equipment": 0,
+          "fans": 0,
+          "total": 0.85,
+          "parameters": {
+            "numPeople": 1,
+            "occupancyHours": 8,
+            "lightingPower": 5,
+            "equipmentPower": 0
+          }
+        },
+        "subtotal": 91.13,
+        "safetyFactor": 1.1,
+        "total": 100.24,
+        "totalTR": 28.5
+      }
+    ],
+    "temperatureLevels": {
+      "T-28": {
+        "evaporatingTemp": -28,
+        "rooms": [
+          {
+            "room": {
+              "name": "Cold Storage",
+              "type": "storage",
+              "length": 20,
+              "width": 15,
+              "height": 6,
+              "temperature": -18
+            },
+            "roomName": "Cold Storage",
+            "dimensions": {
+              "length": 20,
+              "width": 15,
+              "height": 6,
+              "volume": 1800,
+              "floorArea": 300,
+              "wallArea": 420,
+              "ceilingArea": 300
+            },
+            "temperature": -18,
+            "ambientTemp": 35,
+            "transmission": {
+              "walls": 4.31,
+              "ceiling": 3.08,
+              "floor": 1.53,
+              "total": 8.91,
+              "parameters": {
+                "U_value": 0.193,
+                "deltaT": 53,
+                "insulationType": "polyurethane_40",
+                "insulationThickness": 120
+              }
+            },
+            "product": {
+              "sensible": 20.66,
+              "latent": 43.69,
+              "respiration": 0,
+              "total": 64.34,
+              "parameters": {
+                "productType": "beef",
+                "productMass": 16200,
+                "entryTemp": 25,
+                "exitTemp": -18,
+                "cycleTime": 24,
+                "calculationMethod": "storage_turnover_estimate"
+              }
+            },
+            "infiltration": {
+              "total": 17.03,
+              "parameters": {
+                "airChangesPerDay": 8.7,
+                "doorOpenTimeMinutes": 100,
+                "enthalpyDifference": 96.9,
+                "protectionFactor": 0.7
+              }
+            },
+            "internal": {
+              "people": 0.1,
+              "lighting": 0.75,
+              "equipment": 0,
+              "fans": 0,
+              "total": 0.85,
+              "parameters": {
+                "numPeople": 1,
+                "occupancyHours": 8,
+                "lightingPower": 5,
+                "equipmentPower": 0
+              }
+            },
+            "subtotal": 91.13,
+            "safetyFactor": 1.1,
+            "total": 100.24,
+            "totalTR": 28.5
+          }
+        ],
+        "totalLoad": 100.24
+      }
+    },
+    "evaporators": [
+      {
+        "count": 2,
+        "model": "DJ-50-3",
+        "series": "DJ",
+        "capacityPerUnit": 50.12,
+        "totalCapacity": 100.24,
+        "fanCount": 3,
+        "fanDiameter": 630,
+        "airFlow": 4500,
+        "throwDistance": 25,
+        "defrostType": "electric",
+        "evaporatingTemp": -24,
+        "dt": 6,
+        "airChangesPerHour": 15,
+        "motorPower": 0.75,
+        "tag": "EVAP-COLD-STORAGE",
+        "technicalSpecs": {
+          "surfaceArea": 401,
+          "finSpacing": 9,
+          "finSpacingRange": "8-10 mm",
+          "finSpacingReason": "Moderate frost",
+          "tubeVolume": 75,
+          "connections": {
+            "inlet": "DN25",
+            "outlet": "DN50",
+            "drain": "DN40"
+          },
+          "dimensions": {
+            "length": 3900,
+            "width": 800,
+            "height": 800,
+            "weight": 601
+          }
+        },
+        "electrical": {
+          "fans": {
+            "voltage": "400V 3Ph 50Hz",
+            "power": "3 x 0.75 kW",
+            "current": "5 A"
+          },
+          "defrost": {
+            "type": "electric",
+            "power": 38,
+            "voltage": "400V 3Ph 50Hz"
+          }
+        },
+        "price": {
+          "perUnit": 15434,
+          "total": 30868,
+          "currency": "USD",
+          "breakdown": {
+            "equipment": 13890,
+            "controls": 1543
+          }
+        },
+        "currency": "USD",
+        "manufacturer": "LU-VE",
+        "parameters": {
+          "roomType": "storage",
+          "roomVolume": 1800,
+          "requiredThrow": 15,
+          "tdOptimization": {
+            "value": 6,
+            "min": 5,
+            "max": 8,
+            "recommended": 6,
+            "status": "OK",
+            "reason": "Balance humidity and efficiency",
+            "recommendation": null
+          }
+        }
+      }
+    ],
+    "separators": [
+      {
+        "type": "separator",
+        "evaporatingTemp": -28,
+        "volume": 100,
+        "dimensions": {
+          "diameter": 349,
+          "length": 1046,
+          "orientation": "vertical"
+        },
+        "designPressure": 40,
+        "testPressure": 60,
+        "material": "Carbon Steel",
+        "refrigerant": "R404A",
+        "liquidFlowRate": 0.077,
+        "pumps": {
+          "operating": 1,
+          "standby": 1,
+          "total": 2,
+          "flowPerPump": 0.4,
+          "head": 20,
+          "power": 0,
+          "type": "Hermetic_Ammonia",
+          "tag": "PUMP"
+        },
+        "connections": {
+          "liquidInlet": "DN50",
+          "liquidOutlet": "DN40",
+          "vaporOutlet": "DN50",
+          "vent": "DN25",
+          "drain": "DN25",
+          "levelGauge": "DN15",
+          "pressureGauge": "DN15"
+        },
+        "tag": "SEP-M28",
+        "manufacturer": "Fabricated"
+      }
+    ],
+    "compressors": [
+      {
+        "temperatureLevel": "T-28",
+        "configuration": {
+          "operating": 2,
+          "standby": 1,
+          "total": 3,
+          "isSwing": true,
+          "swingCapacity": "33%-100%",
+          "redundancy": "2+1"
+        },
+        "configDescription": "Direct compression",
+        "evaporatingTemp": -28,
+        "condensingTemp": 32,
+        "compressionRatio": 20.09,
+        "suctionPressure": 1.31,
+        "dischargePressure": 26.24,
+        "designLoad": 100.24,
+        "diversityFactor": 1,
+        "capacityPerUnit": 75,
+        "operatingUnits": 2,
+        "standbyUnits": 1,
+        "totalUnits": 3,
+        "manufacturer": "Bitzer",
+        "brand": "Bitzer",
+        "model": "8G",
+        "fullModel": "Bitzer 8G",
+        "series": "REC",
+        "type": "reciprocating",
+        "motorPower": 67.5,
+        "electricalPower": 40.1,
+        "electrical": {
+          "ratedPower": 67.5,
+          "totalPower": 40.1,
+          "voltage": "400V 3Ph 50Hz",
+          "current": 108,
+          "powerFactor": 0.85,
+          "startingMethod": "Soft Start / VFD"
+        },
+        "cop": 2.5,
+        "heatRejection": 140.34,
+        "massFlowRate": null,
+        "superheat": null,
+        "subcool": null,
+        "operatingPoint": {
+          "evapTemp": -28,
+          "condTemp": 32,
+          "capacity": 75,
+          "power": 30,
+          "cop": 2.5,
+          "volumetricEfficiency": 0.6,
+          "isentropicEfficiency": 0.7
+        },
+        "speed": 1450,
+        "oilCooling": "splash",
+        "economizer": false,
+        "refrigerant": "R404A",
+        "oilSeparator": {
+          "required": true,
+          "model": "SEP-100",
+          "efficiency": 99.9,
+          "volume": 15,
+          "pressureDrop": 0.2
+        },
+        "technicalSpecs": {
+          "displacement": "188 m³/h",
+          "oilCharge": "34 L",
+          "refrigerantCharge": "5 kg",
+          "weight": 1013,
+          "dimensions": {
+            "length": 1400,
+            "width": 600,
+            "height": 1000
+          },
+          "soundLevel": 88,
+          "vibrationClass": "Class B (ISO 10816)"
+        },
+        "service": {
+          "oilChange": "2000 hours",
+          "filterChange": "1000 hours",
+          "beltCheck": "500 hours",
+          "annualService": "Required",
+          "warranty": "24 months standard"
+        },
+        "compliance": {
+          "pressure": "EN 378",
+          "electrical": "IEC 60204-1",
+          "safety": "CE marked",
+          "refrigerant": "F-Gas compliant",
+          "efficiency": "ErP 2021 compliant"
+        },
+        "price": "Eco: $35,063 | Std: $41,250 | Prem: $55,688",
+        "pricingScenarios": [
+          {
+            "name": "Economical",
+            "description": "Standard Efficiency, Reciprocating/Screw, Basic Controls",
+            "price": 35063,
+            "cop": 2.38
+          },
+          {
+            "name": "Best Value",
+            "description": "High Efficiency, Mycom/GEA Screw, Standard Controls",
+            "price": 41250,
+            "cop": 2.5
+          },
+          {
+            "name": "Premium",
+            "description": "Top Tier Efficiency, VFD, Full Redundancy, Extended Warranty",
+            "price": 55688,
+            "cop": 2.75
+          }
+        ],
+        "currency": "USD",
+        "leadTime": "8-10 weeks",
+        "tag": "COMP--28",
+        "cycleAnalysis": null,
+        "parameters": {
+          "roomCount": 1,
+          "refrigerantGWP": 3922,
+          "ambientTemp": 35,
+          "altitude": 0
+        }
+      }
+    ],
+    "condensers": [
+      {
+        "type": "air_cooled",
+        "model": "ACF-200",
+        "series": "ACF",
+        "count": 1,
+        "capacityPerUnit": 161.39,
+        "totalCapacity": 161.39,
+        "heatRejection": 140.34,
+        "condensingTemp": 47,
+        "approach": 12,
+        "fanCount": 4,
+        "fanPowerPerUnit": 4.5,
+        "pumpPowerPerUnit": 0,
+        "totalElectricalPower": 4.5,
+        "correctionFactors": {
+          "altitude": 1,
+          "fouling": 1.15
+        },
+        "designConditions": {
+          "wetBulb": 24,
+          "dryBulb": 35,
+          "altitude": 0
+        },
+        "tag": "COND-01",
+        "manufacturer": "GÜNTNER",
+        "technicalSpecs": {
+          "waterConsumption": 0,
+          "dimensions": {
+            "length": 3600,
+            "width": 2400,
+            "height": 3100,
+            "operatingWeight": 4500
+          },
+          "connections": {
+            "inlet": "DN100",
+            "outlet": "DN100",
+            "water": "DN50"
+          },
+          "soundLevel": 75
+        },
+        "electrical": {
+          "voltage": "400V 3Ph 50Hz",
+          "protection": "IP55",
+          "fanMotor": "4 x 1 kW",
+          "pumpMotor": "N/A"
+        },
+        "price": {
+          "perUnit": 14683,
+          "total": 14683,
+          "currency": "USD",
+          "breakdown": {
+            "equipment": 13215,
+            "freight": 1468
+          }
+        },
+        "currency": "USD",
+        "leadTime": "10-12 weeks"
+      }
+    ],
+    "receiver": {
+      "type": "receiver",
+      "volume": 500,
+      "dimensions": {
+        "diameter": 542,
+        "length": 2168,
+        "orientation": "horizontal"
+      },
+      "orientation": "horizontal",
+      "designPressure": 25,
+      "testPressure": 37.5,
+      "material": "Carbon Steel",
+      "refrigerant": "R404A",
+      "estimatedCharge": 200,
+      "tag": "REC-01"
+    },
+    "thermosiphon": {
+      "type": "thermosiphon",
+      "volume": 10000,
+      "coolingCapacity": null,
+      "designPressure": 25,
+      "tag": "THS-01"
+    },
+    "piping": {
+      "suction": [
+        {
+          "temperatureLevel": "T-28",
+          "evapTemp": -28,
+          "load": 100.24,
+          "massFlow": 0.077,
+          "method": "latent_heat",
+          "size": "DN100",
+          "actualID": 102.3,
+          "requiredDiameter": 99.1,
+          "velocity": 9.38,
+          "velocityOK": true,
+          "pressureDrop": 0.86,
+          "pressureDropOK": true
+        }
+      ],
+      "discharge": [
+        {
+          "type": "main",
+          "load": 140.34,
+          "massFlow": 0.128,
+          "size": "DN32",
+          "actualID": 35.1,
+          "requiredDiameter": 30,
+          "velocity": 13.19,
+          "velocityOK": false,
+          "pressureDrop": 49.53,
+          "pressureDropOK": false
+        }
+      ],
+      "liquid": [
+        {
+          "type": "main",
+          "load": 100.24,
+          "massFlow": 0.084,
+          "size": "DN15",
+          "actualID": 15.8,
+          "requiredDiameter": 13.3,
+          "velocity": 0.71,
+          "velocityOK": true,
+          "pressureDrop": 19.15,
+          "pressureDropOK": false
+        }
+      ],
+      "summary": {
+        "largestSuction": "DN100",
+        "dischargeMain": "DN32",
+        "liquidMain": "DN15"
+      }
+    }
+  },
+  "compliance": {
+    "standards": {
+      "region": "default",
+      "country": "Iran",
+      "primaryStandard": "ISO",
+      "applicableStandards": {
+        "design": [
+          "ISO 5149-1",
+          "ISO 5149-2"
+        ],
+        "safety": [
+          "ISO 5149-3",
+          "ISO 5149-4"
+        ],
+        "pressure": [
+          "ISO 11439",
+          "EN 13445"
+        ],
+        "electrical": [
+          "IEC 60079"
+        ]
+      },
+      "refrigerantStatus": {
+        "status": "check_local",
+        "note": "Verify with local authority"
+      },
+      "keyRequirements": [
+        {
+          "category": "Pressure Equipment",
+          "requirement": "Third-party inspection of pressure vessels",
+          "standard": "PED/EN 13445"
+        },
+        {
+          "category": "Documentation",
+          "requirement": "Operating manual in local language",
+          "standard": "EN 378-4 / Local requirements"
+        }
+      ],
+      "notes": [
+        "International ISO standards applied",
+        "Local requirements may override"
+      ],
+      "certifications": [
+        "ISO compliance certificate"
+      ],
+      "inspections": {
+        "preCommissioning": "Third-party inspection required",
+        "periodic": "Annual safety inspection",
+        "pressure": "Per EN 13445/PED requirements",
+        "refrigerant": "As per local code"
+      }
+    },
+    "safety": {
+      "passed": true,
+      "warnings": [],
+      "errors": [],
+      "checks": {
+        "reliefValves": {
+          "passed": true,
+          "requirements": [
+            {
+              "vessel": "SEP-M28",
+              "designPressure": 40,
+              "reliefSetPressure": 36,
+              "requiresDual": true
+            }
+          ],
+          "message": "1 pressure vessels require relief valves"
+        },
+        "ventilation": {
+          "passed": true,
+          "requiredRate": 16000,
+          "message": "Machine room requires 16000 m³/h ventilation"
+        },
+        "pressureVessels": {
+          "passed": true,
+          "vessels": [
+            {
+              "vessel": "SEP-M28",
+              "psv": 4,
+              "category": "SEP",
+              "requiresCE": false
+            }
+          ],
+          "message": "Pressure vessel PED categories determined"
+        },
+        "electricalZoning": {
+          "passed": true,
+          "zoning": {
+            "machineRoom": "Non-hazardous",
+            "standard": "Standard electrical"
+          },
+          "message": "Electrical zoning per Standard electrical"
+        }
+      }
+    }
+  },
+  "loads": [
+    {
+      "room": "Cold Storage",
+      "temperature": -18,
+      "load": 100.24,
+      "breakdown": {
+        "transmission": 8.91,
+        "product": 64.34,
+        "infiltration": 17.03,
+        "internal": 0.85
+      }
+    }
+  ],
+  "equipment": {
+    "evaporators": [
+      {
+        "count": 2,
+        "model": "DJ-50-3",
+        "series": "DJ",
+        "capacityPerUnit": 50.12,
+        "totalCapacity": 100.24,
+        "fanCount": 3,
+        "fanDiameter": 630,
+        "airFlow": 4500,
+        "throwDistance": 25,
+        "defrostType": "electric",
+        "evaporatingTemp": -24,
+        "dt": 6,
+        "airChangesPerHour": 15,
+        "motorPower": 0.75,
+        "tag": "EVAP-COLD-STORAGE",
+        "technicalSpecs": {
+          "surfaceArea": 401,
+          "finSpacing": 9,
+          "finSpacingRange": "8-10 mm",
+          "finSpacingReason": "Moderate frost",
+          "tubeVolume": 75,
+          "connections": {
+            "inlet": "DN25",
+            "outlet": "DN50",
+            "drain": "DN40"
+          },
+          "dimensions": {
+            "length": 3900,
+            "width": 800,
+            "height": 800,
+            "weight": 601
+          }
+        },
+        "electrical": {
+          "fans": {
+            "voltage": "400V 3Ph 50Hz",
+            "power": "3 x 0.75 kW",
+            "current": "5 A"
+          },
+          "defrost": {
+            "type": "electric",
+            "power": 38,
+            "voltage": "400V 3Ph 50Hz"
+          }
+        },
+        "price": {
+          "perUnit": 15434,
+          "total": 30868,
+          "currency": "USD",
+          "breakdown": {
+            "equipment": 13890,
+            "controls": 1543
+          }
+        },
+        "currency": "USD",
+        "manufacturer": "LU-VE",
+        "parameters": {
+          "roomType": "storage",
+          "roomVolume": 1800,
+          "requiredThrow": 15,
+          "tdOptimization": {
+            "value": 6,
+            "min": 5,
+            "max": 8,
+            "recommended": 6,
+            "status": "OK",
+            "reason": "Balance humidity and efficiency",
+            "recommendation": null
+          }
+        }
+      }
+    ],
+    "compressors": [
+      {
+        "temperatureLevel": "T-28",
+        "configuration": {
+          "operating": 2,
+          "standby": 1,
+          "total": 3,
+          "isSwing": true,
+          "swingCapacity": "33%-100%",
+          "redundancy": "2+1"
+        },
+        "configDescription": "Direct compression",
+        "evaporatingTemp": -28,
+        "condensingTemp": 32,
+        "compressionRatio": 20.09,
+        "suctionPressure": 1.31,
+        "dischargePressure": 26.24,
+        "designLoad": 100.24,
+        "diversityFactor": 1,
+        "capacityPerUnit": 75,
+        "operatingUnits": 2,
+        "standbyUnits": 1,
+        "totalUnits": 3,
+        "manufacturer": "Bitzer",
+        "brand": "Bitzer",
+        "model": "8G",
+        "fullModel": "Bitzer 8G",
+        "series": "REC",
+        "type": "reciprocating",
+        "motorPower": 67.5,
+        "electricalPower": 40.1,
+        "electrical": {
+          "ratedPower": 67.5,
+          "totalPower": 40.1,
+          "voltage": "400V 3Ph 50Hz",
+          "current": 108,
+          "powerFactor": 0.85,
+          "startingMethod": "Soft Start / VFD"
+        },
+        "cop": 2.5,
+        "heatRejection": 140.34,
+        "massFlowRate": null,
+        "superheat": null,
+        "subcool": null,
+        "operatingPoint": {
+          "evapTemp": -28,
+          "condTemp": 32,
+          "capacity": 75,
+          "power": 30,
+          "cop": 2.5,
+          "volumetricEfficiency": 0.6,
+          "isentropicEfficiency": 0.7
+        },
+        "speed": 1450,
+        "oilCooling": "splash",
+        "economizer": false,
+        "refrigerant": "R404A",
+        "oilSeparator": {
+          "required": true,
+          "model": "SEP-100",
+          "efficiency": 99.9,
+          "volume": 15,
+          "pressureDrop": 0.2
+        },
+        "technicalSpecs": {
+          "displacement": "188 m³/h",
+          "oilCharge": "34 L",
+          "refrigerantCharge": "5 kg",
+          "weight": 1013,
+          "dimensions": {
+            "length": 1400,
+            "width": 600,
+            "height": 1000
+          },
+          "soundLevel": 88,
+          "vibrationClass": "Class B (ISO 10816)"
+        },
+        "service": {
+          "oilChange": "2000 hours",
+          "filterChange": "1000 hours",
+          "beltCheck": "500 hours",
+          "annualService": "Required",
+          "warranty": "24 months standard"
+        },
+        "compliance": {
+          "pressure": "EN 378",
+          "electrical": "IEC 60204-1",
+          "safety": "CE marked",
+          "refrigerant": "F-Gas compliant",
+          "efficiency": "ErP 2021 compliant"
+        },
+        "price": "Eco: $35,063 | Std: $41,250 | Prem: $55,688",
+        "pricingScenarios": [
+          {
+            "name": "Economical",
+            "description": "Standard Efficiency, Reciprocating/Screw, Basic Controls",
+            "price": 35063,
+            "cop": 2.38
+          },
+          {
+            "name": "Best Value",
+            "description": "High Efficiency, Mycom/GEA Screw, Standard Controls",
+            "price": 41250,
+            "cop": 2.5
+          },
+          {
+            "name": "Premium",
+            "description": "Top Tier Efficiency, VFD, Full Redundancy, Extended Warranty",
+            "price": 55688,
+            "cop": 2.75
+          }
+        ],
+        "currency": "USD",
+        "leadTime": "8-10 weeks",
+        "tag": "COMP--28",
+        "cycleAnalysis": null,
+        "parameters": {
+          "roomCount": 1,
+          "refrigerantGWP": 3922,
+          "ambientTemp": 35,
+          "altitude": 0
+        }
+      }
+    ],
+    "condensers": [
+      {
+        "type": "air_cooled",
+        "model": "ACF-200",
+        "series": "ACF",
+        "count": 1,
+        "capacityPerUnit": 161.39,
+        "totalCapacity": 161.39,
+        "heatRejection": 140.34,
+        "condensingTemp": 47,
+        "approach": 12,
+        "fanCount": 4,
+        "fanPowerPerUnit": 4.5,
+        "pumpPowerPerUnit": 0,
+        "totalElectricalPower": 4.5,
+        "correctionFactors": {
+          "altitude": 1,
+          "fouling": 1.15
+        },
+        "designConditions": {
+          "wetBulb": 24,
+          "dryBulb": 35,
+          "altitude": 0
+        },
+        "tag": "COND-01",
+        "manufacturer": "GÜNTNER",
+        "technicalSpecs": {
+          "waterConsumption": 0,
+          "dimensions": {
+            "length": 3600,
+            "width": 2400,
+            "height": 3100,
+            "operatingWeight": 4500
+          },
+          "connections": {
+            "inlet": "DN100",
+            "outlet": "DN100",
+            "water": "DN50"
+          },
+          "soundLevel": 75
+        },
+        "electrical": {
+          "voltage": "400V 3Ph 50Hz",
+          "protection": "IP55",
+          "fanMotor": "4 x 1 kW",
+          "pumpMotor": "N/A"
+        },
+        "price": {
+          "perUnit": 14683,
+          "total": 14683,
+          "currency": "USD",
+          "breakdown": {
+            "equipment": 13215,
+            "freight": 1468
+          }
+        },
+        "currency": "USD",
+        "leadTime": "10-12 weeks"
+      }
+    ],
+    "separators": [
+      {
+        "type": "separator",
+        "evaporatingTemp": -28,
+        "volume": 100,
+        "dimensions": {
+          "diameter": 349,
+          "length": 1046,
+          "orientation": "vertical"
+        },
+        "designPressure": 40,
+        "testPressure": 60,
+        "material": "Carbon Steel",
+        "refrigerant": "R404A",
+        "liquidFlowRate": 0.077,
+        "pumps": {
+          "operating": 1,
+          "standby": 1,
+          "total": 2,
+          "flowPerPump": 0.4,
+          "head": 20,
+          "power": 0,
+          "type": "Hermetic_Ammonia",
+          "tag": "PUMP"
+        },
+        "connections": {
+          "liquidInlet": "DN50",
+          "liquidOutlet": "DN40",
+          "vaporOutlet": "DN50",
+          "vent": "DN25",
+          "drain": "DN25",
+          "levelGauge": "DN15",
+          "pressureGauge": "DN15"
+        },
+        "tag": "SEP-M28",
+        "manufacturer": "Fabricated"
+      }
+    ],
+    "receiver": {
+      "type": "receiver",
+      "volume": 500,
+      "dimensions": {
+        "diameter": 542,
+        "length": 2168,
+        "orientation": "horizontal"
+      },
+      "orientation": "horizontal",
+      "designPressure": 25,
+      "testPressure": 37.5,
+      "material": "Carbon Steel",
+      "refrigerant": "R404A",
+      "estimatedCharge": 200,
+      "tag": "REC-01"
+    }
+  },
+  "piping": {
+    "largestSuction": "DN100",
+    "dischargeMain": "DN32",
+    "liquidMain": "DN15"
+  },
+  "regionalData": {
+    "climate": {
+      "summerDesign": {
+        "temp": 38,
+        "rh": 20,
+        "wetBulb": 22
+      },
+      "winterDesign": {
+        "temp": -5,
+        "rh": 65,
+        "wetBulb": -6
+      },
+      "avgTemp": 18,
+      "coolingDegreeDays": 1500,
+      "heatingDegreeDays": 2100,
+      "elevation": 1200,
+      "climateZone": "3B"
+    },
+    "energy": {
+      "electricityCost": 0.04,
+      "peakRatePremium": 1.5,
+      "offPeakDiscount": 0.7,
+      "demandCharge": 8,
+      "currency": "USD",
+      "timeOfUseRates": true
+    },
+    "incentives": {
+      "solarRebate": 0.2,
+      "energyEfficiency": 0.15,
+      "heatRecovery": 0.1
+    },
+    "location": "Tehran, Iran",
+    "dataDate": "2026-08-16T06:39:24.998Z",
+    "dataSource": "database"
+  },
+  "innovativeEnergyStrategies": [
+    {
+      "id": "ai-load-matching",
+      "name": "AI-Driven Predictive Load Matching",
+      "category": "Advanced Controls",
+      "description": "Machine learning predicts cooling demand 24h ahead, pre-cools during off-peak electricity rates",
+      "applicable": true,
+      "energySavings": {
+        "kWhPerYear": 7217.279999999999,
+        "percent": 10,
+        "peakReduction": 30.071999999999996,
+        "peakReductionPercent": 30
+      },
+      "financialImpact": {
+        "annualCostSavings": 2309.5296,
+        "implementationCost": 55072,
+        "paybackYears": 23.84554846147025,
+        "npv10Year": -38074,
+        "roi": -58.063451481696696
+      },
+      "co2Reduction": {
+        "tonsPerYear": 3.6086399999999994,
+        "percent": 10
+      },
+      "technicalDetails": {
+        "components": [
+          "IoT temperature and occupancy sensors",
+          "Cloud-based ML platform",
+          "Predictive analytics engine",
+          "Advanced control system integration"
+        ],
+        "requirements": [
+          "Time-of-use electricity rates",
+          "Adequate thermal mass or storage",
+          "Internet connectivity",
+          "Minimum 50 kW cooling capacity"
+        ]
+      },
+      "regionalNotes": "Applicable for this location",
+      "priority": "low"
+    },
+    {
+      "id": "magnetic-bearings",
+      "name": "Magnetic Bearing Compressors",
+      "category": "Advanced Equipment",
+      "description": "Oil-free compressors with magnetic levitation bearings - zero friction, 10-15% more efficient",
+      "applicable": true,
+      "energySavings": {
+        "kWhPerYear": 48600,
+        "percent": 12
+      },
+      "financialImpact": {
+        "annualCostSavings": 6944,
+        "energySavings": 1944,
+        "maintenanceSavings": 5000,
+        "implementationCost": 7200,
+        "paybackYears": 1.0368663594470047,
+        "npv10Year": 43908,
+        "roi": 1346.6666666666667
+      },
+      "co2Reduction": {
+        "tonsPerYear": 24.3,
+        "percent": 12
+      },
+      "technicalDetails": {
+        "components": [
+          "Magnetic levitation bearing system",
+          "Active magnetic control",
+          "No oil lubrication system needed",
+          "Advanced vibration monitoring"
+        ],
+        "benefits": [
+          "Zero friction losses",
+          "No oil contamination",
+          "Longer compressor life",
+          "Reduced maintenance",
+          "Better part-load efficiency"
+        ],
+        "requirements": [
+          "Minimum 50 kW compressor capacity",
+          "Clean power supply",
+          "Trained maintenance personnel"
+        ]
+      },
+      "regionalNotes": "Applicable for this location",
+      "priority": "high"
+    },
+    {
+      "id": "demand-response",
+      "name": "Smart Grid Integration & Demand Response",
+      "category": "Grid Services",
+      "description": "Participate in utility demand response programs - get paid to reduce load during grid stress events",
+      "applicable": true,
+      "energySavings": {
+        "kWhPerYear": 1288.7999999999997,
+        "drEvents": "15-20 per year",
+        "loadReduction": 8.591999999999999,
+        "reductionPercent": 30
+      },
+      "financialImpact": {
+        "annualBenefit": 11289.887999999999,
+        "capacityPayments": 10310.399999999998,
+        "energyPayments": 154.65599999999998,
+        "demandChargeSavings": 824.8319999999999,
+        "implementationCost": 20728,
+        "paybackYears": 1.835979240892381,
+        "npv10Year": 62367,
+        "roi": 444.6684677730605
+      },
+      "co2Reduction": {
+        "tonsPerYear": 1.0310399999999997,
+        "percent": 8,
+        "gridBenefit": "Reduces grid stress, enables renewable integration"
+      },
+      "technicalDetails": {
+        "components": [
+          "Advanced energy management system",
+          "Automated load shedding controls",
+          "Utility communication gateway",
+          "Pre-cooling capability",
+          "Real-time monitoring and alerts"
+        ],
+        "drStrategies": [
+          "Pre-cool before DR event",
+          "Cycle compressors during event",
+          "Use thermal storage",
+          "Prioritize critical loads"
+        ],
+        "requirements": [
+          "Utility DR program availability",
+          "Reliable communication link",
+          "Adequate thermal mass (4-6 hours)",
+          "Minimum load: 50 kW"
+        ]
+      },
+      "programDetails": {
+        "eligibility": "May be eligible",
+        "estimatedEvents": "15-20 per year",
+        "eventDuration": "2-6 hours",
+        "advanceNotice": "2-24 hours",
+        "performanceRequirement": "≥80% of committed reduction"
+      },
+      "regionalNotes": "Check with local utility for DR program availability",
+      "priority": "high"
+    },
+    {
+      "id": "evap-cooling",
+      "name": "Evaporative Pre-Cooling for Condensers",
+      "category": "Cooling Enhancement",
+      "description": "Misting system pre-cools air entering condenser by 20°F, reducing compressor work in dry climates",
+      "applicable": true,
+      "energySavings": {
+        "kWhPerYear": 85919.99999999999,
+        "percent": 50,
+        "mechanismn": "20°F air temp reduction",
+        "condensingTempReduction": "14°F lower condensing temp"
+      },
+      "financialImpact": {
+        "annualEnergySavings": 3436.7999999999993,
+        "waterCost": 500,
+        "netAnnualSavings": 2936.7999999999993,
+        "implementationCost": 7105.1,
+        "paybackYears": 2.419333968945792,
+        "npv10Year": 14510,
+        "roi": 313.33689884730677
+      },
+      "co2Reduction": {
+        "tonsPerYear": 42.959999999999994,
+        "percent": 50
+      },
+      "technicalDetails": {
+        "components": [
+          "Evaporative misting nozzles",
+          "Water supply and filtration",
+          "Control system (humidity-based)",
+          "Drift eliminators",
+          "Pump and distribution piping"
+        ],
+        "waterUsage": "21 gallons/hour during operation",
+        "effectiveness": "20°F reduction at 20% RH",
+        "requirements": [
+          "Dry climate (RH < 40% for best results)",
+          "Water source availability",
+          "Adequate drainage",
+          "Protection against freezing"
+        ]
+      },
+      "climateAnalysis": {
+        "currentRH": 20,
+        "suitability": "Excellent",
+        "wetBulbApproach": "Can approach 22°F wet bulb",
+        "seasonality": "Most effective during hot, dry summer months"
+      },
+      "regionalNotes": "Excellent for dry climate (20% RH). Expected 20°F air temp reduction.",
+      "priority": "high"
+    },
+    {
+      "id": "waste-heat",
+      "name": "Waste Heat Recovery & Network Integration",
+      "category": "Heat Recovery",
+      "description": "Recover condenser heat for on-site domestic hot water and space heating",
+      "applicable": true,
+      "energySavings": {
+        "thermalEnergyRecovered": 303134.39999999997,
+        "equivalentNaturalGas": "29232 therms/year",
+        "fossilFuelOffset": "90940 kg CO₂ from avoided gas use"
+      },
+      "financialImpact": {
+        "annualRevenue": 9094.032,
+        "annualMaintenance": 2000,
+        "netAnnualBenefit": 7094.031999999999,
+        "implementationCost": 155340,
+        "paybackYears": 21.897279290536048,
+        "npv10Year": -103127,
+        "roi": -31.498339127076104
+      },
+      "co2Reduction": {
+        "tonsPerYear": 90.94031999999999,
+        "percent": 0,
+        "additionalBenefit": "Offsets fossil fuel heating"
+      },
+      "technicalDetails": {
+        "components": [
+          "Desuperheater heat exchanger",
+          "Hot water storage tank (500-1000 gal)",
+          "Circulation pumps",
+          "Tempering valves",
+          "Building heating integration"
+        ],
+        "heatQuality": {
+          "temperature": "90-120°F (suitable for DHW, radiant heating)",
+          "capacity": "84 kW during peak",
+          "availability": "5 months/year (heating season)"
+        },
+        "requirements": [
+          "On-site heating demand",
+          "Space for hot water storage",
+          "Compatible temperature requirements",
+          "Year-round or seasonal use"
+        ]
+      },
+      "applications": [
+        "Domestic hot water pre-heating",
+        "Space heating (radiant floors, air handlers)",
+        "Process heating if applicable",
+        "Snow melting for loading docks"
+      ],
+      "regionalNotes": "Cold climate (2100 HDD) has high on-site heating value",
+      "priority": "low"
+    }
+  ],
+  "energy": {
+    "currentConsumption": {
+      "breakdown": {
+        "compressors": 80.2,
+        "condensers": 0,
+        "evaporators": 4.5,
+        "pumps": 0
+      },
+      "totalPower": 84.7,
+      "annualConsumption": 556479,
+      "annualCost": 55648,
+      "electricityCost": 0.1,
+      "loadFactor": 0.75,
+      "total": 556479
+    },
+    "recommendations": [
+      {
+        "id": "VFD_CONDENSER",
+        "title": "Variable Speed Condenser Fans",
+        "description": "Reduce condenser fan speed at lower ambient temperatures",
+        "applicability": true,
+        "savingsPercent": 12,
+        "investmentFactor": 0.1,
+        "priority": "HIGH"
+      },
+      {
+        "id": "ECONOMIZER",
+        "title": "Economizer Circuit",
+        "description": "Add economizer for improved efficiency at low temperatures",
+        "applicability": true,
+        "savingsPercent": 8,
+        "investmentFactor": 0.05,
+        "priority": "MEDIUM"
+      },
+      {
+        "id": "FLOATING_HEAD",
+        "title": "Floating Head Pressure Control",
+        "description": "Lower condensing temperature when ambient allows",
+        "applicability": true,
+        "savingsPercent": 10,
+        "investmentFactor": 0.02,
+        "priority": "HIGH"
+      },
+      {
+        "id": "LED_LIGHTING",
+        "title": "LED Lighting in Cold Rooms",
+        "description": "Replace conventional lights with LED cold-rated fixtures",
+        "applicability": true,
+        "savingsPercent": 2,
+        "investmentFactor": 0.01,
+        "priority": "LOW"
+      },
+      {
+        "id": "DOOR_MANAGEMENT",
+        "title": "Improved Door Management",
+        "description": "High-speed doors, strip curtains, or air curtains",
+        "applicability": true,
+        "savingsPercent": 5,
+        "investmentFactor": 0.03,
+        "priority": "MEDIUM"
+      }
+    ],
+    "potentialSavings": {
+      "details": [
+        {
+          "id": "VFD_CONDENSER",
+          "title": "Variable Speed Condenser Fans",
+          "description": "Reduce condenser fan speed at lower ambient temperatures",
+          "applicability": true,
+          "savingsPercent": 12,
+          "investmentFactor": 0.1,
+          "priority": "HIGH",
+          "annualSavingsKWh": 66777,
+          "annualSavingsCost": 6678,
+          "estimatedInvestment": 11130,
+          "paybackYears": 1.7
+        },
+        {
+          "id": "ECONOMIZER",
+          "title": "Economizer Circuit",
+          "description": "Add economizer for improved efficiency at low temperatures",
+          "applicability": true,
+          "savingsPercent": 8,
+          "investmentFactor": 0.05,
+          "priority": "MEDIUM",
+          "annualSavingsKWh": 44518,
+          "annualSavingsCost": 4452,
+          "estimatedInvestment": 5565,
+          "paybackYears": 1.3
+        },
+        {
+          "id": "FLOATING_HEAD",
+          "title": "Floating Head Pressure Control",
+          "description": "Lower condensing temperature when ambient allows",
+          "applicability": true,
+          "savingsPercent": 10,
+          "investmentFactor": 0.02,
+          "priority": "HIGH",
+          "annualSavingsKWh": 55648,
+          "annualSavingsCost": 5565,
+          "estimatedInvestment": 2226,
+          "paybackYears": 0.4
+        },
+        {
+          "id": "LED_LIGHTING",
+          "title": "LED Lighting in Cold Rooms",
+          "description": "Replace conventional lights with LED cold-rated fixtures",
+          "applicability": true,
+          "savingsPercent": 2,
+          "investmentFactor": 0.01,
+          "priority": "LOW",
+          "annualSavingsKWh": 11130,
+          "annualSavingsCost": 1113,
+          "estimatedInvestment": 1113,
+          "paybackYears": 1
+        },
+        {
+          "id": "DOOR_MANAGEMENT",
+          "title": "Improved Door Management",
+          "description": "High-speed doors, strip curtains, or air curtains",
+          "applicability": true,
+          "savingsPercent": 5,
+          "investmentFactor": 0.03,
+          "priority": "MEDIUM",
+          "annualSavingsKWh": 27824,
+          "annualSavingsCost": 2782,
+          "estimatedInvestment": 3339,
+          "paybackYears": 1.2
+        }
+      ],
+      "totalPercent": 37,
+      "annualSavingsKWh": 205897,
+      "annualSavings": 20590,
+      "totalInvestment": 23372,
+      "simplePayback": 1.1,
+      "co2Reduction": 102949
+    },
+    "summary": {
+      "totalAnnualConsumption": 556479,
+      "totalAnnualCost": 55648,
+      "potentialSavingsPercent": 37,
+      "potentialSavingsCost": 20590,
+      "paybackPeriod": 1.1,
+      "co2Reduction": 102949
+    }
+  },
+  "standards": {
+    "region": "default",
+    "country": "Iran",
+    "primaryStandard": "ISO",
+    "applicableStandards": {
+      "design": [
+        "ISO 5149-1",
+        "ISO 5149-2"
+      ],
+      "safety": [
+        "ISO 5149-3",
+        "ISO 5149-4"
+      ],
+      "pressure": [
+        "ISO 11439",
+        "EN 13445"
+      ],
+      "electrical": [
+        "IEC 60079"
+      ]
+    },
+    "refrigerantStatus": {
+      "status": "check_local",
+      "note": "Verify with local authority"
+    },
+    "keyRequirements": [
+      {
+        "category": "Pressure Equipment",
+        "requirement": "Third-party inspection of pressure vessels",
+        "standard": "PED/EN 13445"
+      },
+      {
+        "category": "Documentation",
+        "requirement": "Operating manual in local language",
+        "standard": "EN 378-4 / Local requirements"
+      }
+    ],
+    "notes": [
+      "International ISO standards applied",
+      "Local requirements may override"
+    ],
+    "certifications": [
+      "ISO compliance certificate"
+    ],
+    "inspections": {
+      "preCommissioning": "Third-party inspection required",
+      "periodic": "Annual safety inspection",
+      "pressure": "Per EN 13445/PED requirements",
+      "refrigerant": "As per local code"
+    }
+  },
+  "safety": {
+    "passed": true,
+    "warnings": [],
+    "errors": [],
+    "checks": {
+      "reliefValves": {
+        "passed": true,
+        "requirements": [
+          {
+            "vessel": "SEP-M28",
+            "designPressure": 40,
+            "reliefSetPressure": 36,
+            "requiresDual": true
+          }
+        ],
+        "message": "1 pressure vessels require relief valves"
+      },
+      "ventilation": {
+        "passed": true,
+        "requiredRate": 16000,
+        "message": "Machine room requires 16000 m³/h ventilation"
+      },
+      "pressureVessels": {
+        "passed": true,
+        "vessels": [
+          {
+            "vessel": "SEP-M28",
+            "psv": 4,
+            "category": "SEP",
+            "requiresCE": false
+          }
+        ],
+        "message": "Pressure vessel PED categories determined"
+      },
+      "electricalZoning": {
+        "passed": true,
+        "zoning": {
+          "machineRoom": "Non-hazardous",
+          "standard": "Standard electrical"
+        },
+        "message": "Electrical zoning per Standard electrical"
+      }
+    }
+  },
+  "pidData": {
+    "equipment": [
+      {
+        "id": "node-1",
+        "type": "industrial",
+        "position": {
+          "x": 700,
+          "y": 110
+        },
+        "data": {
+          "label": "ACF-200",
+          "componentType": "air_cooled_condenser",
+          "tag": "COND-01",
+          "details": {
+            "capacity": 140.34,
+            "refrigerant": "R404A"
+          },
+          "mounting": "roof",
+          "elevation": 7.3,
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-2",
+        "type": "industrial",
+        "position": {
+          "x": 700,
+          "y": 270
+        },
+        "data": {
+          "label": "Liquid Receiver",
+          "componentType": "horizontal_vessel",
+          "tag": "REC-LP-01",
+          "details": {
+            "function": "liquid receiver",
+            "volume": 500,
+            "refrigerant": "R404A"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-3",
+        "type": "industrial",
+        "position": {
+          "x": 845,
+          "y": 270
+        },
+        "data": {
+          "label": "Filter Drier",
+          "componentType": "strainer",
+          "tag": "FD-01",
+          "details": {
+            "function": "liquid line filtration",
+            "refrigerant": "R404A"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-4",
+        "type": "industrial",
+        "position": {
+          "x": 980,
+          "y": 300
+        },
+        "data": {
+          "label": "Liquid Header",
+          "componentType": "horizontal_vessel",
+          "tag": "HDR-LIQ-01",
+          "details": {
+            "function": "liquid distribution header",
+            "refrigerant": "R404A"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-5",
+        "type": "industrial",
+        "position": {
+          "x": 465,
+          "y": 650
+        },
+        "data": {
+          "label": "Suction Accumulator",
+          "componentType": "horizontal_vessel",
+          "tag": "ACC-SUC-01",
+          "details": {
+            "function": "common suction header / liquid protection",
+            "refrigerant": "R404A"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-6",
+        "type": "industrial",
+        "position": {
+          "x": 225,
+          "y": 440
+        },
+        "data": {
+          "label": "8G",
+          "componentType": "reciprocating_compressor",
+          "tag": "COMP--28",
+          "details": {
+            "capacity": null,
+            "refrigerant": "R404A",
+            "type": "reciprocating"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-7",
+        "type": "industrial",
+        "position": {
+          "x": 350,
+          "y": 405
+        },
+        "data": {
+          "label": "Discharge Check Valve",
+          "componentType": "check_valve",
+          "tag": "CV-DIS-01",
+          "details": {
+            "service": "discharge",
+            "refrigerant": "R404A"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-8",
+        "type": "industrial",
+        "position": {
+          "x": 350,
+          "y": 490
+        },
+        "data": {
+          "label": "Suction Strainer",
+          "componentType": "strainer",
+          "tag": "STR-SUC-01",
+          "details": {
+            "service": "suction",
+            "refrigerant": "R404A"
+          },
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-9",
+        "type": "industrial",
+        "position": {
+          "x": 1000,
+          "y": 250
+        },
+        "data": {
+          "label": "Liquid Solenoid",
+          "componentType": "solenoid_valve",
+          "tag": "SV-LIQ-01",
+          "details": {
+            "service": "liquid",
+            "refrigerant": "R404A"
+          },
+          "roomId": "ROOM-01",
+          "roomName": "Cold Storage",
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-10",
+        "type": "industrial",
+        "position": {
+          "x": 1090,
+          "y": 250
+        },
+        "data": {
+          "label": "Thermostatic Expansion Valve",
+          "componentType": "tev",
+          "tag": "TEV-01",
+          "details": {
+            "service": "liquid expansion",
+            "refrigerant": "R404A"
+          },
+          "roomId": "ROOM-01",
+          "roomName": "Cold Storage",
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-11",
+        "type": "industrial",
+        "position": {
+          "x": 1170,
+          "y": 250
+        },
+        "data": {
+          "label": "DJ-50-3",
+          "componentType": "evaporator",
+          "tag": "EVAP-COLD-STORAGE",
+          "details": {
+            "capacity": 50.12,
+            "temperature": -18,
+            "refrigerant": "R404A"
+          },
+          "roomId": "ROOM-01",
+          "roomName": "Cold Storage",
+          "refrigerant": "R404A"
+        }
+      },
+      {
+        "id": "node-12",
+        "type": "industrial",
+        "position": {
+          "x": 1295,
+          "y": 310
+        },
+        "data": {
+          "label": "Suction Service Valve",
+          "componentType": "globe_valve",
+          "tag": "SV-SUC-01",
+          "details": {
+            "service": "suction",
+            "refrigerant": "R404A"
+          },
+          "roomId": "ROOM-01",
+          "roomName": "Cold Storage",
+          "refrigerant": "R404A"
+        }
+      }
+    ],
+    "pipes": [
+      {
+        "id": "edge-1",
+        "source": "node-8",
+        "target": "node-6",
+        "type": "smoothstep",
+        "label": "R404A suction DN65",
+        "service": "suction",
+        "dn": 65,
+        "data": {
+          "service": "suction",
+          "dn": 65,
+          "nominalDiameter": 65,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#1565c0",
+          "strokeWidth": 3.5,
+          "strokeDasharray": "8,4"
+        }
+      },
+      {
+        "id": "edge-2",
+        "source": "node-6",
+        "target": "node-7",
+        "type": "smoothstep",
+        "label": "R404A discharge DN50",
+        "service": "discharge",
+        "dn": 50,
+        "data": {
+          "service": "discharge",
+          "dn": 50,
+          "nominalDiameter": 50,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#c62828",
+          "strokeWidth": 4
+        }
+      },
+      {
+        "id": "edge-3",
+        "source": "node-7",
+        "target": "node-1",
+        "type": "smoothstep",
+        "label": "R404A discharge DN50",
+        "service": "discharge",
+        "dn": 50,
+        "data": {
+          "service": "discharge",
+          "dn": 50,
+          "nominalDiameter": 50,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#c62828",
+          "strokeWidth": 4
+        }
+      },
+      {
+        "id": "edge-4",
+        "source": "node-5",
+        "target": "node-8",
+        "type": "smoothstep",
+        "label": "R404A suction header DN65",
+        "service": "suction",
+        "dn": 65,
+        "data": {
+          "service": "suction",
+          "dn": 65,
+          "nominalDiameter": 65,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded",
+          "branch": "compressor-1"
+        },
+        "style": {
+          "stroke": "#1565c0",
+          "strokeWidth": 3.5,
+          "strokeDasharray": "8,4"
+        }
+      },
+      {
+        "id": "edge-5",
+        "source": "node-1",
+        "target": "node-2",
+        "type": "smoothstep",
+        "label": "R404A liquid DN32",
+        "service": "liquid",
+        "dn": 32,
+        "data": {
+          "service": "liquid",
+          "dn": 32,
+          "nominalDiameter": 32,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#2e7d32",
+          "strokeWidth": 3.5
+        }
+      },
+      {
+        "id": "edge-6",
+        "source": "node-2",
+        "target": "node-3",
+        "type": "smoothstep",
+        "label": "R404A liquid DN32",
+        "service": "liquid",
+        "dn": 32,
+        "data": {
+          "service": "liquid",
+          "dn": 32,
+          "nominalDiameter": 32,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#2e7d32",
+          "strokeWidth": 3.5
+        }
+      },
+      {
+        "id": "edge-7",
+        "source": "node-3",
+        "target": "node-4",
+        "type": "smoothstep",
+        "label": "R404A liquid header DN32",
+        "service": "liquid",
+        "dn": 32,
+        "data": {
+          "service": "liquid",
+          "dn": 32,
+          "nominalDiameter": 32,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#2e7d32",
+          "strokeWidth": 3.5
+        }
+      },
+      {
+        "id": "edge-8",
+        "source": "node-4",
+        "target": "node-9",
+        "type": "smoothstep",
+        "label": "R404A liquid branch DN20",
+        "service": "liquid",
+        "dn": 20,
+        "data": {
+          "service": "liquid",
+          "dn": 20,
+          "nominalDiameter": 20,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded",
+          "branch": "ROOM-01"
+        },
+        "style": {
+          "stroke": "#2e7d32",
+          "strokeWidth": 3.5
+        }
+      },
+      {
+        "id": "edge-9",
+        "source": "node-9",
+        "target": "node-10",
+        "type": "smoothstep",
+        "label": "R404A liquid DN20",
+        "service": "liquid",
+        "dn": 20,
+        "data": {
+          "service": "liquid",
+          "dn": 20,
+          "nominalDiameter": 20,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#2e7d32",
+          "strokeWidth": 3.5
+        }
+      },
+      {
+        "id": "edge-10",
+        "source": "node-10",
+        "target": "node-11",
+        "type": "smoothstep",
+        "label": "R404A expansion feed DN20",
+        "service": "liquid",
+        "dn": 20,
+        "data": {
+          "service": "liquid",
+          "dn": 20,
+          "nominalDiameter": 20,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#2e7d32",
+          "strokeWidth": 3.5
+        }
+      },
+      {
+        "id": "edge-11",
+        "source": "node-11",
+        "target": "node-12",
+        "type": "smoothstep",
+        "label": "R404A suction branch DN32",
+        "service": "suction",
+        "dn": 32,
+        "data": {
+          "service": "suction",
+          "dn": 32,
+          "nominalDiameter": 32,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded"
+        },
+        "style": {
+          "stroke": "#1565c0",
+          "strokeWidth": 3.5,
+          "strokeDasharray": "8,4"
+        }
+      },
+      {
+        "id": "edge-12",
+        "source": "node-12",
+        "target": "node-5",
+        "type": "smoothstep",
+        "label": "R404A suction header branch DN32",
+        "service": "suction",
+        "dn": 32,
+        "data": {
+          "service": "suction",
+          "dn": 32,
+          "nominalDiameter": 32,
+          "medium": "R404A",
+          "jointType": "welded",
+          "connectionType": "welded",
+          "branch": "ROOM-01"
+        },
+        "style": {
+          "stroke": "#1565c0",
+          "strokeWidth": 3.5,
+          "strokeDasharray": "8,4"
+        }
+      }
+    ],
+    "valves": [],
+    "instruments": [],
+    "metadata": {
+      "generator": "GFDDE Refrigerant-Aware Topology",
+      "refrigerant": "R404A",
+      "topology": "direct-expansion-refrigeration",
+      "assemblyTitle": "R404A P&ID TO BIM ASSEMBLY",
+      "jointPolicy": "R404A design: refrigerant-specific equipment and closed-loop topology generated from the submitted design.",
+      "sizingStatus": "preliminary DN values; final sizes require verified pressure-drop calculation inputs.",
+      "timestamp": "2026-08-16T06:57:10.972Z"
+    },
+    "refrigerant": "R404A",
+    "projectName": "New Project"
+  },
+  "fullResults": {
+    "project": {
+      "name": "New Project",
+      "location": {
+        "city": "Tehran",
+        "country": "Iran"
+      },
+      "refrigerant": "R404A",
+      "product": {
+        "type": "beef"
+      },
+      "rooms": [
+        {
+          "name": "Cold Storage",
+          "type": "storage",
+          "length": 20,
+          "width": 15,
+          "height": 6,
+          "temperature": -18
+        }
+      ],
+      "requirements": [],
+      "designIntent": {
+        "compressorType": "reciprocating",
+        "compressorCount": 1,
+        "parallel": false,
+        "roofCondenser": false,
+        "horizontalReceiver": false,
+        "liquidPump": false,
+        "oilSeparator": false,
+        "checkValves": false,
+        "strainers": false,
+        "globeValves": false,
+        "expansionValves": true
+      },
+      "parsedAt": "2026-08-16T06:57:10.954Z",
+      "climate": {
+        "Tehran": {
+          "latitude": 35.7,
+          "altitude": 1200,
+          "summerDB": 40,
+          "summerWB": 22,
+          "winterDB": -5,
+          "region": "middle_east"
+        },
+        "Ardabil": {
+          "latitude": 38.2,
+          "altitude": 1350,
+          "summerDB": 35,
+          "summerWB": 20,
+          "winterDB": -15,
+          "region": "middle_east"
+        },
+        "Tabriz": {
+          "latitude": 38.1,
+          "altitude": 1340,
+          "summerDB": 37,
+          "summerWB": 19,
+          "winterDB": -15,
+          "region": "middle_east"
+        },
+        "Mashhad": {
+          "latitude": 36.3,
+          "altitude": 990,
+          "summerDB": 39,
+          "summerWB": 19,
+          "winterDB": -10,
+          "region": "middle_east"
+        },
+        "Isfahan": {
+          "latitude": 32.7,
+          "altitude": 1570,
+          "summerDB": 40,
+          "summerWB": 16,
+          "winterDB": -8,
+          "region": "middle_east"
+        },
+        "Shiraz": {
+          "latitude": 29.6,
+          "altitude": 1480,
+          "summerDB": 42,
+          "summerWB": 18,
+          "winterDB": -2,
+          "region": "middle_east"
+        },
+        "Ahvaz": {
+          "latitude": 31.3,
+          "altitude": 20,
+          "summerDB": 50,
+          "summerWB": 28,
+          "winterDB": 5,
+          "region": "middle_east"
+        },
+        "Bandar Abbas": {
+          "latitude": 27.2,
+          "altitude": 10,
+          "summerDB": 42,
+          "summerWB": 32,
+          "winterDB": 12,
+          "region": "middle_east"
+        }
+      },
+      "safetyFactor": 1.15
+    },
+    "timestamp": "2026-08-16T06:57:10.955Z",
+    "version": "2.0.0",
+    "calculations": {
+      "loads": [
+        {
+          "room": {
+            "name": "Cold Storage",
+            "type": "storage",
+            "length": 20,
+            "width": 15,
+            "height": 6,
+            "temperature": -18
+          },
+          "roomName": "Cold Storage",
+          "dimensions": {
+            "length": 20,
+            "width": 15,
+            "height": 6,
+            "volume": 1800,
+            "floorArea": 300,
+            "wallArea": 420,
+            "ceilingArea": 300
+          },
+          "temperature": -18,
+          "ambientTemp": 35,
+          "transmission": {
+            "walls": 4.31,
+            "ceiling": 3.08,
+            "floor": 1.53,
+            "total": 8.91,
+            "parameters": {
+              "U_value": 0.193,
+              "deltaT": 53,
+              "insulationType": "polyurethane_40",
+              "insulationThickness": 120
+            }
+          },
+          "product": {
+            "sensible": 20.66,
+            "latent": 43.69,
+            "respiration": 0,
+            "total": 64.34,
+            "parameters": {
+              "productType": "beef",
+              "productMass": 16200,
+              "entryTemp": 25,
+              "exitTemp": -18,
+              "cycleTime": 24,
+              "calculationMethod": "storage_turnover_estimate"
+            }
+          },
+          "infiltration": {
+            "total": 17.03,
+            "parameters": {
+              "airChangesPerDay": 8.7,
+              "doorOpenTimeMinutes": 100,
+              "enthalpyDifference": 96.9,
+              "protectionFactor": 0.7
+            }
+          },
+          "internal": {
+            "people": 0.1,
+            "lighting": 0.75,
+            "equipment": 0,
+            "fans": 0,
+            "total": 0.85,
+            "parameters": {
+              "numPeople": 1,
+              "occupancyHours": 8,
+              "lightingPower": 5,
+              "equipmentPower": 0
+            }
+          },
+          "subtotal": 91.13,
+          "safetyFactor": 1.1,
+          "total": 100.24,
+          "totalTR": 28.5
+        }
+      ],
+      "temperatureLevels": {
+        "T-28": {
+          "evaporatingTemp": -28,
+          "rooms": [
+            {
+              "room": {
+                "name": "Cold Storage",
+                "type": "storage",
+                "length": 20,
+                "width": 15,
+                "height": 6,
+                "temperature": -18
+              },
+              "roomName": "Cold Storage",
+              "dimensions": {
+                "length": 20,
+                "width": 15,
+                "height": 6,
+                "volume": 1800,
+                "floorArea": 300,
+                "wallArea": 420,
+                "ceilingArea": 300
+              },
+              "temperature": -18,
+              "ambientTemp": 35,
+              "transmission": {
+                "walls": 4.31,
+                "ceiling": 3.08,
+                "floor": 1.53,
+                "total": 8.91,
+                "parameters": {
+                  "U_value": 0.193,
+                  "deltaT": 53,
+                  "insulationType": "polyurethane_40",
+                  "insulationThickness": 120
+                }
+              },
+              "product": {
+                "sensible": 20.66,
+                "latent": 43.69,
+                "respiration": 0,
+                "total": 64.34,
+                "parameters": {
+                  "productType": "beef",
+                  "productMass": 16200,
+                  "entryTemp": 25,
+                  "exitTemp": -18,
+                  "cycleTime": 24,
+                  "calculationMethod": "storage_turnover_estimate"
+                }
+              },
+              "infiltration": {
+                "total": 17.03,
+                "parameters": {
+                  "airChangesPerDay": 8.7,
+                  "doorOpenTimeMinutes": 100,
+                  "enthalpyDifference": 96.9,
+                  "protectionFactor": 0.7
+                }
+              },
+              "internal": {
+                "people": 0.1,
+                "lighting": 0.75,
+                "equipment": 0,
+                "fans": 0,
+                "total": 0.85,
+                "parameters": {
+                  "numPeople": 1,
+                  "occupancyHours": 8,
+                  "lightingPower": 5,
+                  "equipmentPower": 0
+                }
+              },
+              "subtotal": 91.13,
+              "safetyFactor": 1.1,
+              "total": 100.24,
+              "totalTR": 28.5
+            }
+          ],
+          "totalLoad": 100.24
+        }
+      },
+      "evaporators": [
+        {
+          "count": 2,
+          "model": "DJ-50-3",
+          "series": "DJ",
+          "capacityPerUnit": 50.12,
+          "totalCapacity": 100.24,
+          "fanCount": 3,
+          "fanDiameter": 630,
+          "airFlow": 4500,
+          "throwDistance": 25,
+          "defrostType": "electric",
+          "evaporatingTemp": -24,
+          "dt": 6,
+          "airChangesPerHour": 15,
+          "motorPower": 0.75,
+          "tag": "EVAP-COLD-STORAGE",
+          "technicalSpecs": {
+            "surfaceArea": 401,
+            "finSpacing": 9,
+            "finSpacingRange": "8-10 mm",
+            "finSpacingReason": "Moderate frost",
+            "tubeVolume": 75,
+            "connections": {
+              "inlet": "DN25",
+              "outlet": "DN50",
+              "drain": "DN40"
+            },
+            "dimensions": {
+              "length": 3900,
+              "width": 800,
+              "height": 800,
+              "weight": 601
+            }
+          },
+          "electrical": {
+            "fans": {
+              "voltage": "400V 3Ph 50Hz",
+              "power": "3 x 0.75 kW",
+              "current": "5 A"
+            },
+            "defrost": {
+              "type": "electric",
+              "power": 38,
+              "voltage": "400V 3Ph 50Hz"
+            }
+          },
+          "price": {
+            "perUnit": 15434,
+            "total": 30868,
+            "currency": "USD",
+            "breakdown": {
+              "equipment": 13890,
+              "controls": 1543
+            }
+          },
+          "currency": "USD",
+          "manufacturer": "LU-VE",
+          "parameters": {
+            "roomType": "storage",
+            "roomVolume": 1800,
+            "requiredThrow": 15,
+            "tdOptimization": {
+              "value": 6,
+              "min": 5,
+              "max": 8,
+              "recommended": 6,
+              "status": "OK",
+              "reason": "Balance humidity and efficiency",
+              "recommendation": null
+            }
+          }
+        }
+      ],
+      "separators": [
+        {
+          "type": "separator",
+          "evaporatingTemp": -28,
+          "volume": 100,
+          "dimensions": {
+            "diameter": 349,
+            "length": 1046,
+            "orientation": "vertical"
+          },
+          "designPressure": 40,
+          "testPressure": 60,
+          "material": "Carbon Steel",
+          "refrigerant": "R404A",
+          "liquidFlowRate": 0.077,
+          "pumps": {
+            "operating": 1,
+            "standby": 1,
+            "total": 2,
+            "flowPerPump": 0.4,
+            "head": 20,
+            "power": 0,
+            "type": "Hermetic_Ammonia",
+            "tag": "PUMP"
+          },
+          "connections": {
+            "liquidInlet": "DN50",
+            "liquidOutlet": "DN40",
+            "vaporOutlet": "DN50",
+            "vent": "DN25",
+            "drain": "DN25",
+            "levelGauge": "DN15",
+            "pressureGauge": "DN15"
+          },
+          "tag": "SEP-M28",
+          "manufacturer": "Fabricated"
+        }
+      ],
+      "compressors": [
+        {
+          "temperatureLevel": "T-28",
+          "configuration": {
+            "operating": 2,
+            "standby": 1,
+            "total": 3,
+            "isSwing": true,
+            "swingCapacity": "33%-100%",
+            "redundancy": "2+1"
+          },
+          "configDescription": "Direct compression",
+          "evaporatingTemp": -28,
+          "condensingTemp": 32,
+          "compressionRatio": 20.09,
+          "suctionPressure": 1.31,
+          "dischargePressure": 26.24,
+          "designLoad": 100.24,
+          "diversityFactor": 1,
+          "capacityPerUnit": 75,
+          "operatingUnits": 2,
+          "standbyUnits": 1,
+          "totalUnits": 3,
+          "manufacturer": "Bitzer",
+          "brand": "Bitzer",
+          "model": "8G",
+          "fullModel": "Bitzer 8G",
+          "series": "REC",
+          "type": "reciprocating",
+          "motorPower": 67.5,
+          "electricalPower": 40.1,
+          "electrical": {
+            "ratedPower": 67.5,
+            "totalPower": 40.1,
+            "voltage": "400V 3Ph 50Hz",
+            "current": 108,
+            "powerFactor": 0.85,
+            "startingMethod": "Soft Start / VFD"
+          },
+          "cop": 2.5,
+          "heatRejection": 140.34,
+          "massFlowRate": null,
+          "superheat": null,
+          "subcool": null,
+          "operatingPoint": {
+            "evapTemp": -28,
+            "condTemp": 32,
+            "capacity": 75,
+            "power": 30,
+            "cop": 2.5,
+            "volumetricEfficiency": 0.6,
+            "isentropicEfficiency": 0.7
+          },
+          "speed": 1450,
+          "oilCooling": "splash",
+          "economizer": false,
+          "refrigerant": "R404A",
+          "oilSeparator": {
+            "required": true,
+            "model": "SEP-100",
+            "efficiency": 99.9,
+            "volume": 15,
+            "pressureDrop": 0.2
+          },
+          "technicalSpecs": {
+            "displacement": "188 m³/h",
+            "oilCharge": "34 L",
+            "refrigerantCharge": "5 kg",
+            "weight": 1013,
+            "dimensions": {
+              "length": 1400,
+              "width": 600,
+              "height": 1000
+            },
+            "soundLevel": 88,
+            "vibrationClass": "Class B (ISO 10816)"
+          },
+          "service": {
+            "oilChange": "2000 hours",
+            "filterChange": "1000 hours",
+            "beltCheck": "500 hours",
+            "annualService": "Required",
+            "warranty": "24 months standard"
+          },
+          "compliance": {
+            "pressure": "EN 378",
+            "electrical": "IEC 60204-1",
+            "safety": "CE marked",
+            "refrigerant": "F-Gas compliant",
+            "efficiency": "ErP 2021 compliant"
+          },
+          "price": "Eco: $35,063 | Std: $41,250 | Prem: $55,688",
+          "pricingScenarios": [
+            {
+              "name": "Economical",
+              "description": "Standard Efficiency, Reciprocating/Screw, Basic Controls",
+              "price": 35063,
+              "cop": 2.38
+            },
+            {
+              "name": "Best Value",
+              "description": "High Efficiency, Mycom/GEA Screw, Standard Controls",
+              "price": 41250,
+              "cop": 2.5
+            },
+            {
+              "name": "Premium",
+              "description": "Top Tier Efficiency, VFD, Full Redundancy, Extended Warranty",
+              "price": 55688,
+              "cop": 2.75
+            }
+          ],
+          "currency": "USD",
+          "leadTime": "8-10 weeks",
+          "tag": "COMP--28",
+          "cycleAnalysis": null,
+          "parameters": {
+            "roomCount": 1,
+            "refrigerantGWP": 3922,
+            "ambientTemp": 35,
+            "altitude": 0
+          }
+        }
+      ],
+      "condensers": [
+        {
+          "type": "air_cooled",
+          "model": "ACF-200",
+          "series": "ACF",
+          "count": 1,
+          "capacityPerUnit": 161.39,
+          "totalCapacity": 161.39,
+          "heatRejection": 140.34,
+          "condensingTemp": 47,
+          "approach": 12,
+          "fanCount": 4,
+          "fanPowerPerUnit": 4.5,
+          "pumpPowerPerUnit": 0,
+          "totalElectricalPower": 4.5,
+          "correctionFactors": {
+            "altitude": 1,
+            "fouling": 1.15
+          },
+          "designConditions": {
+            "wetBulb": 24,
+            "dryBulb": 35,
+            "altitude": 0
+          },
+          "tag": "COND-01",
+          "manufacturer": "GÜNTNER",
+          "technicalSpecs": {
+            "waterConsumption": 0,
+            "dimensions": {
+              "length": 3600,
+              "width": 2400,
+              "height": 3100,
+              "operatingWeight": 4500
+            },
+            "connections": {
+              "inlet": "DN100",
+              "outlet": "DN100",
+              "water": "DN50"
+            },
+            "soundLevel": 75
+          },
+          "electrical": {
+            "voltage": "400V 3Ph 50Hz",
+            "protection": "IP55",
+            "fanMotor": "4 x 1 kW",
+            "pumpMotor": "N/A"
+          },
+          "price": {
+            "perUnit": 14683,
+            "total": 14683,
+            "currency": "USD",
+            "breakdown": {
+              "equipment": 13215,
+              "freight": 1468
+            }
+          },
+          "currency": "USD",
+          "leadTime": "10-12 weeks"
+        }
+      ],
+      "receiver": {
+        "type": "receiver",
+        "volume": 500,
+        "dimensions": {
+          "diameter": 542,
+          "length": 2168,
+          "orientation": "horizontal"
+        },
+        "orientation": "horizontal",
+        "designPressure": 25,
+        "testPressure": 37.5,
+        "material": "Carbon Steel",
+        "refrigerant": "R404A",
+        "estimatedCharge": 200,
+        "tag": "REC-01"
+      },
+      "thermosiphon": {
+        "type": "thermosiphon",
+        "volume": 10000,
+        "coolingCapacity": null,
+        "designPressure": 25,
+        "tag": "THS-01"
+      },
+      "piping": {
+        "suction": [
+          {
+            "temperatureLevel": "T-28",
+            "evapTemp": -28,
+            "load": 100.24,
+            "massFlow": 0.077,
+            "method": "latent_heat",
+            "size": "DN100",
+            "actualID": 102.3,
+            "requiredDiameter": 99.1,
+            "velocity": 9.38,
+            "velocityOK": true,
+            "pressureDrop": 0.86,
+            "pressureDropOK": true
+          }
+        ],
+        "discharge": [
+          {
+            "type": "main",
+            "load": 140.34,
+            "massFlow": 0.128,
+            "size": "DN32",
+            "actualID": 35.1,
+            "requiredDiameter": 30,
+            "velocity": 13.19,
+            "velocityOK": false,
+            "pressureDrop": 49.53,
+            "pressureDropOK": false
+          }
+        ],
+        "liquid": [
+          {
+            "type": "main",
+            "load": 100.24,
+            "massFlow": 0.084,
+            "size": "DN15",
+            "actualID": 15.8,
+            "requiredDiameter": 13.3,
+            "velocity": 0.71,
+            "velocityOK": true,
+            "pressureDrop": 19.15,
+            "pressureDropOK": false
+          }
+        ],
+        "summary": {
+          "largestSuction": "DN100",
+          "dischargeMain": "DN32",
+          "liquidMain": "DN15"
+        }
+      }
+    },
+    "safety": {
+      "passed": true,
+      "warnings": [],
+      "errors": [],
+      "checks": {
+        "reliefValves": {
+          "passed": true,
+          "requirements": [
+            {
+              "vessel": "SEP-M28",
+              "designPressure": 40,
+              "reliefSetPressure": 36,
+              "requiresDual": true
+            }
+          ],
+          "message": "1 pressure vessels require relief valves"
+        },
+        "ventilation": {
+          "passed": true,
+          "requiredRate": 16000,
+          "message": "Machine room requires 16000 m³/h ventilation"
+        },
+        "pressureVessels": {
+          "passed": true,
+          "vessels": [
+            {
+              "vessel": "SEP-M28",
+              "psv": 4,
+              "category": "SEP",
+              "requiresCE": false
+            }
+          ],
+          "message": "Pressure vessel PED categories determined"
+        },
+        "electricalZoning": {
+          "passed": true,
+          "zoning": {
+            "machineRoom": "Non-hazardous",
+            "standard": "Standard electrical"
+          },
+          "message": "Electrical zoning per Standard electrical"
+        }
+      }
+    },
+    "equipmentList": [
+      {
+        "category": "Evaporator",
+        "tag": "EVAP-COLD-STORAGE",
+        "count": 2,
+        "model": "DJ-50-3",
+        "series": "DJ",
+        "capacityPerUnit": 50.12,
+        "totalCapacity": 100.24,
+        "fanCount": 3,
+        "fanDiameter": 630,
+        "airFlow": 4500,
+        "throwDistance": 25,
+        "defrostType": "electric",
+        "evaporatingTemp": -24,
+        "dt": 6,
+        "airChangesPerHour": 15,
+        "motorPower": 0.75,
+        "technicalSpecs": {
+          "surfaceArea": 401,
+          "finSpacing": 9,
+          "finSpacingRange": "8-10 mm",
+          "finSpacingReason": "Moderate frost",
+          "tubeVolume": 75,
+          "connections": {
+            "inlet": "DN25",
+            "outlet": "DN50",
+            "drain": "DN40"
+          },
+          "dimensions": {
+            "length": 3900,
+            "width": 800,
+            "height": 800,
+            "weight": 601
+          }
+        },
+        "electrical": {
+          "fans": {
+            "voltage": "400V 3Ph 50Hz",
+            "power": "3 x 0.75 kW",
+            "current": "5 A"
+          },
+          "defrost": {
+            "type": "electric",
+            "power": 38,
+            "voltage": "400V 3Ph 50Hz"
+          }
+        },
+        "price": {
+          "perUnit": 15434,
+          "total": 30868,
+          "currency": "USD",
+          "breakdown": {
+            "equipment": 13890,
+            "controls": 1543
+          }
+        },
+        "currency": "USD",
+        "manufacturer": "LU-VE",
+        "parameters": {
+          "roomType": "storage",
+          "roomVolume": 1800,
+          "requiredThrow": 15,
+          "tdOptimization": {
+            "value": 6,
+            "min": 5,
+            "max": 8,
+            "recommended": 6,
+            "status": "OK",
+            "reason": "Balance humidity and efficiency",
+            "recommendation": null
+          }
+        }
+      },
+      {
+        "category": "Compressor",
+        "tag": "COMP--28",
+        "temperatureLevel": "T-28",
+        "configuration": {
+          "operating": 2,
+          "standby": 1,
+          "total": 3,
+          "isSwing": true,
+          "swingCapacity": "33%-100%",
+          "redundancy": "2+1"
+        },
+        "configDescription": "Direct compression",
+        "evaporatingTemp": -28,
+        "condensingTemp": 32,
+        "compressionRatio": 20.09,
+        "suctionPressure": 1.31,
+        "dischargePressure": 26.24,
+        "designLoad": 100.24,
+        "diversityFactor": 1,
+        "capacityPerUnit": 75,
+        "operatingUnits": 2,
+        "standbyUnits": 1,
+        "totalUnits": 3,
+        "manufacturer": "Bitzer",
+        "brand": "Bitzer",
+        "model": "8G",
+        "fullModel": "Bitzer 8G",
+        "series": "REC",
+        "type": "reciprocating",
+        "motorPower": 67.5,
+        "electricalPower": 40.1,
+        "electrical": {
+          "ratedPower": 67.5,
+          "totalPower": 40.1,
+          "voltage": "400V 3Ph 50Hz",
+          "current": 108,
+          "powerFactor": 0.85,
+          "startingMethod": "Soft Start / VFD"
+        },
+        "cop": 2.5,
+        "heatRejection": 140.34,
+        "massFlowRate": null,
+        "superheat": null,
+        "subcool": null,
+        "operatingPoint": {
+          "evapTemp": -28,
+          "condTemp": 32,
+          "capacity": 75,
+          "power": 30,
+          "cop": 2.5,
+          "volumetricEfficiency": 0.6,
+          "isentropicEfficiency": 0.7
+        },
+        "speed": 1450,
+        "oilCooling": "splash",
+        "economizer": false,
+        "refrigerant": "R404A",
+        "oilSeparator": {
+          "required": true,
+          "model": "SEP-100",
+          "efficiency": 99.9,
+          "volume": 15,
+          "pressureDrop": 0.2
+        },
+        "technicalSpecs": {
+          "displacement": "188 m³/h",
+          "oilCharge": "34 L",
+          "refrigerantCharge": "5 kg",
+          "weight": 1013,
+          "dimensions": {
+            "length": 1400,
+            "width": 600,
+            "height": 1000
+          },
+          "soundLevel": 88,
+          "vibrationClass": "Class B (ISO 10816)"
+        },
+        "service": {
+          "oilChange": "2000 hours",
+          "filterChange": "1000 hours",
+          "beltCheck": "500 hours",
+          "annualService": "Required",
+          "warranty": "24 months standard"
+        },
+        "compliance": {
+          "pressure": "EN 378",
+          "electrical": "IEC 60204-1",
+          "safety": "CE marked",
+          "refrigerant": "F-Gas compliant",
+          "efficiency": "ErP 2021 compliant"
+        },
+        "price": "Eco: $35,063 | Std: $41,250 | Prem: $55,688",
+        "pricingScenarios": [
+          {
+            "name": "Economical",
+            "description": "Standard Efficiency, Reciprocating/Screw, Basic Controls",
+            "price": 35063,
+            "cop": 2.38
+          },
+          {
+            "name": "Best Value",
+            "description": "High Efficiency, Mycom/GEA Screw, Standard Controls",
+            "price": 41250,
+            "cop": 2.5
+          },
+          {
+            "name": "Premium",
+            "description": "Top Tier Efficiency, VFD, Full Redundancy, Extended Warranty",
+            "price": 55688,
+            "cop": 2.75
+          }
+        ],
+        "currency": "USD",
+        "leadTime": "8-10 weeks",
+        "cycleAnalysis": null,
+        "parameters": {
+          "roomCount": 1,
+          "refrigerantGWP": 3922,
+          "ambientTemp": 35,
+          "altitude": 0
+        }
+      },
+      {
+        "category": "Condenser",
+        "tag": "COND-01",
+        "type": "air_cooled",
+        "model": "ACF-200",
+        "series": "ACF",
+        "count": 1,
+        "capacityPerUnit": 161.39,
+        "totalCapacity": 161.39,
+        "heatRejection": 140.34,
+        "condensingTemp": 47,
+        "approach": 12,
+        "fanCount": 4,
+        "fanPowerPerUnit": 4.5,
+        "pumpPowerPerUnit": 0,
+        "totalElectricalPower": 4.5,
+        "correctionFactors": {
+          "altitude": 1,
+          "fouling": 1.15
+        },
+        "designConditions": {
+          "wetBulb": 24,
+          "dryBulb": 35,
+          "altitude": 0
+        },
+        "manufacturer": "GÜNTNER",
+        "technicalSpecs": {
+          "waterConsumption": 0,
+          "dimensions": {
+            "length": 3600,
+            "width": 2400,
+            "height": 3100,
+            "operatingWeight": 4500
+          },
+          "connections": {
+            "inlet": "DN100",
+            "outlet": "DN100",
+            "water": "DN50"
+          },
+          "soundLevel": 75
+        },
+        "electrical": {
+          "voltage": "400V 3Ph 50Hz",
+          "protection": "IP55",
+          "fanMotor": "4 x 1 kW",
+          "pumpMotor": "N/A"
+        },
+        "price": {
+          "perUnit": 14683,
+          "total": 14683,
+          "currency": "USD",
+          "breakdown": {
+            "equipment": 13215,
+            "freight": 1468
+          }
+        },
+        "currency": "USD",
+        "leadTime": "10-12 weeks"
+      }
+    ],
+    "summary": {
+      "totalCoolingLoad": 100.24,
+      "totalCoolingLoadTR": 28.501563832812057,
+      "roomCount": 1,
+      "temperatureLevels": [
+        "T-28"
+      ],
+      "equipmentCount": 3,
+      "refrigerant": "R404A",
+      "totalCost": 0,
+      "currency": "USD"
+    },
+    "executionTime": 10
+  },
+  "executionTime": 23
+}

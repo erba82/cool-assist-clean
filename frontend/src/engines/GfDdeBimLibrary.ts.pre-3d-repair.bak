@@ -1,0 +1,68 @@
+import * as THREE from 'three';
+
+export interface BimConnection {
+  id: string;
+  type: 'suction' | 'discharge' | 'liquid' | 'oil' | 'gas';
+  dn: number;
+  pos: { x: number; y: number; z: number };
+  dir: { x: number; y: number; z: number };
+}
+
+export interface BimPrimitive {
+  type: 'box' | 'cylinder' | 'sphere' | 'torus';
+  params: number[];
+  pos: { x: number; y: number; z: number };
+  rot: { x: number; y: number; z: number };
+  mat: string;
+}
+
+export interface BimEquipmentDef {
+  id: string;
+  name: string;
+  category: string;
+  primitives: BimPrimitive[];
+  connections: BimConnection[];
+}
+
+export const BIM_MATERIALS = {
+  STAINLESS_STEEL: { color: 0xbdc3c7, metalness: 0.9, roughness: 0.1, envMapIntensity: 2.0 },
+  CARBON_STEEL: { color: 0x7f8c8d, metalness: 0.7, roughness: 0.3 },
+  PAINTED_RED: { color: 0xc0392b, metalness: 0.5, roughness: 0.4 },
+  PAINTED_BLUE: { color: 0x2980b9, metalness: 0.5, roughness: 0.4 },
+  MOTOR_BLACK: { color: 0x2c3e50, metalness: 0.6, roughness: 0.2 },
+  INSULATION: { color: 0xecf0f1, metalness: 0.1, roughness: 0.9, transparent: true, opacity: 0.8 },
+  GLASS: { color: 0xffffff, metalness: 0.1, roughness: 0.0, transparent: true, opacity: 0.3 }
+};
+
+export const BIM_LIBRARY: BimEquipmentDef[] = [
+  {
+    id: 'BIM_COMP_SCREW',
+    name: 'Industrial Screw Compressor',
+    category: 'Compressors',
+    primitives: [
+      { type: 'box', params: [2.5, 1.2, 1.0], pos: { x: 0, y: 0.6, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'cylinder', params: [0.5, 0.5, 1.5, 16], pos: { x: -0.8, y: 0.6, z: 0 }, rot: { x: 0, y: 0, z: Math.PI/2 }, mat: 'MOTOR_BLACK' },
+      { type: 'box', params: [0.6, 0.8, 0.6], pos: { x: 0.5, y: 1.4, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' }
+    ],
+    connections: [
+      { id: 'suction', type: 'suction', dn: 150, pos: { x: 1.25, y: 0.6, z: 0 }, dir: { x: 1, y: 0, z: 0 } },
+      { id: 'discharge', type: 'discharge', dn: 100, pos: { x: 0, y: 1.2, z: 0 }, dir: { x: 0, y: 1, z: 0 } }
+    ]
+  },
+  {
+    id: 'BIM_VESSEL_HORIZ',
+    name: 'Horizontal Receiver',
+    category: 'Vessels',
+    primitives: [
+      { type: 'cylinder', params: [0.8, 0.8, 4.0, 32], pos: { x: 0, y: 1.0, z: 0 }, rot: { x: 0, y: 0, z: Math.PI/2 }, mat: 'STAINLESS_STEEL' },
+      { type: 'sphere', params: [0.8, 32, 32], pos: { x: 2.0, y: 1.0, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'sphere', params: [0.8, 32, 32], pos: { x: -2.0, y: 1.0, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'STAINLESS_STEEL' },
+      { type: 'box', params: [0.2, 0.5, 1.2], pos: { x: 1.2, y: 0.25, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' },
+      { type: 'box', params: [0.2, 0.5, 1.2], pos: { x: -1.2, y: 0.25, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'CARBON_STEEL' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'liquid', dn: 80, pos: { x: 0, y: 1.8, z: 0 }, dir: { x: 0, y: 1, z: 0 } },
+      { id: 'outlet', type: 'liquid', dn: 80, pos: { x: 0, y: 0.2, z: 0 }, dir: { x: 0, y: -1, z: 0 } }
+    ]
+  }
+];

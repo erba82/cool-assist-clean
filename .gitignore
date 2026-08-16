@@ -1,34 +1,112 @@
-# Dependencies
+# ==========================================
+# 1. Dependencies & Environments
+# ==========================================
 node_modules/
 .pnp
 .pnp.js
+.venv/
+venv/
+ENV/
 
-# Environment variables
+# Environment files & Secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Build files
-build/
-dist/
-
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Editor directories and files
-.vscode/
-.idea/
-.DS_Store
-*.tsbuildinfo
 .env.*
-*.env
+!.env.example
 credentials.json
 *.pem
 *.key
 .credentials
+
+# ==========================================
+# 2. Build & Output Directories
+# ==========================================
+build/
+dist/
+output/
+backups/
+e2e-artifacts/
+BACKUP_REGRESSION_RECOVERY_*/
+
+# ==========================================
+# 3. Test Browsers & Temp Profiles
+# ==========================================
+.chrome-*/
+.edge-*/
+downloads_e2e/
+.emergent/
+.qoder/
+.qodo/
+.worktrees/
+
+# ==========================================
+# 4. Logs & Diagnostic Files
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log.txt
+cdp_runtime.log
+
+# ==========================================
+# 5. Generated Images & Screenshots (.png)
+# ==========================================
+*.png
+*.jpg
+*.jpeg
+*.svg
+!frontend/public/**/*.svg
+!frontend/src/assets/**/*.png
+!frontend/src/assets/**/*.svg
+
+# ==========================================
+# 6. Test Scripts, Patches & Temporary Fixes
+# ==========================================
+# Standalone test files
+test_*.js
+*_test.js
+test-*.js
+e2e_*.js
+e2e_*.cjs
+probe_*.js
+inspect_*.js
+cdp_*.js
+find-ai.js
+final-test.js
+
+# Temporary patch & fix scripts (PS1 / JS / PY)
+fix_*.ps1
+fix_*.js
+fix_*.py
+patch_*.js
+capture_*.ps1
+capture_*.js
+apply_*.ps1
+apply_*.js
+verify_*.ps1
+verify_*.js
+restart*.ps1
+setup.ps1
+take_screenshot.ps1
+repair_*.py
+upgrade_3d_v2.py
+writer.js
+
+# Output JSON dumps & Temp Reports
+confirmed_*.json
+debug-models.json
+*_probe_response.json
+*_report.json
+unified_*.txt
+start_log.txt
+energy_view_full.txt
+
+# ==========================================
+# 7. IDE, OS & System Files
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.tsbuildinfo

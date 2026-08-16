@@ -17,3 +17,12 @@ Preserve frontend, renderer, scene graph, backend calculation, and persisted-dat
 
 ## Operational Rules
 These standards are mandatory acceptance criteria. Do not claim standards compliance without traceable verification. Do not add external packages or tools without compatibility, licensing, and impact review. Preserve the refrigerant-profile architecture as the cross-layer source of truth. Report files changed, verification, limitations, and commit identifiers for every engineering enhancement.
+
+## Primary Production Coding Rules
+All engineering calculation functions must be type-safe, modular, deterministic, and based on validated real input data. Mock data, simplified placeholder formulas, and silent fallback values are prohibited in production calculation paths.
+Refrigeration properties, heat loads, and pressure drops must use traceable thermodynamic equations or validated reference data. Implement calculations with explicit physical assumptions and applicability bounds, and validate them against authoritative data when available.
+Vector math, transforms, matrices, bounding boxes, port frames, and parametric CAD geometry must use numerically robust operations, finite-value guards, tolerance-aware comparisons, and explicit coordinate-system contracts.
+Three-dimensional render families shall regenerate mesh, bounds, and connection ports from dimensional parameters. Each family must retain a corresponding 2D P and ID symbol contract so that 2D and 3D representations refer to the same semantic equipment definition.
+Keep Math and Physics Engine, Data Store, P and ID transformation, Scene Graph, Render Logic, and UI layers separated through typed interfaces. Do not couple rendering state to engineering calculation state.
+Before every delivery, run applicable unit tests, boundary and non-convergence tests, integration tests, and a production build. Investigate and repair failures before marking a change complete. Report verification evidence and known limitations.
+Production-ready means no unrelated regression, no fabricated engineering output, no unhandled non-finite numerical result, and no unverified claim of code or standards compliance.

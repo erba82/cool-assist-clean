@@ -43,6 +43,7 @@ class InputParser {
             'R404A': ['r404a', 'r-404a', 'r404', '۴۰۴', 'freon', 'فریون', 'hfc'],
             'R134a': ['r134a', 'r-134a', 'r134', '۱۳۴'],
             'R410A': ['r410a', 'r-410a', 'r410', '۴۱۰'],
+            'R32': ['r32', 'r-32', 'difluoromethane'],
             'R507': ['r507', 'r-507', 'r507a'],
             'R290': ['r290', 'r-290', 'propane', 'پروپان'],
             'R22': ['r22', 'r-22', 'فریون ۲۲', 'فریون22', 'hcfc']
@@ -71,6 +72,7 @@ class InputParser {
             product: this._extractProduct(userInput),
             rooms: this._extractRooms(userInput),
             requirements: this._extractRequirements(userInput),
+            designIntent: this._extractDesignIntent(userInput),
             parsedAt: new Date().toISOString()
         };
 
@@ -148,7 +150,53 @@ class InputParser {
         return { type: 'chicken' };  // Default
     }
 
-    _extractRooms(input) {
+    _extractCompactAreaRooms(input) {
+        const rooms = [];
+        const normalized = String(input || '');
+        const heightMatch = normalized.match(/(?:each\s+)?(\d+(?:\.\d+)?)\s*(?:m|meters?)\s*(?:high|height)/i);
+        const height = heightMatch ? parseFloat(heightMatch[1]) : 6;
+        const roomPattern = /(?:a|an|one)?\s*(\d+(?:\.\d+)?)\s*(?:m²|m2|sqm|square\s*meters?)\s*(chilled|chill(?:ing)?|freezer|frozen|cold\s*storage)\s*(?:room)?\s*(?:at|for)?\s*([+-]?\d+)\s*(?:°\s*c|°c|c|degrees?)/gi;
+        let match;
+        while ((match = roomPattern.exec(normalized)) !== null) {
+            const area = parseFloat(match[1]);
+            const descriptor = match[2].toLowerCase();
+            const length = Math.max(2, Math.round(Math.sqrt(area) * 10) / 10);
+            const width = Math.max(2, Math.round((area / length) * 10) / 10);
+            rooms.push({
+                name: descriptor.includes('freez') || descriptor.includes('frozen') ? `Freezer ${rooms.length + 1}` : `Chilled Room ${rooms.length + 1}`,
+                type: descriptor.includes('freez') || descriptor.includes('frozen') ? 'freezer' : 'chilling',
+                length,
+                width,
+                height,
+                temperature: parseInt(match[3], 10),
+                area
+            });
+        }
+        return rooms;
+    }
+    _extractDesignIntent(input) {
+        const text = String(input || '').toLowerCase();
+        const wordToNumber = { one: 1, two: 2, three: 3, four: 4 };
+        const quantityMatch = text.match(/(?:use\s+)?(\d+|one|two|three|four)\s+(?:parallel\s+)?(?:industrial\s+)?(?:screw|reciprocating|piston)\s+compressors?/i);
+        const rawCount = quantityMatch ? quantityMatch[1].toLowerCase() : null;
+        const compressorCount = rawCount ? (wordToNumber[rawCount] || parseInt(rawCount, 10)) : null;
+        const compressorType = /screw\s+compressor/.test(text) ? 'screw' : /reciprocating|piston/.test(text) ? 'reciprocating' : null;
+        return {
+            compressorType,
+            compressorCount: Number.isFinite(compressorCount) ? compressorCount : null,
+            parallel: /parallel\s+(?:screw|reciprocating|piston)\s+compressors?/.test(text),
+            roofCondenser: /rooftop|roof\s*(?:mounted|top)?\s*evaporative\s*condenser|evaporative\s+condenser/.test(text),
+            horizontalReceiver: /horizontal\s+(?:high[-\s]*pressure\s+)?receiver/.test(text),
+            liquidPump: /liquid\s+pump/.test(text),
+            oilSeparator: /oil\s+separator/.test(text),
+            checkValves: /check\s+valves?/.test(text),
+            strainers: /y[-\s]*strainers?/.test(text),
+            globeValves: /globe\s+valves?/.test(text),
+            expansionValves: /expansion\s+valves?/.test(text)
+        };
+    }    _extractRooms(input) {
+        const compactAreaRooms = this._extractCompactAreaRooms(input);
+        if (compactAreaRooms.length) return compactAreaRooms;
         const rooms = [];
 
         // ============================================================

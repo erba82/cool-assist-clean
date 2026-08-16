@@ -6,44 +6,30 @@
 
 // ===== GRID CONFIGURATION =====
 const GRID_CONFIG = {
-    // Grid unit size (pixels)
-    UNIT: 50,
-
+    // Grid unit size (pixels) - Reduced for tighter layout
+    UNIT: 40,
     // Canvas dimensions
     CANVAS: {
-        WIDTH: 3000,
-        HEIGHT: 2500,
-        MARGIN: 150  // Border margin
+        WIDTH: 2000,
+        HEIGHT: 1800,
+        MARGIN: 100
     },
-
-    // Equipment zones (row-based layout)
+    // Equipment zones (row-based layout) - Tightened
     ZONES: {
-        // Top zone - condensers and high-pressure equipment
-        CONDENSER: { row: 2, colStart: 8, colEnd: 16 },
-
-        // Upper-middle - receivers and vessels  
-        RECEIVER_HP: { row: 5, colStart: 10, colEnd: 14 },
-        RECEIVER_LP: { row: 12, colStart: 6, colEnd: 10 },
-
-        // Middle zone - compressors
-        COMPRESSOR: { row: 9, colStart: 2, colEnd: 6 },
-
-        // Bottom zone - evaporators (spread across)
-        EVAPORATOR: { row: 15, colStart: 2, colEnd: 25 },
-
-        // Instruments - scattered around equipment
-        INSTRUMENT: { row: 0, colStart: 0, colEnd: 30 }
+        CONDENSER: { row: 2, colStart: 6, colEnd: 12 },
+        RECEIVER_HP: { row: 4, colStart: 8, colEnd: 12 },
+        RECEIVER_LP: { row: 10, colStart: 5, colEnd: 8 },
+        COMPRESSOR: { row: 7, colStart: 2, colEnd: 5 },
+        EVAPORATOR: { row: 13, colStart: 2, colEnd: 20 },
+        INSTRUMENT: { row: 0, colStart: 0, colEnd: 25 }
     },
-
-    // Minimum spacing between components (in grid units)
+    // Minimum spacing between components (in grid units) - Tightened
     SPACING: {
-        EQUIPMENT: 4,    // Increased from 3 - Major equipment spacing (4*50 = 200px)
-        VALVE: 2,        // Valve spacing
-        INSTRUMENT: 2,   // Instrument spacing
-        PIPE: 1          // Pipe clearance
-    },
-
-    // Component sizes (in grid units) - for collision detection
+        EQUIPMENT: 2,
+        VALVE: 1,
+        INSTRUMENT: 1,
+        PIPE: 1
+    },    // Component sizes (in grid units) - for collision detection
     SIZES: {
         COMPRESSOR: { width: 3, height: 2 },
         CONDENSER: { width: 4, height: 3 },

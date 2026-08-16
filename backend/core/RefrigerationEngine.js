@@ -213,6 +213,10 @@ class RefrigerationEngine extends EventEmitter {
             throw new Error('At least one room is required');
         }
         if (!project.location) throw new Error('Project location is required');
+        const refrigerants = this.getData('refrigerants') || {};
+        if (project.refrigerant && !refrigerants[project.refrigerant]) {
+            throw new Error(`Unsupported refrigerant: ${project.refrigerant}. Supported refrigerants: ${Object.keys(refrigerants).join(', ')}`);
+        }
     }
 
     _applyDefaults(project) {

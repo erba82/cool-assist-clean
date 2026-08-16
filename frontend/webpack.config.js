@@ -20,7 +20,7 @@ module.exports = (env, argv) => {
       extensions: ['.ts', '.tsx', '.js', '.jsx'],
     },
     module: {
-      rules: [
+      rules: [ { test: /\.m?js/, resolve: { fullySpecified: false } }, { test: /\.m?js/, resolve: { fullySpecified: false } }, { test: /\.m?js/, resolve: { fullySpecified: false } },
         { test: /\.(ts|tsx)$/, exclude: /node_modules/, use: { loader: 'ts-loader', options: { transpileOnly: true } } },
         { test: /\.(js|jsx)$/, exclude: /node_modules/, use: { loader: 'babel-loader', options: { presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'] } } },
         { test: /\.css$/, use: ['style-loader', 'css-loader', 'postcss-loader'] },

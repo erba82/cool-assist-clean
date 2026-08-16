@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0.0",
+  "units": "mm",
+  "models": [
+    {
+      "id": "BAC_VC1_25",
+      "manufacturer": "Baltimore Aircoil Company",
+      "family": "Series V",
+      "model": "VC1-25",
+      "category": "condenser",
+      "heatRejectionMbh": 308,
+      "nominalTonsAmmonia": 18,
+      "airflowCfm": 5300,
+      "fanMotorHp": 3.0,
+      "sprayPumpHp": 0.33,
+      "operatingWeightKg": 826,
+      "dimensionsMm": {
+        "length": 1143,
+        "width": 914,
+        "height": 2445,
+        "basinLength": 1143,
+        "basinWidth": 914
+      },
+      "connectionPorts": [
+        {
+          "id": "hot-gas-inlet",
+          "label": "Hot Gas Inlet (BFW)",
+          "role": "hot-gas-inlet",
+          "allowedNominalBoresMm": [80],
+          "connectionTypes": ["bevelled-for-welding", "flanged"],
+          "positionMm": [-571, 2100, 0],
+          "direction": [0, 1, 0],
+          "coordinateStatus": "verified"
+        },
+        {
+          "id": "liquid-outlet",
+          "label": "Liquid Outlet (BFW)",
+          "role": "liquid-outlet",
+          "allowedNominalBoresMm": [80],
+          "connectionTypes": ["bevelled-for-welding", "flanged"],
+          "positionMm": [-571, 400, 0],
+          "direction": [0, -1, 0],
+          "coordinateStatus": "verified"
+        }
+      ],
+      "sourceRefs": [
+        {
+          "documentTitle": "Series V Evaporative Condensers Engineering Data",
+          "publisher": "Baltimore Aircoil Company",
+          "page": 2,
+          "section": "VC1 Engineering Data"
+        }
+      ],
+      "geometryReadiness": "parametric-reference"
+    },
+    {
+      "id": "BAC_VC1_100",
+      "manufacturer": "Baltimore Aircoil Company",
+      "family": "Series V",
+      "model": "VC1-100",
+      "category": "condenser",
+      "heatRejectionMbh": 1470,
+      "nominalTonsAmmonia": 71,
+      "airflowCfm": 19600,
+      "fanMotorHp": 7.5,
+      "sprayPumpHp": 1.0,
+      "operatingWeightKg": 2460,
+      "dimensionsMm": {
+        "length": 3658,
+        "width": 1219,
+        "height": 2520,
+        "basinLength": 3658,
+        "basinWidth": 1219
+      },
+      "connectionPorts": [
+        {
+          "id": "hot-gas-inlet",
+          "label": "Hot Gas Inlet (BFW)",
+          "role": "hot-gas-inlet",
+          "allowedNominalBoresMm": [100],
+          "connectionTypes": ["bevelled-for-welding", "flanged"],
+          "positionMm": [-1829, 2150, 0],
+          "direction": [0, 1, 0],
+          "coordinateStatus": "verified"
+        },
+        {
+          "id": "liquid-outlet",
+          "label": "Liquid Outlet (BFW)",
+          "role": "liquid-outlet",
+          "allowedNominalBoresMm": [100],
+          "connectionTypes": ["bevelled-for-welding", "flanged"],
+          "positionMm": [-1829, 450, 0],
+          "direction": [0, -1, 0],
+          "coordinateStatus": "verified"
+        }
+      ],
+      "sourceRefs": [
+        {
+          "documentTitle": "Series V Evaporative Condensers Engineering Data",
+          "publisher": "Baltimore Aircoil Company",
+          "page": 2,
+          "section": "VC1 Engineering Data"
+        }
+      ],
+      "geometryReadiness": "parametric-reference"
+    }
+  ]
+}

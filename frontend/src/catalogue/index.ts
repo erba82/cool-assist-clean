@@ -8,6 +8,10 @@ export * from './CatalogueValveTypes';
 export * from './CatalogueValveLibrary';
 export * from './CatalogueParametricValveFamily';
 export * from './CatalogueValvePidSymbol';
+export * from './CatalogueEquipmentTypes';
+export * from './CatalogueEquipmentLibrary';
+export * from './CatalogueParametricEquipmentFamily';
+export * from './CatalogueEquipmentPidSymbol';
 
 const isPortId = (value: unknown): value is CataloguePort['id'] => value === 'suction' || value === 'discharge' || value === 'oil-injection';
 

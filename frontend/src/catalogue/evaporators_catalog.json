@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "units": "mm",
+  "models": [
+    {
+      "id": "LV_AIR_COOLER_STD_4",
+      "manufacturer": "Industrial Air Cooler Series",
+      "family": "Low Velocity Air Cooler",
+      "model": "LV-4-FPI4-H",
+      "category": "evaporator",
+      "surfaceAreaM2": 125.0,
+      "airflowCfm": 10900,
+      "defrostType": "hot-gas",
+      "operatingWeightKg": 345.0,
+      "dimensionsMm": {
+        "length": 2400,
+        "width": 850,
+        "height": 950,
+        "faceToFace": 2400
+      },
+      "connectionPorts": [
+        {
+          "id": "inlet",
+          "label": "Refrigerant Inlet",
+          "role": "suction",
+          "allowedNominalBoresMm": [25],
+          "connectionTypes": ["aluminum-flange", "socket-weld"],
+          "positionMm": [-1200, 0, -400],
+          "direction": [-1, 0, 0],
+          "coordinateStatus": "verified"
+        },
+        {
+          "id": "outlet",
+          "label": "Refrigerant Outlet / Suction Header",
+          "role": "suction",
+          "allowedNominalBoresMm": [50],
+          "connectionTypes": ["aluminum-flange", "socket-weld"],
+          "positionMm": [1200, 0, 400],
+          "direction": [1, 0, 0],
+          "coordinateStatus": "verified"
+        }
+      ],
+      "sourceRefs": [
+        {
+          "documentTitle": "Engineering Bulletin Industrial Coolers Low Velocity",
+          "publisher": "Industrial Refrigeration Standards",
+          "page": 11,
+          "section": "Unit Dimensions & Connections"
+        }
+      ],
+      "geometryReadiness": "parametric-reference"
+    }
+  ]
+}

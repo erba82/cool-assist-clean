@@ -20,6 +20,7 @@
  */
 
 const ThermodynamicCycleAnalyzer = require('./ThermodynamicCycleAnalyzer');
+const { getRefrigerantProfile } = require('../data/RefrigerantProfiles');
 
 class CompressorSelector {
     constructor(engine) {
@@ -372,13 +373,40 @@ class CompressorSelector {
     }
 
     _selectCompressor(load, evapTemp, compressionRatio, project = {}) {
-        const refrigerant = String(project.refrigerant || 'R717').toUpperCase();
-        const isAmmonia = /^(R?717|NH3|AMMONIA)$/.test(refrigerant.replace(/[\s-]/g, ''));
+        const refrigerant = String(project.refrigerant || 'R717');
+        const profile = getRefrigerantProfile(refrigerant);
+        const byProfile = {
+            R744: () => ({
+                series: 'CO2_RECIP', type: 'reciprocating', manufacturer: 'BITZER',
+                model: load <= 30 ? '4GTE-30K' : load <= 60 ? '6FTE-50K' : '8FTE-140K',
+                capacity: load <= 30 ? 30 : load <= 60 ? 50 : 100,
+                motor: load <= 30 ? 15 : load <= 60 ? 30 : 55,
+                speed: 1450, oilCooling: 'profile-specific', economizer: false, profile
+            }),
+            R290: () => ({
+                series: 'R290_SCROLL', type: 'scroll', manufacturer: 'Copeland',
+                model: load <= 24 ? 'YH*1G R290 Scroll' : 'YH*1G R290 Parallel Scroll Pack',
+                capacity: 24, motor: 12, speed: 2900, oilCooling: 'profile-specific', economizer: false, profile
+            }),
+            R32: () => ({
+                series: 'R32_SCROLL', type: 'scroll', manufacturer: 'Copeland',
+                model: load <= 40 ? 'YP R32 Scroll' : 'YPV R32 Variable-Speed Scroll',
+                capacity: load <= 40 ? 40 : 60, motor: load <= 40 ? 15 : 22,
+                speed: 2900, oilCooling: 'profile-specific', economizer: false, profile
+            }),
+            R410A: () => ({
+                series: 'R410A_SCROLL', type: 'scroll', manufacturer: 'Copeland',
+                model: 'ZP R410A Scroll', capacity: 45, motor: 18,
+                speed: 2900, oilCooling: 'profile-specific', economizer: false, profile
+            })
+        };
+        const key = profile?.id || refrigerant;
+        if (byProfile[key]) return byProfile[key]();
+
+        const isAmmonia = Boolean(profile?.family === 'ammonia-industrial');
         const requestedType = String(project?.designIntent?.compressorType || project?.compressorType || '').toLowerCase();
         let selectedSeries;
         let selectedSize;
-
-        // DX and HFC projects should not silently inherit an ammonia screw-bank default.
         if (!isAmmonia && requestedType !== 'screw' && load <= 150) {
             selectedSeries = 'REC';
             selectedSize = load < 15 ? 'small' : load < 45 ? 'medium' : 'large';
@@ -395,18 +423,14 @@ class CompressorSelector {
             selectedSeries = 'OS';
             selectedSize = load < 200 ? 'small' : load < 500 ? 'medium' : load < 1000 ? 'large' : 'xlarge';
         }
-
         const series = this.compressorSeries[selectedSeries];
         const model = series.models[selectedSize];
         return {
-            series: selectedSeries,
-            type: series.type,
-            model: model.model,
+            series: selectedSeries, type: series.type, model: model.model,
             capacity: (model.capacity[0] + model.capacity[1]) / 2,
             motor: (model.motor[0] + model.motor[1]) / 2,
-            speed: series.speeds[0],
-            oilCooling: series.oilCooling,
-            economizer: series.economizer
+            speed: series.speeds[0], oilCooling: series.oilCooling,
+            economizer: series.economizer, profile
         };
     }
     _determineCount(load, selection) {

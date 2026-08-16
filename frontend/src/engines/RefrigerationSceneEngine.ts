@@ -2,7 +2,7 @@ import { BIM_LIBRARY, BimConnection } from './GfDdeBimLibrary';
 
 export type Vec3 = [number, number, number];
 export type LineService = 'suction' | 'discharge' | 'hotGas' | 'liquid' | 'oil' | 'defrost' | 'water' | 'default';
-export type JointType = 'welded' | 'flanged' | 'grooved';
+export type JointType = 'welded' | 'brazed' | 'flanged' | 'grooved';
 
 export interface ScenePort {
   id: string;
@@ -184,15 +184,19 @@ const lineService = (edge: any, source?: any, target?: any): LineService => {
 
 const familyForNode = (node: any): string | null => {
   const type = words(node?.data?.componentType, node?.data?.subtype, node?.data?.model, node?.data?.label, node?.type);
+  if (/scroll/.test(type)) return 'BIM_COMP_SCROLL';
   if (/recip|piston/.test(type)) return 'BIM_COMP_RECIP';
   if (/compressor|screw/.test(type)) return 'BIM_COMP_SCREW';
+  if (/gas.?cooler/.test(type)) return 'BIM_GAS_COOLER';
+  if (/air.?cooled.?condenser/.test(type)) return 'BIM_CONDENSER_AIR';
   if (/evaporative.?condenser|condenser/.test(type)) return 'BIM_CONDENSER_EVAP';
   if (/unit.?cooler|air.?cooler|evaporator/.test(type)) return 'BIM_EVAP_UNIT';
   // The supplied reference calls for horizontal vessels by default. Vertical families remain available only for explicit future project rules.
   if (/oil.?separator/.test(type)) return 'BIM_OIL_SEPARATOR';
   if (/vessel|receiver|accumulator/.test(type)) return 'BIM_VESSEL_HORIZ';
   if (/pump|circulator/.test(type)) return 'BIM_PUMP_CENTRIFUGAL';
-  if (/pump|circulator/.test(type)) return 'BIM_PUMP_CENTRIFUGAL';
+  if (/ventilation.?fan/.test(type)) return 'BIM_VENTILATION_FAN';
+  if (/gas.?detector|safety.?control|emergency.?shutdown|relief.?valve/.test(type)) return 'BIM_SAFETY_PANEL';
   if (/expansion|tev|txv/.test(type)) return 'BIM_VALVE_EXPANSION';
   if (/check.?valve/.test(type)) return 'BIM_VALVE_CHECK';
   if (/valve|solenoid|globe|shut.?off/.test(type)) return 'BIM_VALVE_GLOBE';

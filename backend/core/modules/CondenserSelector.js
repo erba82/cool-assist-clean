@@ -13,6 +13,7 @@
  * @version 2.0.0
  */
 
+const { getRefrigerantProfile } = require('../data/RefrigerantProfiles');
 class CondenserSelector {
     constructor(engine) {
         this.engine = engine;
@@ -40,7 +41,8 @@ class CondenserSelector {
                 pumpPower: [15, 30],
                 models: ['PFI-2000', 'PFI-4000', 'PFI-6000', 'PFI-8000']
             }
-        };
+        };        this.gasCoolers = { 'GCO2': { capacityRange: [20, 560], approach: 10, fanPower: [1.5, 18], models: ['Güntner V-Shape Compact CO2-20', 'Güntner V-Shape Compact CO2-50', 'Güntner V-Shape Compact CO2-150', 'Güntner V-Shape Compact CO2-560'] } };
+
 
         // Air-cooled condensers
         this.airCooledCondensers = {
@@ -91,6 +93,9 @@ class CondenserSelector {
 
         return {
             type: type,
+            equipmentRole: type === 'gas_cooler' ? 'CO2 gas cooler' : 'heat rejection unit',
+            refrigerantProfile: getRefrigerantProfile(project.refrigerant)?.id || project.refrigerant,
+            componentPolicy: getRefrigerantProfile(project.refrigerant)?.componentPolicy || 'legacy-generic',
             model: selection.model,
             series: selection.series,
             count: selection.count,
@@ -115,7 +120,7 @@ class CondenserSelector {
                 altitude: altitude
             },
             tag: 'COND-01',
-            manufacturer: type === 'evaporative' ? 'BAC' : 'GÜNTNER',
+            manufacturer: type === 'evaporative' ? 'BAC' : type === 'gas_cooler' ? 'Güntner' : 'GÜNTNER',
 
             // Detailed Technical Specs
             technicalSpecs: {
@@ -175,18 +180,10 @@ class CondenserSelector {
     }
 
     _selectType(project, wetBulb, dryBulb) {
-        // An explicit engineering choice always wins. Otherwise, DX/HFC systems
-        // use air-cooled condensers rather than inheriting the ammonia default.
+        const profile = getRefrigerantProfile(project.refrigerant);
+        if (profile?.heatRejection?.type) return profile.heatRejection.type;
         if (project.condenserType) return project.condenserType;
-        const refrigerant = String(project.refrigerant || 'R717').toUpperCase().replace(/[\s-]/g, '');
-        const isAmmonia = /^(R?717|NH3|AMMONIA)$/.test(refrigerant);
-        if (!isAmmonia) return 'air_cooled';
-        const deltaT = dryBulb - wetBulb;
-        if (deltaT >= 10) return 'evaporative';
-        if (deltaT <= 5) return 'air_cooled';
-        const region = project.climate?.region || 'default';
-        if (region === 'middle_east') return 'evaporative';
-        return 'evaporative';
+        return 'air_cooled';
     }
     _getAltitudeFactor(altitude) {
         // Air density decreases with altitude
@@ -195,8 +192,8 @@ class CondenserSelector {
     }
 
     _selectModel(capacity, type) {
-        const condensers = type === 'evaporative' ?
-            this.evaporativeCondensers : this.airCooledCondensers;
+        const condensers = type === 'evaporative' ? this.evaporativeCondensers :
+            type === 'gas_cooler' ? this.gasCoolers : this.airCooledCondensers;
 
         // Find appropriate series
         let selectedSeries = null;

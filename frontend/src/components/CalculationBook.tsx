@@ -33,6 +33,7 @@ const CalculationBook: React.FC<Props> = ({ data }) => {
       equipment: data?.equipment || data?.proposals?.best || {},
       energy: data?.energy || {},
       calculations: data?.calculations || data?.fullResults?.calculations || {},
+      pidMetadata: pid?.metadata || {},
       pidEdges,
       tags
     };
@@ -75,6 +76,15 @@ const CalculationBook: React.FC<Props> = ({ data }) => {
       </TableBody></Table>
     </Section>
 
+    <Section title="2. Profile-specific design assumptions">
+      {model.pidMetadata?.profile ? <Table size="small"><TableBody>
+        <TableRow><TableCell>Profile</TableCell><TableCell>{dash(model.pidMetadata.profile.id)}</TableCell><TableCell>Family</TableCell><TableCell>{dash(model.pidMetadata.profile.family)}</TableCell></TableRow>
+        <TableRow><TableCell>Cycle</TableCell><TableCell>{dash(model.pidMetadata.cycle)}</TableCell><TableCell>Safety class</TableCell><TableCell>{dash(model.pidMetadata.profile.safetyClass)}</TableCell></TableRow>
+        <TableRow><TableCell>Piping material</TableCell><TableCell>{dash(model.pidMetadata.profile.pipingMaterial)}</TableCell><TableCell>Joint policy</TableCell><TableCell>{dash(model.pidMetadata.jointPolicy)}</TableCell></TableRow>
+        <TableRow><TableCell>Safeguards carried into P&amp;ID</TableCell><TableCell colSpan={3}>{Array.isArray(model.pidMetadata.profile.safeguards) && model.pidMetadata.profile.safeguards.length ? model.pidMetadata.profile.safeguards.join(', ') : 'No profile safeguard list returned.'}</TableCell></TableRow>
+      </TableBody></Table> : <Alert severity="warning">No refrigerant-profile metadata was returned with this design.</Alert>}
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>The profile establishes the generated selection policy. Final component ratings, pressure classes, charge limits, safety zoning, and relief design remain subject to manufacturer selection and engineering review.</Typography>
+    </Section>
     <Section title="2. Cooling Load Calculation">
       {model.loads.length ? <Table size="small"><TableHead><TableRow><TableCell>Room</TableCell><TableCell>Temperature</TableCell><TableCell align="right">Total load</TableCell><TableCell align="right">Transmission</TableCell><TableCell align="right">Product</TableCell><TableCell align="right">Infiltration</TableCell><TableCell align="right">Internal</TableCell></TableRow></TableHead><TableBody>
         {model.loads.map((load: any, index: number) => <TableRow key={`${load.room || 'room'}-${index}`}><TableCell>{dash(load.room || load.roomName)}</TableCell><TableCell>{dash(load.temperature, ' °C')}</TableCell><TableCell align="right">{dash(load.load ?? load.total, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.transmission, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.product, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.infiltration, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.internal, ' kW')}</TableCell></TableRow>)}
@@ -82,7 +92,7 @@ const CalculationBook: React.FC<Props> = ({ data }) => {
       </TableBody></Table> : <Alert severity="warning">The active response did not contain room-level load results.</Alert>}
     </Section>
 
-    <Section title="3. Equipment Selection">
+    <Section title="4. Equipment Selection">
       <Box sx={{ p: 1.25 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: .5 }}>Compressors</Typography>
         <Table size="small"><TableHead><TableRow><TableCell>Tag</TableCell><TableCell>Model</TableCell><TableCell>Type</TableCell><TableCell align="right">Capacity</TableCell><TableCell align="right">Power</TableCell></TableRow></TableHead><TableBody>{compressorRows.length ? compressorRows.map((item: any, index: number) => <TableRow key={item.tag || index}><TableCell>{dash(item.tag)}</TableCell><TableCell>{dash(item.model)}</TableCell><TableCell>{dash(item.type)}</TableCell><TableCell align="right">{dash(item.capacity ?? item.capacityKW, ' kW')}</TableCell><TableCell align="right">{dash(item.power ?? item.powerKW, ' kW')}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5}>No compressor selection was returned.</TableCell></TableRow>}</TableBody></Table>
@@ -97,7 +107,7 @@ const CalculationBook: React.FC<Props> = ({ data }) => {
       {model.pidEdges.length ? <Table size="small"><TableHead><TableRow><TableCell>Line</TableCell><TableCell>Service</TableCell><TableCell>From</TableCell><TableCell>To</TableCell><TableCell align="right">DN</TableCell><TableCell>Joint policy</TableCell></TableRow></TableHead><TableBody>{model.pidEdges.map((edge: any, index: number) => <TableRow key={edge.id || index}><TableCell>{dash(edge.label || edge.id)}</TableCell><TableCell>{dash(edge.data?.service || edge.service)}</TableCell><TableCell>{dash(model.tags.get(edge.source))}</TableCell><TableCell>{dash(model.tags.get(edge.target))}</TableCell><TableCell align="right">{dash(edge.data?.dn ?? edge.dn)}</TableCell><TableCell>{dash(edge.data?.jointType || edge.jointType)}</TableCell></TableRow>)}</TableBody></Table> : <Alert severity="warning">No generated P&ID topology was returned with this design.</Alert>}
     </Section>
 
-    <Section title="5. Energy and Review Status">
+    <Section title="6. Energy and Review Status">
       <Table size="small"><TableBody>
         <TableRow><TableCell>Reported COP</TableCell><TableCell>{dash(model.energy.cop ?? model.energy.COP)}</TableCell><TableCell>Annual energy</TableCell><TableCell>{dash(model.energy.annualEnergy ?? model.energy.annualConsumption, ' kWh')}</TableCell></TableRow>
         <TableRow><TableCell>Calculation payload</TableCell><TableCell>{Object.keys(model.calculations).length ? 'Available' : 'Not returned'}</TableCell><TableCell>Engineering issue status</TableCell><TableCell>Review required before IFC issue</TableCell></TableRow>

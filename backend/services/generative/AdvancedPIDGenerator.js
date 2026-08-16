@@ -1,3 +1,4 @@
+const { getRefrigerantProfile } = require('../../core/data/RefrigerantProfiles');
 class AdvancedPIDGenerator {
     _isAmmonia(refrigerant) {
         return /^(R?717|NH3|AMMONIA)$/i.test(String(refrigerant || '').replace(/[\s-]/g, ''));
@@ -36,11 +37,15 @@ class AdvancedPIDGenerator {
     async generate(results = {}, project = {}) {
         const calculations = results.calculations || {};
         const refrigerant = String(project.refrigerant || results?.project?.refrigerant || 'R404A').toUpperCase().replace(/\s+/g, '');
-        const isAmmonia = this._isAmmonia(refrigerant);
+        const profile = getRefrigerantProfile(refrigerant);
+        if (!profile) throw new Error(`No refrigerant profile is available for ${refrigerant}`);
+        const isAmmonia = profile.family === 'ammonia-industrial';
+        const isCO2 = profile.family === 'co2-transcritical';
+        const defaultJointType = profile.piping.jointType;
         const totalLoad = Number(results?.summary?.totalCoolingLoad || calculations?.totalCoolingLoad || 0);
         const selectedCompressors = Array.isArray(calculations.compressors) && calculations.compressors.length
             ? calculations.compressors
-            : [{ model: isAmmonia ? 'HSN8571' : 'Copeland ZB Series', type: isAmmonia ? 'Screw' : 'Reciprocating' }];
+            : [{ model: profile.compressor.model, type: profile.compressor.family, manufacturer: profile.compressor.manufacturer }];
         const requestedCount = Number(project?.designIntent?.compressorCount);
         const compressorCount = Number.isFinite(requestedCount) && requestedCount > 0 ? requestedCount : selectedCompressors.length;
         const compressors = Array.from({ length: compressorCount }, (_, index) => {
@@ -48,7 +53,7 @@ class AdvancedPIDGenerator {
             return {
                 ...source,
                 tag: source.tag || `COMP-${String(index + 1).padStart(2, '0')}`,
-                model: source.model || (isAmmonia ? 'HSN8571' : 'Copeland ZB Series')
+                model: source.model || profile.compressor.model
             };
         });
         const rawEvaporators = Array.isArray(calculations.evaporators) && calculations.evaporators.length
@@ -107,8 +112,8 @@ class AdvancedPIDGenerator {
                     dn: nominalDiameter,
                     nominalDiameter,
                     medium: refrigerant,
-                    jointType: 'welded',
-                    connectionType: 'welded',
+                    jointType: defaultJointType,
+                    connectionType: defaultJointType,
                     ...extra
                 },
                 style: this._serviceStyle(service)
@@ -119,8 +124,8 @@ class AdvancedPIDGenerator {
         const condenser = calculations.condensers?.[0] || {};
         const condenserId = addNode({
             x: 700, y: 110,
-            label: condenser.model || (isAmmonia ? 'Evaporative Condenser' : 'Air-Cooled Condenser'),
-            componentType: isAmmonia ? 'evaporative_condenser' : 'air_cooled_condenser',
+            label: condenser.model || profile.heatRejection.model,
+            componentType: profile.heatRejection.type,
             tag: condenser.tag || 'COND-01',
             mounting: 'roof',
             elevation: 7.3,
@@ -129,13 +134,13 @@ class AdvancedPIDGenerator {
 
         const receiverId = addNode({
             x: 700, y: 270,
-            label: isAmmonia ? 'HP Receiver' : 'Liquid Receiver',
+            label: profile.liquidManagement.receiver,
             componentType: 'horizontal_vessel',
-            tag: isAmmonia ? 'REC-HP-01' : 'REC-LP-01',
+            tag: isAmmonia ? 'REC-HP-01' : isCO2 ? 'REC-FG-01' : 'REC-LP-01',
             details: { function: 'liquid receiver', volume: calculations.receiver?.volume || null, refrigerant }
         });
 
-        const needsOilSeparator = isAmmonia || compressors.length > 1 || Boolean(calculations.oilSeparators?.length);
+        const needsOilSeparator = isAmmonia || isCO2 || compressors.length > 1 || Boolean(calculations.oilSeparators?.length);
         const oilSeparatorId = needsOilSeparator ? addNode({
             x: 510, y: 360,
             label: 'Oil Separator',
@@ -146,13 +151,13 @@ class AdvancedPIDGenerator {
 
         const liquidConditioningId = isAmmonia ? addNode({
             x: 845, y: 270,
-            label: 'Liquid Pump',
+            label: profile.liquidManagement.conditioning,
             componentType: 'centrifugal_pump',
             tag: 'PMP-LIQ-01',
             details: { function: 'pumped liquid feed', refrigerant }
         }) : addNode({
             x: 845, y: 270,
-            label: 'Filter Drier',
+            label: profile.liquidManagement.conditioning,
             componentType: 'strainer',
             tag: 'FD-01',
             details: { function: 'liquid line filtration', refrigerant }
@@ -166,9 +171,9 @@ class AdvancedPIDGenerator {
         });
         const suctionHeaderId = addNode({
             x: 465, y: 650,
-            label: isAmmonia ? 'Low-Pressure Suction Separator' : 'Suction Accumulator',
+            label: profile.liquidManagement.accumulator,
             componentType: 'horizontal_vessel',
-            tag: isAmmonia ? 'SEP-LP-01' : 'ACC-SUC-01',
+            tag: isAmmonia ? 'SEP-LP-01' : isCO2 ? 'ACC-CO2-01' : 'ACC-SUC-01',
             details: { function: 'common suction header / liquid protection', refrigerant }
         });
 
@@ -232,7 +237,7 @@ class AdvancedPIDGenerator {
             });
             const tevId = addNode({
                 x: x - 80, y,
-                label: isAmmonia ? 'Hand Expansion Valve' : 'Thermostatic Expansion Valve',
+                label: isAmmonia ? 'Hand Expansion Valve' : isCO2 ? 'Electronic Expansion Valve' : 'Thermostatic Expansion Valve',
                 componentType: 'tev',
                 tag: `TEV-${String(index + 1).padStart(2, '0')}`,
                 roomId: evaporator.roomId,
@@ -264,16 +269,34 @@ class AdvancedPIDGenerator {
             connect(suctionValveId, suctionHeaderId, 'suction', dn.branchSuction, `${refrigerant} suction header branch DN${dn.branchSuction}`, { branch: evaporator.roomId });
         });
 
-        const assemblyTitle = `${refrigerant} P&ID TO BIM ASSEMBLY`;
+        const safetyDeviceMap = {
+            'ammonia detection': ['Ammonia Gas Detector', 'gas_detector'],
+            'A3 hydrocarbon leak detection': ['R290 Gas Detector', 'gas_detector'],
+            'A2L leak detection': ['A2L Gas Detector', 'gas_detector'],
+            'gas detection where required': ['CO2 Gas Detector', 'gas_detector'],
+            'mechanical ventilation': ['Emergency Ventilation Fan', 'ventilation_fan'],
+            'enhanced mechanical ventilation': ['Enhanced Ventilation Fan', 'ventilation_fan'],
+            'emergency ventilation': ['Emergency Ventilation Fan', 'ventilation_fan'],
+            'emergency shutdown': ['Emergency Shutdown Panel', 'emergency_shutdown'],
+            'high-pressure monitoring': ['High-Pressure Safety Control', 'safety_control'],
+            'pressure relief review': ['Pressure Relief Review Point', 'relief_valve']
+        };
+        profile.safeguards.forEach((requirement, index) => {
+            const mapped = safetyDeviceMap[requirement] || [requirement, 'safety_control'];
+            addNode({ x: 60 + (index % 2) * 145, y: 105 + Math.floor(index / 2) * 75, label: mapped[0], componentType: mapped[1], tag: 'SAFE-' + String(index + 1).padStart(2, '0'), mounting: 'wall', details: { safetyRequirement: requirement, refrigerant, profile: profile.id } });
+        });
+        const assemblyTitle = refrigerant + ' P&ID TO BIM ASSEMBLY';
         return {
             nodes,
             edges,
             metadata: {
                 generator: 'GFDDE Refrigerant-Aware Topology',
                 refrigerant,
-                topology: isAmmonia ? 'pumped-ammonia-industrial' : 'direct-expansion-refrigeration',
+                topology: profile.topology,
+                cycle: profile.cycle,
                 assemblyTitle,
-                jointPolicy: isAmmonia ? 'R717 process piping: welded connections by default; flanges only when explicitly specified.' : `${refrigerant} design: refrigerant-specific equipment and closed-loop topology generated from the submitted design.`,
+                profile: { id: profile.id, family: profile.family, safetyClass: profile.safetyClass, componentPolicy: profile.componentPolicy, safeguards: profile.safeguards, pipingMaterial: profile.piping.material },
+                jointPolicy: profile.piping.policy,
                 sizingStatus: 'preliminary DN values; final sizes require verified pressure-drop calculation inputs.',
                 timestamp: new Date().toISOString()
             }

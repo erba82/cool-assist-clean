@@ -7,7 +7,8 @@
     "start": "webpack serve --mode development --open",
     "build": "webpack --mode production",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "validate:catalogue": "node scripts/validateCatalogueLibrary.cjs"
+    "validate:catalogue": "node scripts/validateCatalogueLibrary.cjs",
+    "validate:3d": "tsc --outDir .render-audit --module commonjs --target ES2020 --moduleResolution node --esModuleInterop --resolveJsonModule --skipLibCheck scripts/validateCatalogue3DRender.ts && node .render-audit/scripts/validateCatalogue3DRender.js"
   },
   "keywords": [
     "hvacr",

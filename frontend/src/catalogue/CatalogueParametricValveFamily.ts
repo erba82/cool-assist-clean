@@ -91,7 +91,7 @@ export class CatalogueParametricValveFamily {
       const nozzleRadius = toMetres(nominalBoreMm, `${this.model.id}:${port.id}:nominalBoreMm`) / 2;
       const nozzleLength = Math.max(nozzleRadius * 0.75, 0.012);
       const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(nozzleRadius, nozzleRadius, nozzleLength, 20), flangeMaterial);
-      nozzle.rotation.z = Math.PI / 2;
+      nozzle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(direction[0], direction[1], direction[2]).normalize());
       nozzle.position.set(positionM[0], positionM[1], positionM[2]);
       nozzle.userData = { id: port.id, direction, coordinateStatus: port.coordinateStatus, nominalBoresMm: port.allowedNominalBoresMm };
       nozzle.castShadow = true;

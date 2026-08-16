@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { BIM_LIBRARY, BIM_MATERIALS, BimEquipmentDef, BimConnection } from './GfDdeBimLibrary';
+import { BIM_LIBRARY, BIM_MATERIALS, BimConnection } from './GfDdeBimLibrary';
+import { instantiateCatalogueRenderAsset } from '../catalogue/CatalogueRenderDispatcher';
 
 export interface PlacedEquipment {
   tag: string;
@@ -71,6 +72,26 @@ export class ThreeDModelFactory {
     group.rotation.copy(rotation);
     const bbox = new THREE.Box3().setFromObject(group);
     return { tag, group, connections: equipDef.connections, bbox };
+  }
+
+  /** Build a catalogue-backed parametric asset through the active scene factory. */
+  createCatalogueEquipment(catalogueModelId: string, tag: string, position: THREE.Vector3, rotation: THREE.Euler): PlacedEquipment & { routingReady: boolean } {
+    const asset = instantiateCatalogueRenderAsset(catalogueModelId);
+    asset.group.name = tag;
+    asset.group.position.copy(position);
+    asset.group.rotation.copy(rotation);
+    // Geometry may render from catalogue envelopes even where manufacturer GA data
+    // does not yet permit safe automatic routing. Never synthesize a port frame.
+    const connections: BimConnection[] = asset.ports
+      .filter((port) => port.positionM !== null && port.direction !== null && port.coordinateStatus === 'verified')
+      .map((port) => ({
+        id: port.id,
+        type: 'catalogue',
+        dn: 0,
+        pos: { x: port.positionM![0], y: port.positionM![1], z: port.positionM![2] },
+        dir: { x: port.direction![0], y: port.direction![1], z: port.direction![2] },
+      }));
+    return { tag, group: asset.group, connections, bbox: new THREE.Box3().setFromObject(asset.group), routingReady: asset.routingReady };
   }
 
   public buildFlange(nominalDN: number, matKey: string): THREE.Group {

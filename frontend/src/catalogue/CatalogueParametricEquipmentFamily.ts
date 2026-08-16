@@ -74,11 +74,13 @@ export class CatalogueParametricEquipmentFamily {
       const portAnchor = new THREE.Group();
       portAnchor.name = `port-${port.id}`;
       portAnchor.position.set(positionM[0], positionM[1], positionM[2]);
+      portAnchor.userData = { id: port.id, direction, coordinateStatus: port.coordinateStatus, nominalBoresMm: port.allowedNominalBoresMm, connectionTypes: port.connectionTypes };
 
       const nominalBoreMm = Math.min(...port.allowedNominalBoresMm);
       const nozzleRadius = toMetres(nominalBoreMm, `${this.model.id}:${port.id}:bore`) / 2;
       const nozzleLength = Math.max(nozzleRadius * 0.8, 0.015);
       const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(nozzleRadius, nozzleRadius, nozzleLength, 16), nozzleMaterial);
+      nozzle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(direction[0], direction[1], direction[2]).normalize());
       nozzle.castShadow = true;
       portAnchor.add(nozzle);
 

@@ -98,8 +98,10 @@ export class CatalogueScrewCompressorFamily {
     ports.filter((port) => port.positionM && port.direction).forEach((port) => {
       const radius = port.nominalDiameterMm ? toMetres(port.nominalDiameterMm) / 2 : 0.025;
       const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, Math.max(radius, 0.05), 20), steelMaterial);
+      const direction = new THREE.Vector3(port.direction![0], port.direction![1], port.direction![2]).normalize();
+      nozzle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
       nozzle.position.set(port.positionM![0], port.positionM![1], port.positionM![2]);
-      nozzle.userData = { id: port.id, coordinateStatus: port.coordinateStatus };
+      nozzle.userData = { id: port.id, direction: port.direction, coordinateStatus: port.coordinateStatus };
       nozzle.castShadow = true;
       group.add(nozzle);
     });

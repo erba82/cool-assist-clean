@@ -1,4 +1,5 @@
-import { BimEquipmentFamily } from '../types/bim';
+import { BimEquipmentFamily, BimConnection } from '../types/bim';
+export type { BimEquipmentFamily as BimEquipmentDef, BimConnection };
 export * from '../catalogue';
 
 /**

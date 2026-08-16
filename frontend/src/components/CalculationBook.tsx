@@ -4,6 +4,7 @@ import ProcurementBOMPanel from './ProcurementBOMPanel';
 
 interface Props {
   data: any;
+  onProcurementTierChange?: (tier: string) => void;
 }
 
 const dash = (value: any, suffix = '') => {
@@ -20,7 +21,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </Box>
 );
 
-const CalculationBook: React.FC<Props> = ({ data }) => {
+const CalculationBook: React.FC<Props> = ({ data, onProcurementTierChange }) => {
   const model = useMemo(() => {
     const project = data?.project || data?.projectInfo || {};
     const pid = data?.pidData || data?.pidData2D || {};
@@ -106,7 +107,7 @@ const CalculationBook: React.FC<Props> = ({ data }) => {
     </Section>
 
     <Section title="5. Location-Aware Procurement & Price Inquiry">
-      <ProcurementBOMPanel procurement={model.procurement} />
+      <ProcurementBOMPanel procurement={model.procurement} onTierChange={onProcurementTierChange} />
     </Section>
     <Section title="4. Generated P&ID Line Register">
       {model.pidEdges.length ? <Table size="small"><TableHead><TableRow><TableCell>Line</TableCell><TableCell>Service</TableCell><TableCell>From</TableCell><TableCell>To</TableCell><TableCell align="right">DN</TableCell><TableCell>Joint policy</TableCell></TableRow></TableHead><TableBody>{model.pidEdges.map((edge: any, index: number) => <TableRow key={edge.id || index}><TableCell>{dash(edge.label || edge.id)}</TableCell><TableCell>{dash(edge.data?.service || edge.service)}</TableCell><TableCell>{dash(model.tags.get(edge.source))}</TableCell><TableCell>{dash(model.tags.get(edge.target))}</TableCell><TableCell align="right">{dash(edge.data?.dn ?? edge.dn)}</TableCell><TableCell>{dash(edge.data?.jointType || edge.jointType)}</TableCell></TableRow>)}</TableBody></Table> : <Alert severity="warning">No generated P&ID topology was returned with this design.</Alert>}

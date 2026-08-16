@@ -1,8 +1,9 @@
 import React from 'react';
-import { Alert, Box, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 
 interface Props {
   procurement?: any;
+  onTierChange?: (tier: string) => void;
 }
 
 const tierLabel: Record<string, string> = {
@@ -27,7 +28,7 @@ const sourceLabel = (offer: any) => offer?.supplierSource ? (
   <Link href={offer.supplierSource} target="_blank" rel="noreferrer">Source</Link>
 ) : 'No public source';
 
-const ProcurementBOMPanel: React.FC<Props> = ({ procurement }) => {
+const ProcurementBOMPanel: React.FC<Props> = ({ procurement, onTierChange }) => {
   if (!procurement) return <Alert severity="info">No location-aware procurement result was returned for this design.</Alert>;
   const rows = Array.isArray(procurement.rows) ? procurement.rows : [];
   const location = procurement.location || {};
@@ -36,6 +37,9 @@ const ProcurementBOMPanel: React.FC<Props> = ({ procurement }) => {
       <Chip color="primary" size="small" label={tierLabel[procurement.selectedTier] || procurement.selectedTier || 'Tier not selected'} />
       <Chip variant="outlined" size="small" label={[location.city, location.countryCode || location.country].filter(Boolean).join(', ') || 'Location required'} />
       <Chip variant="outlined" size="small" label={`Target currency: ${procurement.currency?.currency || 'unresolved'}`} />
+    </Box>
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.25 }}>
+      {['premium', 'standard', 'budget'].map(tier => <Button key={tier} size="small" variant={tier === procurement.selectedTier ? 'contained' : 'outlined'} onClick={() => onTierChange?.(tier)} disabled={!onTierChange}>{tierLabel[tier]}</Button>)}
     </Box>
     <Alert severity="warning" sx={{ mb: 1.25 }}>
       Public reference prices are not landed costs. Freight, duties, taxes, stock, commercial terms and final technical approval remain supplier-quotation and engineering-review items.

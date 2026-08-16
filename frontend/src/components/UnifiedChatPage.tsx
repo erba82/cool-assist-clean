@@ -1381,6 +1381,44 @@ const UnifiedChatPage: React.FC = () => {
 
     const [activeDesign, setActiveDesign] = useState<any>(null);
     const [previewTab, setPreviewTab] = useState(0);
+    const applyProcurementTier = (tier: string) => {
+        setActiveDesign((current: any) => {
+            const synchronization = current?.synchronization;
+            const procurement = synchronization?.procurement;
+            if (!procurement || !['premium', 'standard', 'budget'].includes(tier)) return current;
+            const rows = (Array.isArray(procurement.rows) ? procurement.rows : []).map((row: any) => {
+                const selectedOffer = row?.offersByTier?.[tier] || null;
+                const baseSelection = row?.graphicalSelection || {};
+                return {
+                    ...row,
+                    selectedTier: tier,
+                    selectedOffer,
+                    graphicalSelection: {
+                        ...baseSelection,
+                        selectedTier: tier,
+                        selectedBrand: selectedOffer?.brand || baseSelection.selectedBrand || null,
+                        selectedModel: selectedOffer?.model || baseSelection.selectedModel || null,
+                        selectedCatalogueModelId: selectedOffer?.catalogueModelId && selectedOffer?.engineeringCompatibility === 'model-specific' ? selectedOffer.catalogueModelId : baseSelection.selectedCatalogueModelId || null,
+                        renderUpdateStatus: selectedOffer?.catalogueModelId && selectedOffer?.engineeringCompatibility === 'model-specific' ? 'catalogue-model-approved' : 'display-brand-selection-only',
+                        engineeringCompatibility: selectedOffer?.engineeringCompatibility || 'not-assessed'
+                    }
+                };
+            });
+            return {
+                ...current,
+                project: { ...(current.project || {}), procurement: { ...(current.project?.procurement || {}), selectedTier: tier } },
+                synchronization: {
+                    ...synchronization,
+                    procurement: {
+                        ...procurement,
+                        selectedTier: tier,
+                        rows,
+                        equipmentOverrides: rows.map((row: any) => row.graphicalSelection).filter(Boolean)
+                    }
+                }
+            };
+        });
+    };
 
     useEffect(() => {
         const designMessages = messages.filter(m => m.type === 'design');
@@ -1606,7 +1644,7 @@ const UnifiedChatPage: React.FC = () => {
                         <Box flexGrow={1} overflow="auto" p={2}>
                             {previewTab === 0 && <ProjectSummaryCard data={activeDesign} />}
                             {previewTab === 1 && <LoadsSection loads={activeDesign.loads} />}
-                            {previewTab === 2 && <CalculationBook data={activeDesign} />}
+                            {previewTab === 2 && <CalculationBook data={activeDesign} onProcurementTierChange={applyProcurementTier} />}
                             {previewTab === 3 && <EquipmentSection equipment={activeDesign.proposals?.best || activeDesign.equipment || {}} />}
                             {previewTab === 4 && (
                                 <Box height="100%" minHeight="500px">

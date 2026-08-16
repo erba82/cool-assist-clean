@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "1.0.0",
+  "units": "mm",
+  "coordinateFrame": {
+    "axisConvention": "right-handed: x=shaft axis, y=vertical, z=transverse",
+    "origin": "manufacturer GA datum required for certified port coordinates"
+  },
+  "models": [
+    {
+      "id": "HOWDEN_XRV163_165",
+      "manufacturer": "Howden",
+      "family": "XRV 163",
+      "model": "XRV163/165",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717"],
+      "dimensionsMm": { "length": 1070, "width": 430, "height": 450 },
+      "weightKg": 364,
+      "ratedSpeedRpm": 3000,
+      "sweptVolumeM3h": 593,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 150, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 163 catalogue", "page": null, "locator": "Suction Port: 150 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 100, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 163 catalogue", "page": null, "locator": "Discharge Port: 100 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "Productspecsheet-XRV163.pdf", "page": 1, "locator": "XRV163/165 performance table", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "HOWDEN_XRV163_193",
+      "manufacturer": "Howden",
+      "family": "XRV 163",
+      "model": "XRV163/193",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717"],
+      "dimensionsMm": { "length": 1116, "width": 430, "height": 450 },
+      "weightKg": 388,
+      "ratedSpeedRpm": 3000,
+      "sweptVolumeM3h": 710,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 150, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 163 catalogue", "page": null, "locator": "Suction Port: 150 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 100, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 163 catalogue", "page": null, "locator": "Discharge Port: 100 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "Productspecsheet-XRV163.pdf", "page": 1, "locator": "XRV163/193 performance table", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "HOWDEN_XRV204_110",
+      "manufacturer": "Howden",
+      "family": "XRV 204",
+      "model": "XRV204/110",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717"],
+      "dimensionsMm": { "length": 1178, "width": 516, "height": 545 },
+      "weightKg": 636,
+      "ratedSpeedRpm": 3000,
+      "sweptVolumeM3h": 974,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 150, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Suction Port: 150 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 100, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Discharge Port: 100 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "Productspecsheet-XRV204.pdf", "page": 1, "locator": "XRV204/110 performance table", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "HOWDEN_XRV204_145",
+      "manufacturer": "Howden",
+      "family": "XRV 204",
+      "model": "XRV204/145",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717"],
+      "dimensionsMm": { "length": 1249, "width": 516, "height": 545 },
+      "weightKg": 660,
+      "ratedSpeedRpm": 3000,
+      "sweptVolumeM3h": 1284,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 150, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Suction Port: 150 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 100, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Discharge Port: 100 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "Productspecsheet-XRV204.pdf", "page": 1, "locator": "XRV204/145 performance table", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "HOWDEN_XRV204_165",
+      "manufacturer": "Howden",
+      "family": "XRV 204",
+      "model": "XRV204/165",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717"],
+      "dimensionsMm": { "length": 1255, "width": 516, "height": 545 },
+      "weightKg": 690,
+      "ratedSpeedRpm": 3000,
+      "sweptVolumeM3h": 1465,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 150, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Suction Port: 150 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 100, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Discharge Port: 100 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "Productspecsheet-XRV204.pdf", "page": 1, "locator": "XRV204/165 performance table", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "HOWDEN_XRV204_193",
+      "manufacturer": "Howden",
+      "family": "XRV 204",
+      "model": "XRV204/193",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717"],
+      "dimensionsMm": { "length": 1312, "width": 516, "height": 545 },
+      "weightKg": 736,
+      "ratedSpeedRpm": 3000,
+      "sweptVolumeM3h": 1618,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 150, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Suction Port: 150 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 100, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "Ralco Europa XRV 204 catalogue", "page": null, "locator": "Discharge Port: 100 mm", "verification": "corroborating-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "Productspecsheet-XRV204.pdf", "page": 1, "locator": "XRV204/193 performance table", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "MAYEKAWA_V_125_SUD",
+      "manufacturer": "Mayekawa",
+      "family": "V Series",
+      "model": "125 SUD",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717", "R22"],
+      "dimensionsMm": { "length": 2717.8, "width": 1295.4, "height": 1727.2 },
+      "weightKg": 1360.776,
+      "ratedSpeedRpm": 3550,
+      "sweptVolumeM3h": 237.86,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 101.6, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Suc. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 50.8, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Des. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Dimensions and weights table; reference dimensions only", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "MAYEKAWA_V_160_VLD",
+      "manufacturer": "Mayekawa",
+      "family": "V Series",
+      "model": "160 VLD",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717", "R22"],
+      "dimensionsMm": { "length": 3320, "width": 1295.4, "height": 1930.4 },
+      "weightKg": 2177.2416,
+      "ratedSpeedRpm": 3550,
+      "sweptVolumeM3h": 749.26,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 101.6, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Suc. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 76.2, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Des. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Dimensions and weights table; reference dimensions only", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "MAYEKAWA_V_200_VLD",
+      "manufacturer": "Mayekawa",
+      "family": "V Series",
+      "model": "200 VLD",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717", "R22"],
+      "dimensionsMm": { "length": 3911.6, "width": 1498.6, "height": 2286 },
+      "weightKg": 3152.4644,
+      "ratedSpeedRpm": 3550,
+      "sweptVolumeM3h": 1461.15,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 152.4, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Suc. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 101.6, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Des. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Dimensions and weights table; reference dimensions only", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "MAYEKAWA_V_250_VLD",
+      "manufacturer": "Mayekawa",
+      "family": "V Series",
+      "model": "250 VLD",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717", "R22"],
+      "dimensionsMm": { "length": 4851.4, "width": 2032, "height": 2717.8 },
+      "weightKg": 5420.4244,
+      "ratedSpeedRpm": 3550,
+      "sweptVolumeM3h": 2837.35,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 203.2, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Suc. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 127, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Des. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Dimensions and weights table; reference dimensions only", "verification": "manufacturer-catalogue" }]
+    },
+    {
+      "id": "MAYEKAWA_V_320_SUD",
+      "manufacturer": "Mayekawa",
+      "family": "V Series",
+      "model": "320 SUD",
+      "compressorType": "oil-injected-screw",
+      "refrigerants": ["R717", "R22"],
+      "dimensionsMm": { "length": 4953, "width": 1879.6, "height": 2844.8 },
+      "weightKg": 6735.8412,
+      "ratedSpeedRpm": 3550,
+      "sweptVolumeM3h": 3822.73,
+      "connections": [
+        { "id": "suction", "nominalDiameterMm": 203.2, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Suc. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "discharge", "nominalDiameterMm": 127, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Con. Des. table", "verification": "manufacturer-catalogue" }] },
+        { "id": "oil-injection", "nominalDiameterMm": null, "positionMm": null, "direction": null, "coordinateStatus": "requires-manufacturer-ga", "sourceRefs": [] }
+      ],
+      "sourceRefs": [{ "document": "TORNILLO_SERIE_V.pdf", "page": 5, "locator": "Dimensions and weights table; reference dimensions only", "verification": "manufacturer-catalogue" }]
+    }
+  ]
+}

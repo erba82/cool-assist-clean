@@ -1,4 +1,5 @@
 import { BimEquipmentFamily } from '../types/bim';
+export * from '../catalogue';
 
 /**
  * GFDDE Industrial BIM Library v4.1

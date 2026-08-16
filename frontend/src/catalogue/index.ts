@@ -4,6 +4,10 @@ import { CatalogueCompressorModel, CataloguePort, assertFinitePositive } from '.
 export * from './CatalogueCompressorTypes';
 export * from './CatalogueScrewCompressorFamily';
 export * from './CatalogueScrewCompressorPidSymbol';
+export * from './CatalogueValveTypes';
+export * from './CatalogueValveLibrary';
+export * from './CatalogueParametricValveFamily';
+export * from './CatalogueValvePidSymbol';
 
 const isPortId = (value: unknown): value is CataloguePort['id'] => value === 'suction' || value === 'discharge' || value === 'oil-injection';
 

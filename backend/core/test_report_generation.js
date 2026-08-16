@@ -50,43 +50,39 @@ async function testReportGeneration() {
     console.log(`   Project No: ${report.metadata.projectNumber}`);
     console.log(`   Total Load: ${report.summary.totalLoad.value} kW`);
     console.log(`   BOM Items: ${report.equipment.items.length}`);
-    console.log(`   BOM Total: $${report.equipment.total.toLocaleString()}\n`);
-
+    console.log(`   BOM Pricing: ${report.equipment.priceInquiry?.priceStatus || report.equipment.totals?.priceStatus}
+`);
+    if (report.equipment.total !== null) {
+        throw new Error('Quotation-only BOM must not expose a generated project total.');
+    }
+    if (!report.equipment.items.every(item => item.unitPrice === null && item.totalPrice === null)) {
+        throw new Error('Quotation-only BOM must not expose generated line prices.');
+    }
     // 3. Generate HTML
     console.log('3️⃣ Generating HTML report...\n');
-
     const formatter = new HTMLReportFormatter();
     const html = formatter.format(report);
-
     // Save to file
     const outputDir = path.join(__dirname, '../output');
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
-
     const htmlPath = path.join(outputDir, `report_${Date.now()}.html`);
     fs.writeFileSync(htmlPath, html, 'utf8');
-
     console.log(`✅ HTML report saved: ${htmlPath}`);
     console.log(`   File size: ${(html.length / 1024).toFixed(1)} KB\n`);
-
     // 4. Show BOM details
-    console.log('4️⃣ Bill of Materials Preview:\n');
-    console.log('   Category             | Tag        | Description                  | Total Price');
-    console.log('   ' + '-'.repeat(85));
-
+    console.log('4️⃣ Bill of Materials Preview (supplier quotation required):\n');
+    console.log('   Category             | Tag        | Description                  | Pricing status');
+    console.log('   ' + '-'.repeat(98));
     report.equipment.items.slice(0, 5).forEach(item => {
-        const category = item.category.padEnd(20);
-        const tag = item.tag.padEnd(10);
-        const desc = item.description.substring(0, 28).padEnd(28);
-        const price = `$${item.totalPrice.toLocaleString()}`.padStart(12);
-        console.log(`   ${category} | ${tag} | ${desc} | ${price}`);
+        const category = String(item.category || '—').padEnd(20);
+        const tag = String(item.tag || '—').padEnd(10);
+        const desc = String(item.description || '—').substring(0, 28).padEnd(28);
+        console.log(`   ${category} | ${tag} | ${desc} | quotation required`);
     });
-
-    console.log(`   ... and ${report.equipment.items.length - 5} more items\n`);
-    console.log(`   Subtotal:        $${report.equipment.subtotal.toLocaleString()}`);
-    console.log(`   Contingency 15%: $${report.equipment.contingencyAmount.toLocaleString()}`);
-    console.log(`   TOTAL:           $${report.equipment.total.toLocaleString()}\n`);
+    console.log(`   Total BOM lines: ${report.equipment.items.length}`);
+    console.log('   Generated project total: not available pending supplier quotations\n');
 
     // 5. Energy report
     if (report.energy) {

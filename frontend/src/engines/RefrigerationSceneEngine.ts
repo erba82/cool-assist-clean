@@ -106,14 +106,15 @@ export interface SceneGraph {
 
 // Reference-oriented industrial paint palette. These colours are visual defaults; facility paint schedules override them.
 const COLORS: Record<LineService, string> = {
-  suction: '#15549a',
-  discharge: '#b52e2b',
-  hotGas: '#b52e2b',
-  liquid: '#c89a18',
-  oil: '#c89a18',
-  defrost: '#7c3f6d',
-  water: '#27716a',
-  default: '#64748b',
+  // Reference convention: cyan suction, red hot gas/discharge, green secondary/liquid.
+  suction: '#00A6C7',
+  discharge: '#D32F2F',
+  hotGas: '#D32F2F',
+  liquid: '#2E8B57',
+  oil: '#C59F16',
+  defrost: '#7C3F6D',
+  water: '#2E8B57',
+  default: '#64748B',
 };
 
 const TIER_HEIGHT: Record<LineService, number> = {
@@ -204,13 +205,14 @@ const familyForNode = (node: any): string | null => {
   return null;
 };
 
-const resolveJointType = (edge: any, source: any, target: any, refrigerant: string): JointType => {
+const resolveJointType = (edge: any, source: any, target: any, refrigerant: string, profileJointType?: string): JointType => {
   const explicit = words(edge?.data?.connectionType, edge?.connectionType, edge?.data?.jointType, source?.params?.details?.connectionType, target?.params?.details?.connectionType);
   if (/flange|flanged|bolted/.test(explicit)) return 'flanged';
   if (/groove|grooved|victaulic/.test(explicit)) return 'grooved';
-  // R717 pipe-runs are visually rendered as welded unless a detachable joint is specified by the source design.
+  if (/braze|brazed/.test(String(profileJointType || ''))) return 'brazed';
+  if (/weld|welded/.test(String(profileJointType || ''))) return 'welded';
   if (/717|ammonia|nh3/.test(refrigerant)) return 'welded';
-  return 'welded';
+  return 'brazed';
 };
 
 const nodeWorldPosition = (node: any, index: number, family?: string): Vec3 => {
@@ -218,7 +220,7 @@ const nodeWorldPosition = (node: any, index: number, family?: string): Vec3 => {
   const z = Number(node?.position?.y ?? node?.data?.y ?? 0);
   const mounting = words(node?.data?.mounting, node?.data?.location, node?.data?.area, node?.data?.roomId, node?.data?.zoneId);
   const rawElevation = Number(node?.data?.elevation ?? node?.data?.mountingElevation ?? node?.elevation);
-  const roof = family === 'BIM_CONDENSER_EVAP' || /roof|outdoor|terrace/.test(mounting);
+  const roof = family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR' || /roof|outdoor|terrace/.test(mounting);
   const y = Number.isFinite(rawElevation) && rawElevation > 0 ? rawElevation : roof ? 7.30 : 0;
   return [x * SCALE, y, z * SCALE];
 };
@@ -371,6 +373,17 @@ const valvesFromNodes = (nodes: any[], equipmentById: Map<string, SceneEquipment
 export const buildSceneGraph = (data: any): SceneGraph => {
   const diagram = normalizeDiagram(data);
   const refrigerant = String(data?.systemParams?.refrigerant || data?.project?.refrigerant || data?.projectInfo?.refrigerant || data?.pidData?.refrigerant || data?.metadata?.refrigerant || diagram?.metadata?.refrigerant || 'R404A').replace('-', '');
+  const synchronization = data?.synchronization || null;
+  const synchronizedLines = Array.isArray(synchronization?.piping?.lines)
+    ? synchronization.piping.lines
+    : (Array.isArray(data?.pipingRegister?.lines) ? data.pipingRegister.lines : []);
+  const synchronizedEquipment = Array.isArray(synchronization?.equipment)
+    ? synchronization.equipment
+    : (Array.isArray(data?.equipmentRegister) ? data.equipmentRegister : []);
+  const procurementOverrides = Array.isArray(synchronization?.procurement?.equipmentOverrides)
+    ? synchronization.procurement.equipmentOverrides
+    : [];
+  const profileJointType = synchronization?.refrigerant?.piping?.jointType;
   const manufacturer = data?.specification?.valveManufacturer || data?.metadata?.valveManufacturer || DEFAULT_MANUFACTURER;
   const nodes = diagram?.nodes || [];
   const edges = diagram?.edges || [];
@@ -383,13 +396,19 @@ export const buildSceneGraph = (data: any): SceneGraph => {
     const roomId = resolveRoomId(node);
     const position = nodeWorldPosition(node, index, family);
     const rotation = nodeRotation(node);
-    const explicitJoint = resolveJointType({ data: node.data }, null, null, refrigerant);
+    const synchronizedEquipmentRecord = synchronizedEquipment.find((record: any) =>
+      String(record?.id || record?.tag || '') === String(node.id || node.data?.tag || '')
+    );
+    const procurementOverride = procurementOverrides.find((override: any) =>
+      String(override?.equipmentId || '') === String(node.id || node.data?.tag || '')
+    );
+    const explicitJoint = resolveJointType({ data: node.data }, null, null, refrigerant, profileJointType);
     const item: SceneEquipment = {
       id: String(node.id || `equipment-${index + 1}`),
       kind: String(node.data?.componentType || node.type || 'equipment'),
       position,
       rotation,
-      params: { proId: family, tag: String(node.data?.tag || node.id || `EQ-${index + 1}`), label: String(node.data?.label || node.data?.componentType || family), componentType: String(node.data?.componentType || node.type || 'equipment'), roomId, zone: zoneFor(family, roomId), mounting: family === 'BIM_CONDENSER_EVAP' ? 'roof' : /platform|skid/i.test(words(node?.data?.mounting, node?.data?.location)) ? 'platform' : 'floor', connectionType: explicitJoint, manufacturer: node.data?.manufacturer, model: node.data?.model, details: node.data?.details },
+      params: { proId: family, tag: String(node.data?.tag || node.id || `EQ-${index + 1}`), label: String(node.data?.label || node.data?.componentType || family), componentType: String(node.data?.componentType || node.type || 'equipment'), roomId, zone: zoneFor(family, roomId), mounting: (family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR') ? 'roof' : /platform|skid/i.test(words(node?.data?.mounting, node?.data?.location)) ? 'platform' : 'floor', connectionType: explicitJoint, manufacturer: procurementOverride?.selectedBrand || synchronizedEquipmentRecord?.manufacturer || node.data?.manufacturer, model: procurementOverride?.selectedModel || synchronizedEquipmentRecord?.model || node.data?.model, details: { ...(node.data?.details || {}), procurementTier: procurementOverride?.selectedTier || null, procurementRenderUpdateStatus: procurementOverride?.renderUpdateStatus || null, procurementEngineeringCompatibility: procurementOverride?.engineeringCompatibility || null } },
       ports: portsFor(family, position, rotation),
     };
     equipment.push(item);
@@ -402,17 +421,23 @@ export const buildSceneGraph = (data: any): SceneGraph => {
     const source = equipmentById.get(String(edge.source));
     const target = equipmentById.get(String(edge.target));
     if (!source || !target) return;
-    const service = lineService(edge, source, target);
-    const sourcePort = selectPort(source, service, edge.sourcePort || edge.data?.sourcePort || edge.data?.fromPort);
-    const targetPort = selectPort(target, service, edge.targetPort || edge.data?.targetPort || edge.data?.toPort);
-    const dn = Number(edge.data?.dn || edge.data?.nominalDiameter || edge.dn || Math.max(sourcePort.dn, targetPort.dn, DEFAULT_DN[service]));
+    const synchronizedLine = synchronizedLines.find((line: any) =>
+      String(line?.id || '') === String(edge?.id || '') ||
+      (String(line?.sourceEquipmentId || '') === String(edge?.source || '') && String(line?.targetEquipmentId || '') === String(edge?.target || ''))
+    );
+    const service = (synchronizedLine?.service || lineService(edge, source, target)) as LineService;
+    const sourcePort = selectPort(source, service, edge.sourcePort || edge.data?.sourcePort || edge.data?.fromPort || synchronizedLine?.sourcePortId);
+    const targetPort = selectPort(target, service, edge.targetPort || edge.data?.targetPort || edge.data?.toPort || synchronizedLine?.targetPortId);
+    const rawDn = synchronizedLine?.dn || edge.data?.dn || edge.data?.nominalDiameter || edge.dn;
+    const parsedDn = Number(String(rawDn || '').replace(/[^0-9.]/g, ''));
+    const dn = Number.isFinite(parsedDn) && parsedDn > 0 ? parsedDn : Math.max(sourcePort.dn, targetPort.dn, DEFAULT_DN[service]);
     const id = String(edge.id || `line-${index + 1}`);
     const line: ScenePipe = {
       id, type: service, radius: pipeRadius(dn), dn, service,
       waypoints: routePipe(sourcePort, targetPort, service, index),
       sourceEquipmentId: source.id, targetEquipmentId: target.id, sourcePortId: sourcePort.id, targetPortId: targetPort.id,
       flowDirection: 'forward', edgeLabel: edge.label || edge.data?.label,
-      jointType: resolveJointType(edge, source, target, refrigerant),
+      jointType: resolveJointType(edge, source, target, refrigerant, synchronizedLine?.jointPolicy || profileJointType),
       insulated: Boolean(edge?.data?.insulated ?? edge?.insulated),
       lineClass: lineClass(service, refrigerant), rackTier: TIER_HEIGHT[service],
     };

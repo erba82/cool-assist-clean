@@ -16,6 +16,7 @@
  */
 
 const EventEmitter = require('events');
+const FullSystemSynchronizer = require('./engineering/FullSystemSynchronizer');
 
 class RefrigerationEngine extends EventEmitter {
     constructor(options = {}) {
@@ -36,6 +37,7 @@ class RefrigerationEngine extends EventEmitter {
 
         // Load calculation modules
         this._loadModules();
+        this.fullSystemSynchronizer = new FullSystemSynchronizer();
 
         console.log(`🧊 RefrigerationEngine v${this.version} initialized`);
     }
@@ -191,6 +193,8 @@ class RefrigerationEngine extends EventEmitter {
 
             // Step 12: Calculate totals
             results.summary = this._calculateSummary(results);
+            // This initial record is refreshed with generated P&ID data by DesignOrchestrator.
+            results.synchronization = this.synchronizeFullSystem(results, null);
 
             results.executionTime = Date.now() - startTime;
             this.emit('calculation:complete', results);
@@ -207,6 +211,16 @@ class RefrigerationEngine extends EventEmitter {
     // CALCULATION STEPS
     // ============================================================
 
+    synchronizeFullSystem(results, pidData = null) {
+        if (!results || !results.project || !results.calculations) {
+            throw new Error('A calculated design result with project and calculations is required for synchronization.');
+        }
+        return this.fullSystemSynchronizer.synchronize({
+            project: results.project,
+            calculations: results.calculations,
+            pidData
+        });
+    }
     _validateProject(project) {
         if (!project) throw new Error('Project data is required');
         if (!project.rooms || !Array.isArray(project.rooms) || project.rooms.length === 0) {

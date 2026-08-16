@@ -136,9 +136,8 @@ class HTMLReportFormatter {
             </tr>
         </table>
         
-        <h3>Cost Estimate</h3>
-        <p><strong>Total Project Cost:</strong> $${summary.estimatedCost.toLocaleString()}</p>
-        <p><strong>Estimated Duration:</strong> ${summary.projectDuration}</p>
+        <h3>Procurement status</h3>
+        <p><strong>Pricing:</strong> ${summary.procurementStatus || 'Supplier quotation required; no generated or estimated price is shown.'}</p>
     </div>`;
     }
 
@@ -211,11 +210,14 @@ class HTMLReportFormatter {
     }
 
     _generateBOM(bom) {
+        const items = Array.isArray(bom.items) ? bom.items : (bom.procurementRequest?.rows || []);
+        const quotationRequired = bom.priceInquiry?.priceStatus === 'supplier-quotation-required' || bom.priceStatus === 'supplier-quotation-required';
+        const displayPrice = value => Number.isFinite(value) ? '$' + value.toLocaleString() : 'Supplier quotation required';
+        const displayText = value => value === null || value === undefined || value === '' ? '—' : value;
         return `
     <div class="page" id="bom">
         <h1>3. Bill of Materials</h1>
-        <p><strong>Currency:</strong> ${bom.currency}</p>
-        
+        <p><strong>Procurement status:</strong> ${quotationRequired ? 'Supplier quotation required; no generated or estimated price is shown.' : 'Quoted pricing attached.'}</p>
         <table class="bom-table">
             <thead>
                 <tr>
@@ -230,40 +232,29 @@ class HTMLReportFormatter {
                 </tr>
             </thead>
             <tbody>
-                ${bom.items.map(item => `
+                ${items.map(item => `
                     <tr>
-                        <td>${item.category}</td>
-                        <td>${item.tag}</td>
-                        <td>${item.description}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.unit}</td>
-                        <td>$${item.unitPrice.toLocaleString()}</td>
-                        <td><strong>$${item.totalPrice.toLocaleString()}</strong></td>
-                        <td>${item.leadTime}</td>
+                        <td>${displayText(item.category)}</td>
+                        <td>${displayText(item.tag)}</td>
+                        <td>${displayText(item.description)}</td>
+                        <td>${displayText(item.quantity)}</td>
+                        <td>${displayText(item.unit)}</td>
+                        <td>${displayPrice(item.unitPrice ?? item.procurement?.unitPrice)}</td>
+                        <td><strong>${displayPrice(item.totalPrice ?? item.procurement?.totalPrice)}</strong></td>
+                        <td>${displayText(item.leadTime ?? item.procurement?.leadTime)}</td>
                     </tr>
                 `).join('')}
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="6"><strong>Subtotal</strong></td>
-                    <td><strong>$${bom.subtotal.toLocaleString()}</strong></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td colspan="6"><strong>Contingency (${(bom.contingency * 100).toFixed(0)}%)</strong></td>
-                    <td><strong>$${bom.contingencyAmount.toLocaleString()}</strong></td>
-                    <td></td>
-                </tr>
-                <tr class="total-row">
-                    <td colspan="6"><strong>TOTAL PROJECT COST</strong></td>
-                    <td><strong>$${bom.total.toLocaleString()}</strong></td>
+                    <td colspan="6"><strong>Project total</strong></td>
+                    <td><strong>${displayPrice(bom.total)}</strong></td>
                     <td></td>
                 </tr>
             </tfoot>
         </table>
     </div>`;
     }
-
     _generateEnergyReport(energy) {
         return `
     <div class="page" id="energy">

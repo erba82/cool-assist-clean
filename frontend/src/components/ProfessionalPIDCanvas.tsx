@@ -25,12 +25,27 @@ import ProfessionalTitleBlock from './ProfessionalTitleBlock';
 
 // PIPE COLORS - TABADOL SAZAN Standard
 const PIPE_COLORS: Record<string, string> = {
-    hotGas: '#FF0000',
-    liquid: '#FFD700',
-    suction: '#0066FF',
-    oil: '#00CCCC',
+    // Verified drawing convention: cyan suction, red hot gas, green secondary / liquid.
+    hotGas: '#D32F2F',
+    discharge: '#D32F2F',
+    liquid: '#2E8B57',
+    secondary: '#2E8B57',
+    suction: '#00A6C7',
+    insulated: '#F4F4F4',
+    oil: '#C59F16',
+    water: '#2E8B57',
     return: '#FF8C00',
     default: '#333333'
+};
+const normalizePipeService = (value: unknown): string => {
+    const service = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
+    if (/suction|vaporreturn|lowpressure/.test(service)) return 'suction';
+    if (/hotgas|discharge|highpressure|defrost/.test(service)) return 'hotGas';
+    if (/secondary|brine|glycol|water/.test(service)) return 'secondary';
+    if (/insulated/.test(service)) return 'insulated';
+    if (/oil/.test(service)) return 'oil';
+    if (/liquid|feed|receiver|condensate/.test(service)) return 'liquid';
+    return 'default';
 };
 
 interface ProjectInfo {
@@ -554,6 +569,7 @@ const PipeSegment: React.FC<{
     fluidType: string;
     size?: string;
     showArrow?: boolean;
+    flowDirection?: string;
 }> = ({ points, fluidType, size, showArrow = false }) => {
     // Null check for points array
     if (!points || !Array.isArray(points) || points.length < 2) return null;
@@ -755,6 +771,17 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
         // Normalize the two real P&ID contracts without inventing equipment.
         // DesignOrchestrator emits { equipment, pipes }; imported GFDDE emits { nodes, edges }.
         const pidTopology = data?.pidData || data?.pidData2D || data?.diagram || data;
+        const synchronizedLines = Array.isArray(data?.synchronization?.piping?.lines)
+            ? data.synchronization.piping.lines
+            : (Array.isArray(data?.pipingRegister?.lines) ? data.pipingRegister.lines : []);
+        const procurementOverrides = Array.isArray(data?.synchronization?.procurement?.equipmentOverrides)
+            ? data.synchronization.procurement.equipmentOverrides
+            : [];
+        const procurementLabel = (node: any) => {
+            const override = procurementOverrides.find((candidate: any) => String(candidate?.equipmentId || '') === String(node?.id || node?.data?.tag || ''));
+            const base = node?.data?.tag || node?.data?.label || node?.id || 'UNSPECIFIED';
+            return override?.selectedBrand && override?.selectedModel ? `${base} · ${override.selectedBrand} ${override.selectedModel}` : base;
+        };
         const nodes = Array.isArray(pidTopology?.nodes)
             ? pidTopology.nodes
             : (Array.isArray(pidTopology?.equipment) ? pidTopology.equipment : []);
@@ -796,14 +823,23 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                         }));
                     }
 
+                    const synchronizedLine = synchronizedLines.find((line: any) =>
+                        String(line?.id || '') === String(e?.id || '') ||
+                        (String(line?.sourceEquipmentId || '') === String(e?.source || '') &&
+                         String(line?.targetEquipmentId || '') === String(e?.target || ''))
+                    );
+                    const rawService = synchronizedLine?.service || e?.data?.service || e?.service || e?.data?.lineService ||
+                        (e.style?.stroke === '#c62828' ? 'hotGas' : (e.style?.stroke === '#1e88e5' ? 'suction' : 'liquid'));
                     return {
                         points,
-                        fluidType: e.style?.stroke === '#c62828' ? 'hotGas' : (e.style?.stroke === '#1e88e5' ? 'suction' : 'liquid'),
-                        size: e.label || ''
+                        fluidType: normalizePipeService(rawService),
+                        size: synchronizedLine?.dn || e?.data?.dn || e.label || '',
+                        flowDirection: e?.data?.flowDirection || e?.flowDirection || 'forward',
+                        jointPolicy: synchronizedLine?.jointPolicy || e?.data?.jointType || null
                     };
                 }),
 
-                valves: nodes.filter((n: any) => n.data?.componentType?.includes('valve') || n.data?.componentType === 'tev').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, symbolType: n.data.componentType === 'tev' ? 'ExpansionValve' : 'GlobeValve' })),
+                valves: nodes.filter((n: any) => n.data?.componentType?.includes('valve') || n.data?.componentType === 'tev').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: procurementLabel(n), symbolType: n.data.componentType === 'tev' ? 'ExpansionValve' : 'GlobeValve' })),
                 instruments: nodes.filter((n: any) => n.data?.componentType === 'instrument').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, type: n.data.label }))
             };
         }
@@ -978,7 +1014,8 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                                 points={pipe.points}
                                 fluidType={pipe.fluidType}
                                 size={pipe.size}
-                                showArrow={true}
+                                showArrow={pipe.flowDirection !== 'none'}
+                                flowDirection={pipe.flowDirection}
                             />
                         ))}
 

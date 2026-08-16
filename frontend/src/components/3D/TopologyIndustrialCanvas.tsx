@@ -12,10 +12,10 @@ const distance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2]
 type ViewMode = 'overview' | 'plant' | 'roof';
 
 const SERVICE: Record<LineService, { label: string; paint: string; jacket: string; stripe: string }> = {
-  suction: { label: 'VAP / SUCTION', paint: '#15549a', jacket: '#2d67a8', stripe: '#dbeafe' },
-  discharge: { label: 'DISCHARGE', paint: '#b52e2b', jacket: '#b52e2b', stripe: '#fecaca' },
-  hotGas: { label: 'NH3 HOT GAS', paint: '#b52e2b', jacket: '#b52e2b', stripe: '#fecaca' },
-  liquid: { label: 'LIQUID', paint: '#c89a18', jacket: '#c89a18', stripe: '#fef3c7' },
+  suction: { label: 'SUCTION', paint: '#00A6C7', jacket: '#00A6C7', stripe: '#D9F7FB' },
+  discharge: { label: 'DISCHARGE', paint: '#D32F2F', jacket: '#D32F2F', stripe: '#FDE1E1' },
+  hotGas: { label: 'HOT GAS', paint: '#D32F2F', jacket: '#D32F2F', stripe: '#FDE1E1' },
+  liquid: { label: 'LIQUID / SECONDARY', paint: '#2E8B57', jacket: '#2E8B57', stripe: '#DDF3E4' },
   oil: { label: 'OIL', paint: '#c89a18', jacket: '#c89a18', stripe: '#fef3c7' },
   defrost: { label: 'DEFROST', paint: '#7c3f6d', jacket: '#7c3f6d', stripe: '#f3e8ff' },
   water: { label: 'WATER', paint: '#27716a', jacket: '#27716a', stripe: '#ccfbf1' },
@@ -123,7 +123,7 @@ const CompressorAssembly: React.FC<{ family: string }> = ({ family }) => {
   </group>;
 };
 
-const ReceiverAssembly: React.FC = () => <group>
+const ReceiverAssembly: React.FC<{ refrigerant: string }> = ({ refrigerant }) => <group>
   <mesh position={[0, 1.30, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[.82, .82, 4.72, 36]} /><meshStandardMaterial color="#c1c9cf" metalness={.91} roughness={.16} /></mesh>
   {[-2.36, 2.36].map((x, index) => <mesh key={index} position={[x, 1.30, 0]} castShadow><sphereGeometry args={[.82, 32, 24]} /><meshStandardMaterial color="#c1c9cf" metalness={.91} roughness={.16} /></mesh>)}
   {[-1.55, -.45, .65, 1.70].map((x, index) => <mesh key={index} position={[x, 1.30, 0]} rotation={[0, Math.PI / 2, 0]} castShadow><torusGeometry args={[.826, .018, 8, 32]} /><meshStandardMaterial color="#84919b" metalness={.88} roughness={.23} /></mesh>)}
@@ -131,7 +131,7 @@ const ReceiverAssembly: React.FC = () => <group>
   <mesh position={[0, 2.12, 0]} castShadow><cylinderGeometry args={[.14, .14, .52, 18]} /><meshStandardMaterial color="#aab4bc" metalness={.88} roughness={.20} /></mesh>
   <mesh position={[.28, 2.08, .58]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.11, .11, .05, 20]} /><meshStandardMaterial color="#f3f4f6" metalness={.30} roughness={.40} /></mesh>
   <mesh position={[.28, 2.08, .62]}><boxGeometry args={[.012, .06, .012]} /><meshBasicMaterial color="#be2f2a" /></mesh>
-  <Html position={[0, 1.30, .85]} center distanceFactor={9} style={{ pointerEvents: 'none' }}><div style={{ color: '#111827', fontSize: 8, fontWeight: 900, whiteSpace: 'pre-line', textAlign: 'center' }}>{'R-717\nNH3 / AMMONIA\nHP RECEIVER'}</div></Html>
+  <Html position={[0, 1.30, .85]} center distanceFactor={9} style={{ pointerEvents: 'none' }}><div style={{ color: '#111827', fontSize: 8, fontWeight: 900, whiteSpace: 'pre-line', textAlign: 'center' }}>{`${refrigerant || 'REFRIGERANT'}\nHP RECEIVER`}</div></Html>
 </group>;
 
 const RoofCondenserAssembly: React.FC = () => <group>
@@ -145,23 +145,23 @@ const RoofCondenserAssembly: React.FC = () => <group>
   {Array.from({ length: 7 }).map((_, index) => <mesh key={index} position={[2.12, .10 + index * .21, -1.48]} castShadow><boxGeometry args={[.45, .028, .06]} /><meshStandardMaterial color="#8ea0ae" metalness={.76} roughness={.25} /></mesh>)}
 </group>;
 
-const EquipmentDetail: React.FC<{ item: SceneEquipment }> = ({ item }) => {
+const EquipmentDetail: React.FC<{ item: SceneEquipment; refrigerant: string }> = ({ item, refrigerant }) => {
   const family = item.params.proId;
   if (/BIM_COMP/.test(family)) return <CompressorAssembly family={family} />;
-  if (family === 'BIM_VESSEL_HORIZ') return <ReceiverAssembly />;
+  if (family === 'BIM_VESSEL_HORIZ') return <ReceiverAssembly refrigerant={refrigerant} />;
   if (family === 'BIM_CONDENSER_EVAP') return <RoofCondenserAssembly />;
   return null;
 };
 
-const EquipmentInstance: React.FC<{ item: SceneEquipment; factory: ThreeDModelFactory }> = ({ item, factory }) => {
+const EquipmentInstance: React.FC<{ item: SceneEquipment; factory: ThreeDModelFactory; refrigerant: string }> = ({ item, factory, refrigerant }) => {
   const placed = useMemo(() => factory.createEquipment(item.params.proId, item.params.tag, vector(item.position), new THREE.Euler(0, item.rotation || 0, 0)), [factory, item]);
   if (!placed) return null;
   const elevation = /BIM_COMP/.test(item.params.proId) ? 2.45 : item.params.proId === 'BIM_VESSEL_HORIZ' ? 2.80 : item.params.proId === 'BIM_CONDENSER_EVAP' ? 3.85 : 1.65;
   return <group>
     <primitive object={placed.group} />
-    <group position={vector(item.position)} rotation={[0, item.rotation || 0, 0]}><EquipmentDetail item={item} /></group>
+    <group position={vector(item.position)} rotation={[0, item.rotation || 0, 0]}><EquipmentDetail item={item} refrigerant={refrigerant} /></group>
     {item.params.connectionType === 'flanged' && item.ports.map((port: ScenePort) => <FlangedJoint key={`${item.id}-${port.id}`} point={port.position} dn={port.dn} direction={port.direction} />)}
-    <Html position={[item.position[0], item.position[1] + elevation, item.position[2]]} center distanceFactor={9} style={{ pointerEvents: 'none' }}><div style={{ color: '#f8fafc', background: 'rgba(15,23,42,.88)', border: '1px solid rgba(148,163,184,.72)', padding: '3px 6px', fontSize: 9, fontWeight: 900, letterSpacing: .4, whiteSpace: 'nowrap' }}>{item.params.tag}</div></Html>
+    <Html position={[item.position[0], item.position[1] + elevation, item.position[2]]} center distanceFactor={9} style={{ pointerEvents: 'none' }}><div style={{ color: '#1f2937', background: 'rgba(15,23,42,.88)', border: '1px solid rgba(148,163,184,.72)', padding: '3px 6px', fontSize: 9, fontWeight: 900, letterSpacing: .4, whiteSpace: 'nowrap' }}>{item.params.tag}</div></Html>
   </group>;
 };
 
@@ -181,11 +181,11 @@ const RackSupport: React.FC<{ support: SceneSupport }> = ({ support }) => {
 
 const RoomShell: React.FC<{ room: SceneGraph['rooms'][number] }> = ({ room }) => {
   const roof = room.type === 'roof-plant';
-  const floor = roof ? '#3b4d5c' : room.type === 'cold-room' ? '#32526b' : '#2b3540';
+  const floor = roof ? '#d2d7da' : room.type === 'cold-room' ? '#d8e0e4' : '#d9dde0';
   return <group position={[room.center[0], room.center[1] || 0, room.center[2]]}>
     <mesh receiveShadow position={[0, -.05, 0]}><boxGeometry args={[room.width, .10, room.depth]} /><meshStandardMaterial color={floor} metalness={.22} roughness={.68} transparent opacity={roof ? .80 : .48} /></mesh>
-    {!roof && [-1, 1].map((side, index) => <mesh key={index} position={[side * room.width / 2, room.height / 2, 0]} castShadow><boxGeometry args={[.10, room.height, room.depth]} /><meshStandardMaterial color="#607486" metalness={.28} roughness={.52} transparent opacity={.12} /></mesh>)}
-    <Html position={[0, Math.max(.42, room.height * .52), -room.depth / 2 + .35]} center distanceFactor={12} style={{ pointerEvents: 'none' }}><div style={{ color: '#dbeafe', fontSize: 10, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 4px #000', whiteSpace: 'nowrap' }}>{room.name.toUpperCase()}</div></Html>
+    {!roof && [-1, 1].map((side, index) => <mesh key={index} position={[side * room.width / 2, room.height / 2, 0]} castShadow><boxGeometry args={[.10, room.height, room.depth]} /><meshStandardMaterial color="#F6F3ED" metalness={.02} roughness={.88} transparent opacity={.92} /></mesh>)}
+    <Html position={[0, Math.max(.42, room.height * .52), -room.depth / 2 + .35]} center distanceFactor={12} style={{ pointerEvents: 'none' }}><div style={{ color: '#334155', fontSize: 10, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 2px #fff', whiteSpace: 'nowrap' }}>{room.name.toUpperCase()}</div></Html>
   </group>;
 };
 
@@ -241,36 +241,35 @@ const TopologyIndustrialCanvas: React.FC<any> = ({ data, projectInfo }) => {
   const gridSize = Math.max(50, graph.room.width + 16, graph.room.depth + 16);
   useEffect(() => () => factory.dispose(), [factory]);
 
-  return <Box sx={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', overflow: 'hidden', bgcolor: '#0c1420' }} data-engine="pid-ammonia-reference-bim">
+  return <Box sx={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', overflow: 'hidden', bgcolor: '#e7ebed' }} data-engine="pid-refrigerant-aware-bim">
     <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.18 }}>
       <PerspectiveCamera makeDefault position={[19, 13, 22]} fov={38} />
       <CameraTargets graph={graph} mode={viewMode} />
-      <color attach="background" args={['#0c1420']} />
-      <fog attach="fog" args={['#0c1420', 48, 145]} />
-      <ambientLight intensity={.58} />
-      <directionalLight position={[24, 31, 18]} intensity={1.60} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-.0002} />
-      <directionalLight position={[-20, 15, -16]} intensity={.44} color="#a9c9f5" />
-      <hemisphereLight args={['#c7dcf5', '#071019', .40]} />
-      <Suspense fallback={null}><Environment preset="warehouse" /></Suspense>
-      <Grid args={[gridSize, gridSize]} sectionSize={5} sectionThickness={1.0} sectionColor="#41566a" cellColor="#1d2b3a" cellThickness={.50} fadeDistance={110} position={[0, -.07, 0]} />
+      <color attach="background" args={['#e7ebed']} />
+      <fog attach="fog" args={['#e7ebed', 58, 160]} />
+      <ambientLight intensity={1.12} />
+      <directionalLight position={[24, 31, 18]} intensity={1.18} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-.0002} />
+      <directionalLight position={[-20, 15, -16]} intensity={.34} color="#fff5e6" />
+      <hemisphereLight args={['#ffffff', '#c5cdd1', .58]} />
+      <Suspense fallback={null}><Environment preset="city" /></Suspense>
+      <Grid args={[gridSize, gridSize]} sectionSize={5} sectionThickness={.75} sectionColor="#aeb9bf" cellColor="#d3dadd" cellThickness={.32} fadeDistance={110} position={[0, -.07, 0]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -.1, 0]} receiveShadow>
         <planeGeometry args={[gridSize * 2, gridSize * 2]} />
-        <meshStandardMaterial color="#1a1c20" roughness={0.7} metalness={0.3} />
+        <meshStandardMaterial color="#d9dde0" roughness={.82} metalness={.06} />
       </mesh>
-      <Environment preset="city" />
-      <ContactShadows position={[0, 0, 0]} scale={gridSize} blur={2.6} far={36} opacity={.48} />
+      <ContactShadows position={[0, 0, 0]} scale={gridSize} blur={2.6} far={36} opacity={.28} />
       {graph.rooms.map(room => <RoomShell key={room.id} room={room} />)}
       {isEmpty ? <Html center><div style={{ color: '#f8fafc', fontWeight: 800 }}>No generated P&amp;ID topology is available for BIM conversion.</div></Html> : <group>
-        {graph.equipment.map(item => <EquipmentInstance key={item.id} item={item} factory={factory} />)}
+        {graph.equipment.map(item => <EquipmentInstance key={item.id} item={item} factory={factory} refrigerant={graph.meta.refrigerant} />)}
         {graph.pipes.map(pipe => <RoundedPipe key={pipe.id} pipe={pipe} />)}
       </group>}
       {visualSupports.map(support => <RackSupport key={support.id} support={support} />)}
     </Canvas>
-    <Box sx={{ position: 'absolute', top: 14, left: 14, pointerEvents: 'none', bgcolor: 'rgba(8,15,28,.90)', border: '1px solid rgba(146,178,208,.52)', px: 1.25, py: .95, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
-      <Typography variant="caption" sx={{ display: 'block', color: '#90d1ff', fontWeight: 900, letterSpacing: 1.0 }}>{`${graph.meta.refrigerant} P&ID TO BIM ASSEMBLY`}</Typography>
+    <Box sx={{ position: 'absolute', top: 14, left: 14, pointerEvents: 'none', bgcolor: 'rgba(255,255,255,.88)', border: '1px solid rgba(100,116,139,.35)', px: 1.25, py: .95, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
+      <Typography variant="caption" sx={{ display: 'block', color: '#0f6f86', fontWeight: 900, letterSpacing: 1.0 }}>{`${graph.meta.refrigerant} P&ID TO BIM ASSEMBLY`}</Typography>
       <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 800 }}>{projectInfo?.projectName || data?.project?.name || 'Refrigeration Design'}</Typography>
-      <Typography variant="caption" sx={{ color: '#cbd5e1' }}>{graph.meta.refrigerant} · {graph.equipment.length} assets · {graph.pipes.length} process lines · {visualSupports.length} rack/support elements</Typography>
-      <Typography variant="caption" sx={{ display: 'block', mt: .35, color: '#fbbf24', fontWeight: 800, fontSize: 9 }}>{graph.meta.jointPolicy}</Typography>
+      <Typography variant="caption" sx={{ color: '#475569' }}>{graph.meta.refrigerant} · {graph.equipment.length} assets · {graph.pipes.length} process lines · {visualSupports.length} rack/support elements</Typography>
+      <Typography variant="caption" sx={{ display: 'block', mt: .35, color: '#8a5a00', fontWeight: 800, fontSize: 9 }}>{graph.meta.jointPolicy}</Typography>
       <ServiceLegend />
     </Box>
     <Stack direction="row" spacing={.6} sx={{ position: 'absolute', right: 12, bottom: 12, bgcolor: 'rgba(8,15,28,.88)', border: '1px solid rgba(136,170,207,.42)', p: .65 }}>

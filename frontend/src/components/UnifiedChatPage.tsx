@@ -739,7 +739,7 @@ const EnergyAnalysisView = ({ data }: { data: any }) => {
 };
 
 // Expandable P&ID Section
-const PIDSection = ({ pidData, projectInfo }: { pidData: any, projectInfo: any }) => {
+const PIDSection = ({ pidData, projectInfo, designData }: { pidData: any, projectInfo: any, designData?: any }) => {
     if (!pidData) return null;
 
     const safeString = (val: any): string => {
@@ -761,7 +761,7 @@ const PIDSection = ({ pidData, projectInfo }: { pidData: any, projectInfo: any }
             <AccordionDetails>
                 <Box height="500px" border="1px solid #ccc" borderRadius={1} overflow="hidden">
                     <ProfessionalPIDCanvas
-                        data={pidData}
+                        data={designData ? { ...designData, pidData } : pidData}
                         projectInfo={{
                             client: safeString(projectInfo?.location),
                             projectName: projectInfo?.name || 'AMMONIA REFRIGERATION SYSTEM',
@@ -786,7 +786,7 @@ const DesignResultMessage = ({ data, onNewDesign, onDownloadReport }: { data: an
             <ProjectSummaryCard data={data} />
             <LoadsSection loads={data.loads} />
             <EquipmentSection equipment={data.equipment} />
-            <PIDSection pidData={data.pidData} projectInfo={data.project} />
+            <PIDSection pidData={data.pidData} projectInfo={data.project} designData={data} />
             <Box display="flex" gap={1} mt={2}>
                 <Button variant="contained" startIcon={<DownloadIcon />} onClick={onDownloadReport} size="small">
                     Download Report

@@ -161,9 +161,12 @@ class EvaporatorSelector {
                 }
             },
 
-            // Pricing (Estimated)
-            price: this._estimatePrice(selection, capacityPerUnit, count),
-            currency: 'USD',
+            procurement: {
+                priceStatus: 'supplier-quotation-required',
+                unitPrice: null,
+                totalPrice: null,
+                currency: null
+            },
             manufacturer: 'LU-VE',
 
             parameters: {
@@ -192,27 +195,6 @@ class EvaporatorSelector {
         if (temperature >= -18) return this.finSpacingRecommendations.minus18;
         if (temperature >= -25) return this.finSpacingRecommendations.minus25;
         return this.finSpacingRecommendations.minus30;
-    }
-
-    _estimatePrice(selection, capacityPerUnit, quantity) {
-        // Base price calculation
-        // ~$200 per kW for standard units
-        let basePrice = 1000 + (capacityPerUnit * 200);
-
-        // Adjust for material (Stainless steel tubes for ammonia)
-        basePrice *= 1.4;
-
-        const pricePerUnit = Math.round(basePrice);
-
-        return {
-            perUnit: pricePerUnit,
-            total: pricePerUnit * quantity,
-            currency: 'USD',
-            breakdown: {
-                equipment: Math.round(basePrice * 0.9),
-                controls: Math.round(basePrice * 0.1)
-            }
-        };
     }
 
     _getRoomType(room) {

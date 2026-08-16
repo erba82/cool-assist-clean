@@ -1,3 +1,5 @@
+const BomGenerator = require('../engineering/BomGenerator');
+
 /**
  * ReportGenerator - Professional Calculation Reports
  * 
@@ -15,7 +17,8 @@
 
 class ReportGenerator {
     constructor() {
-        this.version = '2.0.0';
+        this.version = '2.1.0';
+        this.bomGenerator = new BomGenerator();
     }
 
     /**
@@ -79,8 +82,9 @@ class ReportGenerator {
                 condensers: 1,
                 vessels: results.calculations?.separators?.length || 0
             },
-            estimatedCost: this._estimateTotalCost(results),
-            projectDuration: '12-16 weeks'
+            procurementStatus: 'Supplier quotation required; no estimated cost or lead time is generated.',
+            estimatedCost: null,
+            projectDuration: null
         };
     }
 
@@ -195,115 +199,13 @@ class ReportGenerator {
      * Generate Bill of Materials
      */
     _generateBOM(results, project) {
-        const bom = {
-            title: 'Bill of Materials',
-            currency: 'USD',
-            items: [],
-            subtotal: 0,
-            contingency: 0.15,  // 15%
-            total: 0
-        };
-
-        // 1. Evaporators
-        (results.calculations?.evaporators || []).forEach(e => {
-            const unitPrice = this._estimateEvaporatorPrice(e.capacityPerUnit);
-            bom.items.push({
-                category: 'Evaporator',
-                tag: e.tag,
-                description: `${e.model} - ${e.capacityPerUnit?.toFixed(0)} kW`,
-                quantity: e.count || 1,
-                unit: 'EA',
-                unitPrice: unitPrice,
-                totalPrice: unitPrice * (e.count || 1),
-                manufacturer: 'Güntner / Alfa Laval',
-                leadTime: '8-10 weeks'
-            });
+        if (results?.synchronization?.bom) return results.synchronization.bom;
+        return this.bomGenerator.generate({
+            project,
+            calculations: results?.calculations || {},
+            pidData: results?.pidData || null
         });
-
-        // 2. Compressors
-        (results.calculations?.compressors || []).forEach(c => {
-            const unitPrice = this._estimateCompressorPrice(c.motorPower, c.type);
-            bom.items.push({
-                category: 'Compressor',
-                tag: c.tag,
-                description: `${c.model} - ${c.designLoad?.toFixed(0)} kW`,
-                quantity: c.totalUnits || 1,
-                unit: 'EA',
-                unitPrice: unitPrice,
-                totalPrice: unitPrice * (c.totalUnits || 1),
-                manufacturer: 'Mycom / Bitzer',
-                leadTime: '12-14 weeks'
-            });
-        });
-
-        // 3. Condenser
-        if (results.calculations?.condensers) {
-            const c = results.calculations.condensers;
-            const unitPrice = this._estimateCondenserPrice(c.totalCapacity, c.type);
-            bom.items.push({
-                category: 'Condenser',
-                tag: c.tag,
-                description: `${c.model} - ${c.totalCapacity?.toFixed(0)} kW`,
-                quantity: c.count || 1,
-                unit: 'EA',
-                unitPrice: unitPrice,
-                totalPrice: unitPrice * (c.count || 1),
-                manufacturer: 'BAC / Evapco',
-                leadTime: '10-12 weeks'
-            });
-        }
-
-        // 4. Vessels
-        (results.calculations?.separators || []).forEach(s => {
-            const unitPrice = this._estimateVesselPrice(s.volume);
-            bom.items.push({
-                category: 'Pressure Vessel',
-                tag: s.tag,
-                description: `Separator ${s.volume}L @ ${s.designPressure} bar`,
-                quantity: 1,
-                unit: 'EA',
-                unitPrice: unitPrice,
-                totalPrice: unitPrice,
-                manufacturer: 'Fabricated',
-                leadTime: '6-8 weeks'
-            });
-        });
-
-        // 5. Piping & Valves (estimated)
-        const pipingCost = this._estimatePipingCost(results);
-        bom.items.push({
-            category: 'Piping & Valves',
-            tag: 'PIPING',
-            description: 'Complete piping system with valves',
-            quantity: 1,
-            unit: 'LOT',
-            unitPrice: pipingCost,
-            totalPrice: pipingCost,
-            manufacturer: 'Various',
-            leadTime: '4-6 weeks'
-        });
-
-        // 6. Controls
-        bom.items.push({
-            category: 'Controls',
-            tag: 'CTRL',
-            description: 'Control panel and instrumentation',
-            quantity: 1,
-            unit: 'LOT',
-            unitPrice: 15000,
-            totalPrice: 15000,
-            manufacturer: 'Danfoss',
-            leadTime: '8-10 weeks'
-        });
-
-        // Calculate totals
-        bom.subtotal = bom.items.reduce((sum, item) => sum + item.totalPrice, 0);
-        bom.contingencyAmount = bom.subtotal * bom.contingency;
-        bom.total = bom.subtotal + bom.contingencyAmount;
-
-        return bom;
     }
-
     /**
      * Generate energy analysis report
      */
@@ -363,43 +265,6 @@ class ReportGenerator {
                 }
             ]
         };
-    }
-
-    // ============================================================
-    // PRICE ESTIMATION HELPERS
-    // ============================================================
-
-    _estimateEvaporatorPrice(capacity) {
-        // Simple linear model: $150-250 per kW
-        return Math.round(capacity * 200);
-    }
-
-    _estimateCompressorPrice(power, type) {
-        // Screw compressors more expensive
-        const factor = type === 'screw_open' ? 500 : type === 'screw_semi' ? 400 : 300;
-        return Math.round(power * factor);
-    }
-
-    _estimateCondenserPrice(capacity, type) {
-        // Evaporative more expensive than air-cooled
-        const factor = type === 'evaporative' ? 180 : 120;
-        return Math.round(capacity * factor);
-    }
-
-    _estimateVesselPrice(volume) {
-        // Price per liter + fabrication
-        return Math.round(volume * 15 + 5000);
-    }
-
-    _estimatePipingCost(results) {
-        const totalLoad = results.summary?.totalCoolingLoad || 0;
-        return Math.round(totalLoad * 50);  // $50 per kW
-    }
-
-    _estimateTotalCost(results) {
-        const totalLoad = results.summary?.totalCoolingLoad || 0;
-        // Rule of thumb: $1000-1500 per kW installed
-        return Math.round(totalLoad * 1200);
     }
 
     _getRefrigerantGWP(code) {

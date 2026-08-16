@@ -152,6 +152,12 @@ class DesignOrchestrator {
             // 🌟 Add Async AI P&ID Data
             console.log('🎨 Generating AI P&ID...');
             response.pidData = await this._generatePIDData(results, project);
+            const synchronization = this.engine.synchronizeFullSystem(results, response.pidData);
+            results.synchronization = synchronization;
+            response.synchronization = synchronization;
+            response.bom = synchronization.bom;
+            response.equipmentRegister = synchronization.equipment;
+            response.pipingRegister = synchronization.piping;
 
             response.executionTime = Date.now() - startTime;
             return response;

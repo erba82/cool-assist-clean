@@ -12,7 +12,7 @@
  * @version 2.0.0
  */
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Box, IconButton, Button, Tooltip, Typography } from '@mui/material';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
@@ -677,10 +677,19 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
 }) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [zoom, setZoom] = useState(0.3);  // 30% zoom for full overview
+    const [zoom, setZoom] = useState(0.5);  // Readable initial framing; Fit to Screen retains the same calibrated view.
 
-
-
+    // The technical drawing is wider/taller than the panel. Centre the calibrated
+    // fit view after React lays it out so semantic equipment is not stranded at an edge.
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return undefined;
+        const frame = window.requestAnimationFrame(() => {
+            container.scrollLeft = Math.max(0, (container.scrollWidth - container.clientWidth) / 2);
+            container.scrollTop = Math.max(0, (container.scrollHeight - container.clientHeight) * 0.42);
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [zoom, data]);
 
 
     // Pan state for mouse drag
@@ -885,7 +894,7 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Zoom Out">
-                    <IconButton size="small" onClick={() => setZoom(z => Math.max(z - 0.1, 0.3))}>
+                    <IconButton size="small" onClick={() => setZoom(z => Math.max(z - 0.1, 0.4))}>
                         <ZoomOutIcon />
                     </IconButton>
                 </Tooltip>

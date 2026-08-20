@@ -406,13 +406,21 @@ class CompressorSelector {
         if (byProfile[key]) return byProfile[key]();
 
         const isAmmonia = Boolean(profile?.family === 'ammonia-industrial');
-        const requestedType = String(project?.designIntent?.compressorType || project?.compressorType || '').toLowerCase();
+        // A confirmed P&ID semantic contract has priority over any load-band fallback.
+        // Do not let a low preliminary load silently convert a declared screw package
+        // into a reciprocating machine.
+        const requestedType = String(project?.semanticCycle?.compressorFamily || project?.designIntent?.compressorType || project?.compressorType || '').toLowerCase();
         let selectedSeries;
         let selectedSize;
-        if (!isAmmonia && requestedType !== 'screw' && load <= 150) {
+        if (requestedType === 'screw') {
+            selectedSeries = load >= 500 ? 'OS' : 'HS';
+            selectedSize = selectedSeries === 'OS'
+                ? load < 200 ? 'small' : load < 500 ? 'medium' : load < 1000 ? 'large' : 'xlarge'
+                : load < 100 ? 'small' : load < 250 ? 'medium' : 'large';
+        } else if (requestedType === 'reciprocating' || requestedType === 'piston') {
             selectedSeries = 'REC';
             selectedSize = load < 15 ? 'small' : load < 45 ? 'medium' : 'large';
-        } else if (requestedType === 'reciprocating' || requestedType === 'piston') {
+        } else if (!isAmmonia && load <= 150) {
             selectedSeries = 'REC';
             selectedSize = load < 15 ? 'small' : load < 45 ? 'medium' : 'large';
         } else if (load < 30) {

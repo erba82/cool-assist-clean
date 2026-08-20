@@ -154,20 +154,33 @@ const EquipmentDetail: React.FC<{ item: SceneEquipment; refrigerant: string }> =
 };
 
 const EquipmentInstance: React.FC<{ item: SceneEquipment; factory: ThreeDModelFactory; refrigerant: string }> = ({ item, factory, refrigerant }) => {
-  const placed = useMemo(() => factory.createEquipment(
-    item.params.proId,
-    item.params.tag,
-    vector(item.position),
-    new THREE.Euler(0, item.rotation || 0, 0),
-    { connectionStyle: item.params.connectionType },
-  ), [factory, item]);
+  const placed = useMemo(() => {
+    const position = vector(item.position);
+    const rotation = new THREE.Euler(0, item.rotation || 0, 0);
+    if (item.params.catalogueModelId) {
+      try {
+        return factory.createCatalogueEquipment(item.params.catalogueModelId, item.params.tag, position, rotation);
+      } catch (error) {
+        // Keep the semantic P&ID/BIM graph visible if a catalogue asset is unavailable;
+        // the deterministic family retains the same declared port contract.
+        console.warn(`[TopologyIndustrialCanvas] Catalogue asset unavailable for ${item.params.tag}`, error);
+      }
+    }
+    return factory.createEquipment(
+      item.params.proId,
+      item.params.tag,
+      position,
+      rotation,
+      { connectionStyle: item.params.connectionType },
+    );
+  }, [factory, item]);
   if (!placed) return null;
   const elevation = /BIM_COMP/.test(item.params.proId) ? 2.45 : item.params.proId === 'BIM_VESSEL_HORIZ' ? 2.80 : item.params.proId === 'BIM_CONDENSER_EVAP' ? 3.85 : 1.65;
   return <group>
     <primitive object={placed.group} />
     <group position={vector(item.position)} rotation={[0, item.rotation || 0, 0]}><EquipmentDetail item={item} refrigerant={refrigerant} /></group>
     {item.params.connectionType === 'flanged' && item.ports.map((port: ScenePort) => <FlangedJoint key={`${item.id}-${port.id}`} point={port.position} dn={port.dn} direction={port.direction} />)}
-    <Html position={[item.position[0], item.position[1] + elevation, item.position[2]]} center distanceFactor={8} style={{ pointerEvents: 'none' }}><div style={{ color: '#f8fafc', background: 'rgba(7,16,29,.92)', border: '1px solid rgba(148,163,184,.72)', padding: '2px 4px', fontSize: 8, fontWeight: 900, letterSpacing: .3, whiteSpace: 'nowrap' }}>{item.params.tag}</div></Html>
+    <Html position={[item.position[0], item.position[1] + elevation, item.position[2]]} center distanceFactor={8} style={{ pointerEvents: 'none' }}><div style={{ color: '#f8fafc', background: 'rgba(7,16,29,.92)', border: '1px solid rgba(148,163,184,.72)', padding: '2px 4px', fontSize: 8, fontWeight: 900, letterSpacing: .3, whiteSpace: 'nowrap' }}>{item.params.tag}{item.params.catalogueModelId ? ' · Danfoss ICF' : ''}</div></Html>
   </group>;
 };
 

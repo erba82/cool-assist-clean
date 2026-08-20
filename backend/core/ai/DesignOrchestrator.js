@@ -23,6 +23,7 @@ const MaterialRecommender = require('../modules/MaterialRecommender');
 const { getStandardsForLocation } = require('../../data/standards/RegionalStandardsDB');
 const GeminiService = require('../../services/GeminiService');
 const OllamaService = require('../../services/OllamaService');
+const RefrigerationTopologyInterpreter = require('../engineering/RefrigerationTopologyInterpreter');
 
 class DesignOrchestrator {
     constructor() {
@@ -34,6 +35,7 @@ class DesignOrchestrator {
         this.materialRecommender = new MaterialRecommender();
         this.gemini = new GeminiService();
         this.ollama = new OllamaService();
+        this.topologyInterpreter = new RefrigerationTopologyInterpreter();
         this.conversationState = new Map();
 
         console.log('🎯 DesignOrchestrator v4.0 initialized with AI Captain');
@@ -107,6 +109,10 @@ class DesignOrchestrator {
                 }
             }
 
+            // Step 1.25: Preserve explicit process/cycle intent as a deterministic
+            // semantic contract before any load-based equipment fallback runs.
+            project.semanticCycle = this.topologyInterpreter.interpret(project);
+
             // Step 1.5: Capacity check
             const totalCapacity = this._getTotalCapacity(project);
             if (totalCapacity > 500) {
@@ -175,6 +181,7 @@ class DesignOrchestrator {
         return {
             success: true,
             project: { name: project.name, location: project.location, refrigerant: project.refrigerant, roomCount: project.rooms?.length || 0 },
+            semanticCycle: project.semanticCycle || null,
             summary: results.summary,
             projectInfo: { name: project.name, location: project.location, refrigerant: project.refrigerant, rooms: project.rooms || [] },
             calculations: results.calculations || {},

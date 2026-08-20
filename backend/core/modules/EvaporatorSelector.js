@@ -112,6 +112,10 @@ class EvaporatorSelector {
 
         return {
             count: count,
+            roomType: roomType,
+            applicationType: roomType,
+            roomName: room.name || null,
+            roomId: room.id || room.name || null,
             model: selection.model,
             series: selection.series,
             capacityPerUnit: Math.round(capacityPerUnit * 100) / 100,
@@ -198,6 +202,15 @@ class EvaporatorSelector {
     }
 
     _getRoomType(room) {
+        // Preserve explicit process semantics from the project/P&ID contract.
+        // Temperature remains a sizing input; it must not erase IQF/tunnel identity.
+        const explicit = String(room.processType || room.type || room.applicationType || room.name || '').toLowerCase();
+        if (/iqf/.test(explicit)) return 'tunnel';
+        if (/spiral/.test(explicit)) return 'tunnel';
+        if (/tunnel|blast/.test(explicit)) return 'tunnel';
+        if (/processing|process|pack/.test(explicit)) return 'processing';
+        if (/chilling|chill|precool/.test(explicit)) return 'chilling';
+        if (/storage|store/.test(explicit)) return 'storage';
         const temp = room.temperature;
         if (temp >= 0) return 'chilling';
         if (temp >= -10) return 'processing';

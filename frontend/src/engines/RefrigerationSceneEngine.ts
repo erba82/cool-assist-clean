@@ -28,6 +28,7 @@ export interface SceneEquipment {
     connectionType: JointType;
     manufacturer?: string;
     model?: string;
+    catalogueModelId?: string;
     details?: any;
   };
   ports: ScenePort[];
@@ -191,13 +192,15 @@ const familyForNode = (node: any): string | null => {
   if (/gas.?cooler/.test(type)) return 'BIM_GAS_COOLER';
   if (/air.?cooled.?condenser/.test(type)) return 'BIM_CONDENSER_AIR';
   if (/evaporative.?condenser|condenser/.test(type)) return 'BIM_CONDENSER_EVAP';
-  if (/unit.?cooler|air.?cooler|evaporator/.test(type)) return 'BIM_EVAP_UNIT';
-  // The supplied reference calls for horizontal vessels by default. Vertical families remain available only for explicit future project rules.
+  if (/iqf|spiral|tunnel|unit.?cooler|air.?cooler|evaporator/.test(type)) return 'BIM_EVAP_UNIT';
   if (/oil.?separator/.test(type)) return 'BIM_OIL_SEPARATOR';
+  if (/thermosiphon/.test(type)) return 'BIM_VESSEL_HORIZ';
+  // The supplied reference calls for horizontal vessels by default. Vertical families remain available only for explicit future project rules.
   if (/vessel|receiver|accumulator/.test(type)) return 'BIM_VESSEL_HORIZ';
   if (/pump|circulator/.test(type)) return 'BIM_PUMP_CENTRIFUGAL';
   if (/ventilation.?fan/.test(type)) return 'BIM_VENTILATION_FAN';
   if (/gas.?detector|safety.?control|emergency.?shutdown|relief.?valve/.test(type)) return 'BIM_SAFETY_PANEL';
+  if (/valve.?station|\bicf\b/.test(type)) return 'BIM_VALVE_STATION_ICF';
   if (/expansion|tev|txv/.test(type)) return 'BIM_VALVE_EXPANSION';
   if (/check.?valve/.test(type)) return 'BIM_VALVE_CHECK';
   if (/valve|solenoid|globe|shut.?off/.test(type)) return 'BIM_VALVE_GLOBE';
@@ -391,7 +394,7 @@ const zoneFor = (family: string, roomId: string): SceneEquipment['params']['zone
   if (/BIM_COMP/.test(family)) return 'compressor-bank';
   if (family === 'BIM_VESSEL_HORIZ') return 'receiver-rack';
   if (/BIM_VALVE|BIM_STRAINER|BIM_PUMP/.test(family)) return 'process-skid';
-  if (/cold|freez|evap/i.test(roomId)) return 'cold-room';
+  if (/cold|freez|evap|iqf|tunnel|spiral/i.test(roomId)) return 'cold-room';
   return 'machine-room';
 };
 
@@ -477,7 +480,7 @@ export const buildSceneGraph = (data: any): SceneGraph => {
       kind: String(node.data?.componentType || node.type || 'equipment'),
       position,
       rotation,
-      params: { proId: family, tag: String(node.data?.tag || node.id || `EQ-${index + 1}`), label: String(node.data?.label || node.data?.componentType || family), componentType: String(node.data?.componentType || node.type || 'equipment'), roomId, zone: zoneFor(family, roomId), mounting: (family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR') ? 'roof' : /platform|skid/i.test(words(node?.data?.mounting, node?.data?.location)) ? 'platform' : 'floor', connectionType: explicitJoint, manufacturer: procurementOverride?.selectedBrand || synchronizedEquipmentRecord?.manufacturer || node.data?.manufacturer, model: procurementOverride?.selectedModel || synchronizedEquipmentRecord?.model || node.data?.model, details: { ...(node.data?.details || {}), procurementTier: procurementOverride?.selectedTier || null, procurementRenderUpdateStatus: procurementOverride?.renderUpdateStatus || null, procurementEngineeringCompatibility: procurementOverride?.engineeringCompatibility || null } },
+      params: { proId: family, tag: String(node.data?.tag || node.id || `EQ-${index + 1}`), label: String(node.data?.label || node.data?.componentType || family), componentType: String(node.data?.componentType || node.type || 'equipment'), roomId, zone: zoneFor(family, roomId), mounting: (family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR') ? 'roof' : /platform|skid/i.test(words(node?.data?.mounting, node?.data?.location)) ? 'platform' : 'floor', connectionType: explicitJoint, manufacturer: procurementOverride?.selectedBrand || synchronizedEquipmentRecord?.manufacturer || node.data?.manufacturer || node.data?.details?.manufacturer, model: procurementOverride?.selectedModel || synchronizedEquipmentRecord?.model || node.data?.model || node.data?.details?.model, catalogueModelId: node.data?.details?.catalogueModelId || null, details: { ...(node.data?.details || {}), procurementTier: procurementOverride?.selectedTier || null, procurementRenderUpdateStatus: procurementOverride?.renderUpdateStatus || null, procurementEngineeringCompatibility: procurementOverride?.engineeringCompatibility || null } },
       ports: portsFor(family, position, rotation),
     };
     equipment.push(item);

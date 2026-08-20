@@ -108,6 +108,25 @@ export const BIM_LIBRARY: BimEquipmentFamily[] = [
     ]
   },
   {
+    // Envelope and inlet/outlet frame correspond to the catalogue-backed
+    // DANFOSS_ICF_25_40_4 record. It is intentionally used for rendering
+    // and route anchoring only where the catalogue record is selected.
+    id: 'BIM_VALVE_STATION_ICF',
+    name: 'Danfoss ICF 25-4 / ICF 40-4 Valve Station',
+    category: 'Industrial Ammonia Valves',
+    primitives: [
+      { type: 'cylinder', params: [0.055, 0.055, 0.266, 20], pos: { x: 0, y: 0.12, z: 0 }, rot: { x: 0, y: 0, z: Math.PI / 2 }, mat: 'STAINLESS_STEEL' },
+      { type: 'box', params: [0.070, 0.504, 0.070], pos: { x: -0.065, y: 0.252, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' },
+      { type: 'box', params: [0.070, 0.504, 0.070], pos: { x: 0.005, y: 0.252, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' },
+      { type: 'box', params: [0.070, 0.504, 0.070], pos: { x: 0.075, y: 0.252, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' },
+      { type: 'box', params: [0.070, 0.504, 0.070], pos: { x: 0.145, y: 0.252, z: 0 }, rot: { x: 0, y: 0, z: 0 }, mat: 'PAINTED_BLUE' }
+    ],
+    connections: [
+      { id: 'inlet', type: 'liquid', dn: 32, pos: { x: -0.133, y: 0.12, z: 0 }, dir: { x: -1, y: 0, z: 0 } },
+      { id: 'outlet', type: 'liquid', dn: 32, pos: { x: 0.133, y: 0.12, z: 0 }, dir: { x: 1, y: 0, z: 0 } }
+    ]
+  },
+  {
     id: 'BIM_VALVE_GLOBE',
     name: 'Industrial Globe Isolation Valve',
     category: 'Valves',

@@ -188,19 +188,28 @@ class InputParser {
     }
     _extractDesignIntent(input) {
         const text = String(input || '').toLowerCase();
+        const normalized = text.replace(/[\u200c\s-]+/g, ' ');
         const wordToNumber = { one: 1, two: 2, three: 3, four: 4 };
         const quantityMatch = text.match(/(?:use\s+)?(\d+|one|two|three|four)\s+(?:parallel\s+)?(?:industrial\s+)?(?:screw|reciprocating|piston)\s+compressors?/i);
         const rawCount = quantityMatch ? quantityMatch[1].toLowerCase() : null;
         const compressorCount = rawCount ? (wordToNumber[rawCount] || parseInt(rawCount, 10)) : null;
-        const compressorType = /screw\s+compressor/.test(text) ? 'screw' : /reciprocating|piston/.test(text) ? 'reciprocating' : null;
+        const compressorType = /screw\s+compressor|screw\b|اسکرو/.test(normalized) ? 'screw' : /reciprocating|piston|پیستونی/.test(normalized) ? 'reciprocating' : /scroll/.test(normalized) ? 'scroll' : null;
+        const condenserType = /air[\s-]*cooled|air condenser|کندانسور هوایی/.test(normalized) ? 'air_cooled_condenser' : /evaporative|تبخیری/.test(normalized) ? 'evaporative_condenser' : null;
+        const feedMethod = /pumped[\s-]*(?:recirculation|recirc|overfeed)|liquid recirculation|پمپ[\s-]*(?:آمونیاک|مایع)|ریسیرکوله|سیرکولاسیون/.test(normalized) ? 'pumped_recirculated' : /gravity[\s-]*(?:fed|flooded)|ثقلی/.test(normalized) ? 'gravity_flooded' : /direct[\s-]*expansion|\bdx\b|انبساط مستقیم/.test(normalized) ? 'direct_expansion' : null;
+        const thermosiphon = /thermosiphon|ترموسیفون/.test(normalized);
+        const ammoniaValveStation = /danfoss[\s-]*icf|\bicf\b|valve[\s-]*station|ولو[\s-]*استیشن|ایستگاه[\s-]*شیر/.test(normalized);
         return {
             compressorType,
             compressorCount: Number.isFinite(compressorCount) ? compressorCount : null,
             parallel: /parallel\s+(?:screw|reciprocating|piston)\s+compressors?/.test(text),
-            roofCondenser: /rooftop|roof\s*(?:mounted|top)?\s*evaporative\s*condenser|evaporative\s+condenser/.test(text),
-            horizontalReceiver: /horizontal\s+(?:high[-\s]*pressure\s+)?receiver/.test(text),
-            liquidPump: /liquid\s+pump/.test(text),
-            oilSeparator: /oil\s+separator/.test(text),
+            condenserType,
+            feedMethod,
+            thermosiphon,
+            ammoniaValveStation,
+            roofCondenser: condenserType === 'evaporative_condenser' && /roof|roof top|بام|سقف/.test(normalized),
+            horizontalReceiver: /horizontal\s+(?:high[-\s]*pressure\s+)?receiver|رسیور افقی/.test(normalized),
+            liquidPump: feedMethod === 'pumped_recirculated',
+            oilSeparator: /oil\s+separator|اویل سپراتور|جداکننده روغن/.test(normalized),
             checkValves: /check\s+valves?/.test(text),
             strainers: /y[-\s]*strainers?/.test(text),
             globeValves: /globe\s+valves?/.test(text),

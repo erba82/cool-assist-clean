@@ -22,8 +22,10 @@ const RefrigerantRecommender = require('../modules/RefrigerantRecommender');
 const MaterialRecommender = require('../modules/MaterialRecommender');
 const { getStandardsForLocation } = require('../../data/standards/RegionalStandardsDB');
 const GeminiService = require('../../services/GeminiService');
+const AIModelRouter = require('../../services/AIModelRouter');
 const OllamaService = require('../../services/OllamaService');
 const RefrigerationTopologyInterpreter = require('../engineering/RefrigerationTopologyInterpreter');
+const LearningGovernanceService = require('./LearningGovernanceService');
 
 class DesignOrchestrator {
     constructor() {
@@ -34,8 +36,10 @@ class DesignOrchestrator {
         this.refrigerantRecommender = new RefrigerantRecommender();
         this.materialRecommender = new MaterialRecommender();
         this.gemini = new GeminiService();
+        this.modelRouter = new AIModelRouter({ geminiService: this.gemini });
         this.ollama = new OllamaService();
         this.topologyInterpreter = new RefrigerationTopologyInterpreter();
+        this.learningGovernance = new LearningGovernanceService();
         this.conversationState = new Map();
 
         console.log('🎯 DesignOrchestrator v4.0 initialized with AI Captain');
@@ -112,6 +116,7 @@ class DesignOrchestrator {
             // Step 1.25: Preserve explicit process/cycle intent as a deterministic
             // semantic contract before any load-based equipment fallback runs.
             project.semanticCycle = this.topologyInterpreter.interpret(project);
+            project.learningProposal = this.learningGovernance.propose({ project, semanticCycle: project.semanticCycle });
 
             // Step 1.5: Capacity check
             const totalCapacity = this._getTotalCapacity(project);
@@ -182,6 +187,7 @@ class DesignOrchestrator {
             success: true,
             project: { name: project.name, location: project.location, refrigerant: project.refrigerant, roomCount: project.rooms?.length || 0 },
             semanticCycle: project.semanticCycle || null,
+            learningProposal: project.learningProposal || null,
             summary: results.summary,
             projectInfo: { name: project.name, location: project.location, refrigerant: project.refrigerant, rooms: project.rooms || [] },
             calculations: results.calculations || {},
@@ -351,7 +357,7 @@ class DesignOrchestrator {
     }
 
     _handleUnknown(lang) { return { success: true, type: 'unknown', message: 'I did not understand.', language: lang }; }
-    async _parseWithAI(msg) { return null; }
+    async _parseWithAI(msg) { return this.modelRouter.structuredProject(msg); }
     _getTotalCapacity(project) { return project.capacity || 0; }
     _getCapacityFromParsed(info) { return info.capacity || 0; }
     _splitCapacityIntoRooms(total, count, project) {

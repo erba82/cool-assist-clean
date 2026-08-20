@@ -30,6 +30,8 @@ export interface SceneEquipment {
     model?: string;
     catalogueModelId?: string;
     details?: any;
+    elevationReviewRequired?: boolean;
+    elevationHint?: string;
   };
   ports: ScenePort[];
 }
@@ -103,6 +105,7 @@ export interface SceneGraph {
     jointPolicy: string;
     cycleTemplate?: { id: string; title: string; expectedEquipment: string[] } | null;
     engineeringReadiness: { state: 'review-ready' | 'inputs-required'; missing: string[] };
+    elevationHints?: ElevationHint[];
   };
 }
 
@@ -242,6 +245,15 @@ const nodeRotation = (node: any): number => {
  */
 type PreviewZone = { centerX: number; centerZ: number; width: number; depth: number };
 
+type ElevationHint = {
+  equipmentId: string;
+  equipmentTag: string;
+  relationship: string;
+  status: 'review-required';
+  source: string;
+  referenceUrl: string;
+};
+
 const translateEquipment = (item: SceneEquipment, nextPosition: Vec3) => {
   const delta: Vec3 = [
     nextPosition[0] - item.position[0],
@@ -301,6 +313,79 @@ const normalizePreviewPlantLayout = (equipment: SceneEquipment[]) => {
   placePreviewZone(machineRoom, { centerX: -0.6, centerZ: -4.2, width: 13.0, depth: 2.8 });
   placePreviewZone(coldRooms, { centerX: 0, centerZ: 25.0, width: 24.0, depth: 8.0 });
   placePreviewZone(roofPlant, { centerX: 0, centerZ: 0, width: 14.0, depth: 8.0 });
+};
+
+const equipmentText = (item: SceneEquipment) => words(
+  item.kind, item.params.componentType, item.params.label, item.params.tag,
+  item.params.model, item.params.details?.type, item.params.details?.service,
+);
+
+/**
+ * Applies renderer-only relative elevation relationships for ammonia equipment.
+ * These hints are deliberately not construction set-out values, code compliance
+ * assertions, or a substitute for NPSH, pressure-drop and structural checks.
+ */
+export const applyAmmoniaElevationHints = (equipment: SceneEquipment[], refrigerant: string, topologyEdges: any[] = []): ElevationHint[] => {
+  if (!/717|ammonia|nh3/i.test(refrigerant)) return [];
+
+  const hints: ElevationHint[] = [];
+  const compressors = equipment.filter((item) => /compressor|screw|recip|piston/.test(equipmentText(item)));
+  const oilCoolers = equipment.filter((item) => /oil.?cooler/.test(equipmentText(item)));
+  const lpSeparators = equipment.filter((item) => /lp.?separator|low.?pressure.?separator|pump.?separator|surge.?drum/.test(equipmentText(item)));
+  const pumps = equipment.filter((item) => /pump|circulator/.test(equipmentText(item)) && !/pump.?separator/.test(equipmentText(item)));
+  const thermosiphons = equipment.filter((item) => /thermosiphon/.test(equipmentText(item)));
+  const condensers = equipment.filter((item) => /condenser/.test(equipmentText(item)));
+  const hpReceivers = equipment.filter((item) => /receiver/.test(equipmentText(item)) && !/thermosiphon/.test(equipmentText(item)));
+
+  const review = (item: SceneEquipment, relationship: string, source: string, referenceUrl: string) => {
+    item.params.elevationReviewRequired = true;
+    item.params.elevationHint = relationship;
+    hints.push({ equipmentId: item.id, equipmentTag: item.params.tag, relationship, status: 'review-required', source, referenceUrl });
+  };
+
+  // Frick 070.900-E specifies more than 6 ft (1.8 m) static head above the oil-cooler centreline.
+  // The extra 0.05 m is only to make the strict preview relationship visually unambiguous.
+  if (oilCoolers.length) {
+    const coolerCentreline = Math.max(...oilCoolers.map((item) => item.position[1]));
+    thermosiphons.forEach((item) => {
+      const nextY = Math.max(item.position[1], coolerCentreline + 1.85);
+      translateEquipment(item, [item.position[0], nextY, item.position[2]]);
+      review(item, 'Thermosiphon liquid source is shown >1.8 m above the oil-cooler centreline; verify required head from actual piping loss and oil-cooler data.', 'Johnson Controls/Frick Form 070.900-E, Thermosyphon Oil Cooling', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
+    });
+  }
+
+  const highestSuctionReference = compressors.length ? Math.max(...compressors.map((item) => item.position[1])) : null;
+  lpSeparators.forEach((item) => {
+    if (highestSuctionReference !== null) translateEquipment(item, [item.position[0], Math.max(item.position[1], highestSuctionReference + 0.60), item.position[2]]);
+    review(item, 'LP separator is displayed above compressor suction elevation as a gravity/NPSH review relationship; verify nozzles, NPSHa and approved layout.', 'Conceptual pump-recirculation layout relationship; no numerical set-out value is asserted', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir');
+  });
+
+  if (lpSeparators.length) {
+    const separatorBottomProxy = Math.min(...lpSeparators.map((item) => item.position[1]));
+    pumps.forEach((item) => {
+      translateEquipment(item, [item.position[0], Math.min(item.position[1], separatorBottomProxy - 0.60), item.position[2]]);
+      review(item, 'Refrigerant pump is displayed below the LP separator as a gravity/NPSH review relationship; verify NPSHa, NPSHr and actual vessel nozzles.', 'Sabroe PSH Pump Vessel functional guidance; no numerical set-out value is asserted', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir');
+    });
+  }
+
+  if (condensers.length && hpReceivers.length) {
+    const condenserY = Math.min(...condensers.map((item) => item.position[1]));
+    const receiverY = Math.max(...hpReceivers.map((item) => item.position[1]));
+    const hasPidPath = (from: SceneEquipment[], to: SceneEquipment[], via: SceneEquipment) =>
+      from.some((source) => topologyEdges.some((edge) => String(edge?.source) === source.id && String(edge?.target) === via.id)) &&
+      to.some((target) => topologyEdges.some((edge) => String(edge?.source) === via.id && String(edge?.target) === target.id));
+    thermosiphons.forEach((item) => {
+      const sourceHeadY = oilCoolers.length ? Math.max(...oilCoolers.map((cooler) => cooler.position[1])) + 1.85 : item.position[1];
+      const lowerBound = Math.max(receiverY + 0.50, sourceHeadY);
+      const upperBound = condenserY - 0.50;
+      if (lowerBound <= upperBound) translateEquipment(item, [item.position[0], Math.max(lowerBound, Math.min(item.position[1], upperBound)), item.position[2]]);
+      const pathState = hasPidPath(condensers, hpReceivers, item) ? 'P&ID path detected' : 'P&ID path not fully detected';
+      const conflictState = lowerBound > upperBound ? 'The preview could not satisfy every relative relationship simultaneously.' : 'Relative preview interval applied.';
+      review(item, `Thermosiphon is evaluated between condenser outlet and HP-receiver inlet (${pathState}). ${conflictState} Verify actual flow path, allowable pressure drop and required liquid head.`, 'Johnson Controls/Frick Form 070.900-E topology-aware preview hint', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
+    });
+  }
+
+  return hints;
 };
 
 const rotateY = (point: Vec3, yaw: number): Vec3 => {
@@ -490,6 +575,7 @@ export const buildSceneGraph = (data: any): SceneGraph => {
   });
 
   normalizePreviewPlantLayout(equipment);
+  const elevationHints = applyAmmoniaElevationHints(equipment, refrigerant, edges);
 
   const pipes: ScenePipe[] = [];
   const supports: SceneSupport[] = [];
@@ -544,12 +630,13 @@ export const buildSceneGraph = (data: any): SceneGraph => {
     !(data?.specification?.pipeMaterial || data?.specification?.pipeSchedule) && 'متریال و schedule لوله',
     !(data?.mechanical?.supportDesign || data?.specification?.supportStandard || data?.layout?.roofLoad) && 'طراحی و بار ساپورت',
   ].filter(Boolean) as string[];
+  if (elevationHints.length) missing.push('تأیید مهندس مسئول برای روابط ارتفاعی تجهیزات آمونیاک و داده‌های NPSH/هد');
   const width = rooms.length ? Math.max(...rooms.map(room => room.width + Math.abs(room.center[0]) * 2)) : 20;
   const depth = rooms.length ? Math.max(...rooms.map(room => room.depth + Math.abs(room.center[2]) * 2)) : 20;
 
   return {
     room: { width: Math.max(18, width), depth: Math.max(18, depth), height: Math.max(7, ...rooms.map(room => room.height)) },
     rooms, equipment, pipes, valves: valvesFromNodes(nodes, equipmentById, manufacturer), supports: [...dedupedSupports.values()],
-    meta: { refrigerant, cycle: data?.systemParams?.cycle || data?.cycle || diagram?.metadata?.cycle || 'DESIGN_SPECIFIC', colors: COLORS, capacity: Number(data?.summary?.totalCoolingLoad || data?.capacity || 0), source: diagram ? 'PID_TO_BIM_GENERATED' : 'NO_PID_DATA', manufacturer, topologyValid: Boolean(diagram && equipment.length && pipes.length), jointPolicy: /717|ammonia|nh3/.test(refrigerant) ? 'R717 PIPE-RUNS DEFAULT TO WELDED; FLANGES REQUIRE EXPLICIT SOURCE DATA' : 'PIPE JOINTS REQUIRE EXPLICIT SOURCE DATA', cycleTemplate: semanticCycle?.template || null, engineeringReadiness: { state: missing.length ? 'inputs-required' : 'review-ready', missing } },
+    meta: { refrigerant, cycle: data?.systemParams?.cycle || data?.cycle || diagram?.metadata?.cycle || 'DESIGN_SPECIFIC', colors: COLORS, capacity: Number(data?.summary?.totalCoolingLoad || data?.capacity || 0), source: diagram ? 'PID_TO_BIM_GENERATED' : 'NO_PID_DATA', manufacturer, topologyValid: Boolean(diagram && equipment.length && pipes.length), jointPolicy: /717|ammonia|nh3/.test(refrigerant) ? 'R717 PIPE-RUNS DEFAULT TO WELDED; FLANGES REQUIRE EXPLICIT SOURCE DATA' : 'PIPE JOINTS REQUIRE EXPLICIT SOURCE DATA', cycleTemplate: semanticCycle?.template || null, engineeringReadiness: { state: missing.length ? 'inputs-required' : 'review-ready', missing }, elevationHints },
   };
 };

@@ -9,7 +9,9 @@ const scenario = {
   prompt: 'Project: Industrial Cold Storage Dubai. Facility type: industrial cold storage warehouse with an IQF tunnel. Product: frozen meat. Location: Dubai, United Arab Emirates (AE). Refrigerant: R717 (Ammonia). Design cooling load: 500 kW. Evaporating temperature: -30°C. Condensing temperature: +35°C. Use two parallel industrial screw compressors, a roof-mounted evaporative condenser, a horizontal high-pressure receiver, pumped-recirculated ammonia liquid feed, an ammonia liquid recirculation pump, a low-pressure suction separator, an oil separator, a thermosiphon oil cooler, and a confirmed Danfoss ICF 25-4 valve station for the DN32 IQF liquid branch. Include an IQF tunnel 30 x 12 x 5 m at -35°C with its own evaporator branch and valve station. Generate the complete thermodynamic calculation book, manufacturer-backed equipment selection, location-aware procurement BOM, 2D P&ID, and 3D BIM layout.',
 };
 
-const outputDir = path.resolve(process.cwd(), 'frontend/e2e-artifacts');
+// Resolve against this script, not the caller's working directory, so artifacts
+// are always written to frontend/e2e-artifacts on every supported platform.
+const outputDir = path.resolve(__dirname, 'e2e-artifacts');
 fs.mkdirSync(outputDir, { recursive: true });
 
 function now() {
@@ -66,6 +68,18 @@ function now() {
     await calculationTab.waitFor({ state: 'visible', timeout: 180000 });
     diagnostics.checks.designResultRendered = true;
 
+    const summaryTab = page.getByRole('tab', { name: 'Summary', exact: true });
+    await summaryTab.click();
+    await page.waitForTimeout(700);
+    await take('00_summary_tab.png');
+    diagnostics.checks.summaryRendered = true;
+
+    const loadTab = page.getByRole('tab', { name: 'Load Calculation', exact: true });
+    await loadTab.click();
+    await page.waitForTimeout(700);
+    await take('01_load_calculation_tab.png');
+    diagnostics.checks.loadCalculationRendered = true;
+
     await calculationTab.click();
     await page.waitForTimeout(1500);
     await take('01_calculations_tab.png');
@@ -88,6 +102,12 @@ function now() {
     await page.waitForTimeout(700);
     diagnostics.checks.procurementTierSwitching = true;
     await take('02_procurement_bom_tab.png');
+
+    const equipmentTab = page.getByRole('tab', { name: 'Equipment', exact: true });
+    await equipmentTab.click();
+    await page.waitForTimeout(700);
+    await take('02_equipment_tab.png');
+    diagnostics.checks.equipmentRendered = true;
 
     const pidTab = page.getByRole('tab', { name: 'P&ID 2D', exact: true });
     await pidTab.click();
@@ -115,6 +135,18 @@ function now() {
     if (!panelBox) throw new Error('BIM panel has no visible bounding box for screenshot capture.');
     await page.screenshot({ path: closeupPath, clip: panelBox, animations: 'disabled' });
     diagnostics.screenshots.push(closeupPath);
+
+    const energyTab = page.getByRole('tab', { name: 'Energy', exact: true });
+    await energyTab.click();
+    await page.waitForTimeout(700);
+    await take('06_energy_management_tab.png');
+    diagnostics.checks.energyManagementRendered = true;
+
+    const complianceTab = page.getByRole('tab', { name: 'Compliance', exact: true });
+    await complianceTab.click();
+    await page.waitForTimeout(700);
+    await take('07_compliance_tab.png');
+    diagnostics.checks.complianceRendered = true;
 
     diagnostics.completedAt = now();
     diagnostics.url = page.url();

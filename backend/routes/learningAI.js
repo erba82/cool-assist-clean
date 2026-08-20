@@ -1,130 +1,65 @@
-/**
- * Learning AI API Route
- * Provides self-learning capabilities for the AI system
- */
+'use strict';
 
 const express = require('express');
-const router = express.Router();
-const SelfLearningAI = require('../services/SelfLearningAI');
+const LearningReviewRegistry = require('../core/ai/LearningReviewRegistry');
 
-// Initialize the self-learning AI
-const selfLearningAI = new SelfLearningAI();
+const router = express.Router();
+const registry = new LearningReviewRegistry();
 
 /**
- * POST /api/learning/query
- * Process a query using the self-learning AI system
+ * Learning endpoints only record reviewable evidence. They never train a model,
+ * reuse an unverified answer, write a Skill, change an engineering rule, or
+ * change an active project automatically.
  */
-router.post('/query', async (req, res) => {
+router.get('/proposals', async (_req, res) => {
     try {
-        const { query, context, userId } = req.body;
-
-        if (!query) {
-            return res.status(400).json({
-                success: false,
-                error: 'Query is required'
-            });
-        }
-
-        console.log(`\n🤖 Learning AI Query from user: ${userId || 'anonymous'}`);
-        console.log(`   Query: "${query.substring(0, 100)}..."`);
-
-        // Process the query with self-learning capabilities
-        const result = await selfLearningAI.processQuery(query, context || {}, userId || 'anonymous');
-
-        res.json({
-            success: true,
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        console.error('❌ Learning AI error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+        res.json({ success: true, proposals: await registry.list(), policy: 'Every learning proposal needs human review before a separate skill draft or regression test is created.' });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-/**
- * POST /api/learning/feedback
- * Record feedback to improve the AI system
- */
 router.post('/feedback', async (req, res) => {
     try {
-        const { interactionId, feedback, rating } = req.body;
-
-        if (!interactionId || !feedback) {
-            return res.status(400).json({
-                success: false,
-                error: 'interactionId and feedback are required'
-            });
-        }
-
-        console.log(`\n🎓 Recording feedback for interaction: ${interactionId}`);
-        console.log(`   Rating: ${rating || 'not provided'}`);
-
-        // Record the feedback
-        const success = await selfLearningAI.recordFeedback(interactionId, feedback, rating || 0.5);
-
-        res.json({
-            success: true,
-            recorded: success,
-            interactionId
+        const proposal = await registry.record({
+            kind: 'feedback',
+            summary: req.body?.summary || req.body?.feedback,
+            detail: req.body?.detail || req.body?.feedback,
+            evidence: { interactionId: req.body?.interactionId || null, rating: req.body?.rating ?? null, attachmentId: req.body?.attachmentId || null },
+            source: 'user-feedback'
         });
-
-    } catch (error) {
-        console.error('❌ Learning AI feedback error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+        res.status(201).json({ success: true, proposal, message: 'Feedback was recorded as a proposed learning item. No rule, skill, model or active project was changed.' });
+    } catch (error) { res.status(400).json({ success: false, error: error.message, type: 'learning_feedback_error' }); }
 });
 
-/**
- * GET /api/learning/stats
- * Get learning statistics
- */
-router.get('/stats', (req, res) => {
+router.post('/findings', async (req, res) => {
     try {
-        const stats = selfLearningAI.getLearningStats();
-
-        res.json({
-            success: true,
-            stats,
-            timestamp: new Date().toISOString()
+        const proposal = await registry.record({
+            kind: 'test-finding', summary: req.body?.summary, detail: req.body?.detail,
+            evidence: req.body?.evidence, source: req.body?.source || 'engineering-validation'
         });
-
-    } catch (error) {
-        console.error('❌ Learning AI stats error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+        res.status(201).json({ success: true, proposal, message: 'Finding recorded for human review. Add a regression test or skill draft only after evidence approval.' });
+    } catch (error) { res.status(400).json({ success: false, error: error.message, type: 'learning_finding_error' }); }
 });
 
-/**
- * POST /api/learning/reset
- * Reset learning data (for testing purposes)
- */
-router.post('/reset', async (req, res) => {
+router.post('/proposals/:id/review', async (req, res) => {
     try {
-        await selfLearningAI.resetLearning();
+        const proposal = await registry.markReviewed(req.params.id, req.body?.reviewNote);
+        res.json({ success: true, proposal, policy: 'Reviewed does not activate a skill or change engineering rules. A separate controlled implementation and test are required.' });
+    } catch (error) { res.status(404).json({ success: false, error: error.message }); }
+});
 
-        res.json({
-            success: true,
-            message: 'Learning data reset successfully'
-        });
+router.get('/proposals/:id/skill-draft', async (req, res) => {
+    try {
+        const draft = await registry.buildSkillDraft(req.params.id);
+        res.json({ success: true, draft, policy: 'Draft only. Download, source-review, and human approval are required before installing any skill.' });
+    } catch (error) { res.status(400).json({ success: false, error: error.message, type: 'skill_draft_error' }); }
+});
 
-    } catch (error) {
-        console.error('❌ Learning AI reset error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+router.get('/stats', async (_req, res) => {
+    try {
+        const proposals = await registry.list();
+        const counts = proposals.reduce((summary, item) => ({ ...summary, [item.status]: (summary[item.status] || 0) + 1 }), {});
+        res.json({ success: true, stats: { total: proposals.length, byStatus: counts, automaticRuleChange: false, automaticSkillCreation: false } });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 module.exports = router;

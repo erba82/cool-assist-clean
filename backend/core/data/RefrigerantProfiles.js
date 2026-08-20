@@ -9,6 +9,7 @@ const PROFILES = {
   R717: {
     id: 'R717', family: 'ammonia-industrial', safetyClass: 'B2L',
     cycle: 'pumped_ammonia_industrial',
+    feedMethod: 'pumped_recirculated',
     topology: 'pumped-ammonia-industrial',
     compressor: { family: 'screw', manufacturer: 'GEA / Mayekawa / Howden', model: 'HSN8571 industrial screw package' },
     heatRejection: { type: 'evaporative_condenser', manufacturer: 'BAC / Evapco', model: 'Industrial evaporative condenser' },
@@ -20,6 +21,7 @@ const PROFILES = {
   R744: {
     id: 'R744', family: 'co2-transcritical', safetyClass: 'A1',
     cycle: 'co2_transcritical_booster',
+    feedMethod: 'direct_expansion',
     topology: 'co2-transcritical-gas-cooler',
     compressor: { family: 'co2_reciprocating', manufacturer: 'BITZER', model: 'ECOLINE transcritical CO2 compressor' },
     heatRejection: { type: 'gas_cooler', manufacturer: 'Güntner / BITZER', model: 'CO2 gas cooler' },
@@ -31,6 +33,7 @@ const PROFILES = {
   R290: {
     id: 'R290', family: 'propane-a3', safetyClass: 'A3',
     cycle: 'dx-propane',
+    feedMethod: 'direct_expansion',
     topology: 'direct-expansion-propane',
     compressor: { family: 'r290_scroll', manufacturer: 'Copeland', model: 'R290-rated scroll compressor' },
     heatRejection: { type: 'air_cooled_condenser', manufacturer: 'Güntner / Copeland', model: 'Air-cooled condenser for R290' },
@@ -42,6 +45,7 @@ const PROFILES = {
   R32: {
     id: 'R32', family: 'a2l-dx', safetyClass: 'A2L',
     cycle: 'dx-a2l',
+    feedMethod: 'direct_expansion',
     topology: 'direct-expansion-a2l',
     compressor: { family: 'r32_scroll', manufacturer: 'Copeland', model: 'YP / YPV R32-rated scroll compressor' },
     heatRejection: { type: 'air_cooled_condenser', manufacturer: 'Güntner / Copeland', model: 'A2L-rated air-cooled condenser' },
@@ -51,7 +55,7 @@ const PROFILES = {
     componentPolicy: 'a2l-rated'
   },
   R404A: {
-    id: 'R404A', family: 'hfc-dx', safetyClass: 'A1', cycle: 'dx-hfc', topology: 'direct-expansion-refrigeration',
+    id: 'R404A', family: 'hfc-dx', safetyClass: 'A1', cycle: 'dx-hfc', feedMethod: 'direct_expansion', topology: 'direct-expansion-refrigeration',
     compressor: { family: 'reciprocating', manufacturer: 'BITZER', model: 'ECOLINE 6G refrigeration compressor' },
     heatRejection: { type: 'air_cooled_condenser', manufacturer: 'Güntner', model: 'Air-cooled condenser' },
     liquidManagement: { receiver: 'Liquid Receiver', accumulator: 'Suction Accumulator', conditioning: 'Filter Drier' },
@@ -59,7 +63,7 @@ const PROFILES = {
     safeguards: ['high-pressure cut-out', 'low-pressure cut-out', 'pressure relief review'], componentPolicy: 'hfc-rated'
   },
   R410A: {
-    id: 'R410A', family: 'hfc-dx', safetyClass: 'A1', cycle: 'dx-hfc', topology: 'direct-expansion-refrigeration',
+    id: 'R410A', family: 'hfc-dx', safetyClass: 'A1', cycle: 'dx-hfc', feedMethod: 'direct_expansion', topology: 'direct-expansion-refrigeration',
     compressor: { family: 'r410a_scroll', manufacturer: 'Copeland', model: 'ZP R410A scroll compressor' },
     heatRejection: { type: 'air_cooled_condenser', manufacturer: 'Güntner', model: 'R410A-rated air-cooled condenser' },
     liquidManagement: { receiver: 'Liquid Receiver', accumulator: 'Suction Accumulator', conditioning: 'Filter Drier' },
@@ -67,7 +71,7 @@ const PROFILES = {
     safeguards: ['high-pressure cut-out', 'low-pressure cut-out', 'pressure relief review'], componentPolicy: 'hfc-rated'
   },
   R134a: {
-    id: 'R134a', family: 'hfc-dx', safetyClass: 'A1', cycle: 'dx-hfc', topology: 'direct-expansion-refrigeration',
+    id: 'R134a', family: 'hfc-dx', safetyClass: 'A1', cycle: 'dx-hfc', feedMethod: 'direct_expansion', topology: 'direct-expansion-refrigeration',
     compressor: { family: 'reciprocating', manufacturer: 'BITZER', model: 'ECOLINE R134a reciprocating compressor' },
     heatRejection: { type: 'air_cooled_condenser', manufacturer: 'Güntner', model: 'Air-cooled condenser' },
     liquidManagement: { receiver: 'Liquid Receiver', accumulator: 'Suction Accumulator', conditioning: 'Filter Drier' },
@@ -75,7 +79,7 @@ const PROFILES = {
     safeguards: ['high-pressure cut-out', 'low-pressure cut-out', 'pressure relief review'], componentPolicy: 'hfc-rated'
   },
   R22: {
-    id: 'R22', family: 'hcfc-legacy-dx', safetyClass: 'A1', cycle: 'dx-hcfc', topology: 'direct-expansion-refrigeration',
+    id: 'R22', family: 'hcfc-legacy-dx', safetyClass: 'A1', cycle: 'dx-hcfc', feedMethod: 'direct_expansion', topology: 'direct-expansion-refrigeration',
     compressor: { family: 'reciprocating', manufacturer: 'BITZER', model: 'ECOLINE R22 reciprocating compressor' },
     heatRejection: { type: 'air_cooled_condenser', manufacturer: 'Güntner', model: 'Air-cooled condenser' },
     liquidManagement: { receiver: 'Liquid Receiver', accumulator: 'Suction Accumulator', conditioning: 'Filter Drier' },

@@ -143,7 +143,7 @@ const PIDDrawingEngineInner: React.FC<PIDDrawingEngineProps> = ({ nodes: initial
   const summary = useMemo(() => ({ sourcePorts: nodes.reduce((sum, node) => sum + (node.data?.details?.connectionPorts || []).filter((port: any) => port.direction === 'out').length, 0), edges: edges.length }), [nodes, edges]);
 
   return <div style={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', background: '#f8fafc', border: '1px solid #cbd5e1' }}>
-    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeDragStop={onNodeDragStop} fitView minZoom={0.2} maxZoom={2} defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }} attributionPosition="bottom-right">
+    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeDragStop={onNodeDragStop} fitView fitViewOptions={{ padding: 0.08, minZoom: 0.36, maxZoom: 1.1 }} minZoom={0.25} maxZoom={2} onlyRenderVisibleElements defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }} attributionPosition="bottom-right">
       <Background color="#cbd5e1" gap={20} size={1} />
       <Controls showInteractive={false} />
     </ReactFlow>

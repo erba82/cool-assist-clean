@@ -7,6 +7,8 @@ const renderingRouter = require('./routes/rendering');
 const coreDesignRouter = require('./routes/coreDesign');
 const chatAPIRouter = require('./routes/chatAPI');
 const learningAIRouter = require('./routes/learningAI'); // NEW: Self-Learning AI route
+const attachmentRouter = require('./routes/attachments');
+const integrationRouter = require('./routes/integrations');
 
 const app = express();
 app.use(cors());
@@ -26,6 +28,12 @@ app.use('/api/chat', chatAPIRouter);
 
 // Mount Learning AI API (v4.0) - NEW
 app.use('/api/learning', learningAIRouter);
+
+// User-provided attachment analysis: read-only and review-gated.
+app.use('/api/attachments', attachmentRouter);
+
+// External MCP integrations begin as drafts; activation requires separate approval.
+app.use('/api/integrations', integrationRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

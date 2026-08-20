@@ -85,7 +85,7 @@ class RefrigerationTopologyInterpreter {
         evidence.push({ field: 'condenserType', value: selectedCondenser, source: explicitCondenser ? 'user-confirmed' : calculatedCondenser ? 'calculation-selection' : profileCondenser ? 'refrigerant-profile' : 'unknown' });
 
         const explicitFeed = feedMethod(supplied.feedMethod || intent.feedMethod || intent.liquidFeedMethod || (intent.liquidPump ? 'pumped_recirculated' : null));
-        const profileFeed = profile?.cycle === 'pumped_ammonia_industrial' ? 'pumped_recirculated' : profile?.cycle?.startsWith('dx-') ? 'direct_expansion' : null;
+        const profileFeed = profile?.feedMethod || (profile?.cycle === 'pumped_ammonia_industrial' ? 'pumped_recirculated' : profile?.cycle?.startsWith('dx-') ? 'direct_expansion' : null);
         const selectedFeed = explicitFeed || profileFeed || 'unknown';
         evidence.push({ field: 'feedMethod', value: selectedFeed, source: explicitFeed ? 'user-confirmed' : profileFeed ? 'refrigerant-profile' : 'unknown' });
 

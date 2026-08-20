@@ -43,8 +43,9 @@ class AdvancedPIDGenerator {
     }
 
     _compressorComponentType(family) {
-        if (family === 'screw') return 'screw_compressor';
-        if (family === 'scroll') return 'scroll_compressor';
+        const normalized = String(family || '').toLowerCase();
+        if (/screw/.test(normalized)) return 'screw_compressor';
+        if (/scroll/.test(normalized)) return 'scroll_compressor';
         return 'reciprocating_compressor';
     }
 
@@ -57,15 +58,17 @@ class AdvancedPIDGenerator {
 
     async generate(results = {}, project = {}) {
         const calculations = results.calculations || {};
-        const refrigerant = String(project.refrigerant || results?.project?.refrigerant || '').toUpperCase().replace(/\s+/g, '');
-        const profile = getRefrigerantProfile(refrigerant);
-        if (!profile) throw new Error(`No refrigerant profile is available for ${refrigerant}`);
+        const requestedRefrigerant = String(project.refrigerant || results?.project?.refrigerant || '').toUpperCase().replace(/\s+/g, '');
+        const profile = getRefrigerantProfile(requestedRefrigerant);
+        if (!profile) throw new Error(`No refrigerant profile is available for ${requestedRefrigerant}`);
+        const refrigerant = profile.id;
 
         const semantic = project.semanticCycle || {};
         const isAmmonia = profile.family === 'ammonia-industrial';
+        const isCO2 = profile.family === 'co2-transcritical';
         const compressorFamily = semantic.compressorFamily || profile.compressor.family || 'unknown';
         const condenserType = semantic.condenserType || profile.heatRejection.type || 'unknown';
-        const feedMethod = semantic.feedMethod || (profile.cycle?.startsWith('dx-') ? 'direct_expansion' : 'unknown');
+        const feedMethod = semantic.feedMethod || profile.feedMethod || (profile.cycle?.startsWith('dx-') ? 'direct_expansion' : 'unknown');
         const equipmentPolicy = semantic.equipmentPolicy || {};
         const totalLoad = Number(results?.summary?.totalCoolingLoad || calculations?.totalCoolingLoad || 0);
 
@@ -172,8 +175,8 @@ class AdvancedPIDGenerator {
         });
         const receiverId = equipmentPolicy.includeHighPressureReceiver !== false ? addNode({
             x: 700, y: 270, label: profile.liquidManagement.receiver, componentType: 'horizontal_vessel',
-            tag: isAmmonia ? 'REC-HP-01' : 'REC-LP-01',
-            details: { function: 'liquid receiver', volume: calculations.receiver?.volume || null, refrigerant }
+            tag: isAmmonia ? 'REC-HP-01' : isCO2 ? 'FGR-01' : 'REC-LP-01',
+            details: { function: isCO2 ? 'CO2 flash-gas separation — configuration review required' : 'liquid receiver', volume: calculations.receiver?.volume || null, refrigerant }
         }) : null;
         const oilSeparatorId = equipmentPolicy.includeOilSeparator ? addNode({
             x: 510, y: 360, label: 'Oil Separator', componentType: 'oil_separator', tag: 'SEP-OIL-01',
@@ -205,7 +208,14 @@ class AdvancedPIDGenerator {
             connect(train.dischargeCheckId, oilSeparatorId || condenserId, 'discharge', dn.discharge, `${refrigerant} discharge header DN${dn.discharge}`);
         });
         if (oilSeparatorId) connect(oilSeparatorId, condenserId, 'discharge', dn.discharge, `${refrigerant} hot gas DN${dn.discharge}`);
-        if (receiverId) connect(condenserId, receiverId, 'liquid', dn.liquid, `${refrigerant} liquid DN${dn.liquid}`);
+        const highPressureControlId = isCO2 ? addNode({
+            x: 825, y: 185, label: 'CO₂ High-Pressure Control Valve — model confirmation required', componentType: 'high_pressure_control_valve', tag: 'HPV-01',
+            details: { function: 'transcritical high-side pressure control', refrigerant, source: 'semantic-review-required' }
+        }) : null;
+        if (receiverId && highPressureControlId) {
+            connect(condenserId, highPressureControlId, 'discharge', dn.discharge, `${refrigerant} gas-cooler outlet DN${dn.discharge}`);
+            connect(highPressureControlId, receiverId, 'liquid', dn.liquid, `${refrigerant} flash-gas receiver inlet DN${dn.liquid}`);
+        } else if (receiverId) connect(condenserId, receiverId, 'liquid', dn.liquid, `${refrigerant} liquid DN${dn.liquid}`);
 
         let liquidHeaderId = null;
         if (feedMethod === 'pumped_recirculated') {
@@ -258,11 +268,12 @@ class AdvancedPIDGenerator {
                 connect(liquidHeaderId, stationId, 'liquid', dn.branchLiquid, `${refrigerant} pumped feed DN${dn.branchLiquid}`, { branch: evaporator.roomId });
                 connect(stationId, evaporatorId, 'liquid', dn.branchLiquid, `${refrigerant} controlled feed DN${dn.branchLiquid}`);
             } else if (feedMethod === 'direct_expansion') {
-                const solenoidId = addNode({ x: x - 170, y, label: 'Liquid Solenoid', componentType: 'solenoid_valve', tag: `SV-LIQ-${String(index + 1).padStart(2, '0')}`, roomId: evaporator.roomId, roomName: evaporator.roomName, details: { service: 'liquid', refrigerant } });
-                const tevId = addNode({ x: x - 80, y, label: 'Thermostatic Expansion Valve', componentType: 'tev', tag: `TEV-${String(index + 1).padStart(2, '0')}`, roomId: evaporator.roomId, roomName: evaporator.roomName, details: { service: 'liquid expansion', refrigerant } });
+                const solenoidId = addNode({ x: x - 170, y, label: isCO2 ? 'CO₂ Liquid Isolation Valve' : 'Liquid Solenoid', componentType: 'solenoid_valve', tag: `SV-LIQ-${String(index + 1).padStart(2, '0')}`, roomId: evaporator.roomId, roomName: evaporator.roomName, details: { service: 'liquid', refrigerant } });
+                const expansionLabel = isCO2 ? 'CO₂ Electronic Expansion Valve — model confirmation required' : 'Thermostatic Expansion Valve';
+                const expansionId = addNode({ x: x - 80, y, label: expansionLabel, componentType: isCO2 ? 'electronic_expansion_valve' : 'tev', tag: `${isCO2 ? 'EEV' : 'TEV'}-${String(index + 1).padStart(2, '0')}`, roomId: evaporator.roomId, roomName: evaporator.roomName, details: { service: 'liquid expansion', refrigerant, source: isCO2 ? 'semantic-review-required' : undefined } });
                 connect(liquidHeaderId, solenoidId, 'liquid', dn.branchLiquid, `${refrigerant} liquid branch DN${dn.branchLiquid}`, { branch: evaporator.roomId });
-                connect(solenoidId, tevId, 'liquid', dn.branchLiquid, `${refrigerant} liquid DN${dn.branchLiquid}`);
-                connect(tevId, evaporatorId, 'liquid', dn.branchLiquid, `${refrigerant} expansion feed DN${dn.branchLiquid}`);
+                connect(solenoidId, expansionId, 'liquid', dn.branchLiquid, `${refrigerant} liquid DN${dn.branchLiquid}`);
+                connect(expansionId, evaporatorId, 'liquid', dn.branchLiquid, `${refrigerant} expansion feed DN${dn.branchLiquid}`);
             } else {
                 const feedValveId = addNode({ x: x - 95, y, label: 'Gravity Feed Valve', componentType: 'globe_valve', tag: `GV-FEED-${String(index + 1).padStart(2, '0')}`, roomId: evaporator.roomId, roomName: evaporator.roomName, details: { service: 'gravity liquid feed', refrigerant } });
                 connect(liquidHeaderId, feedValveId, 'liquid', dn.branchLiquid, `${refrigerant} gravity feed DN${dn.branchLiquid}`, { branch: evaporator.roomId });

@@ -12,6 +12,7 @@
 const express = require('express');
 const router = express.Router();
 const DesignOrchestrator = require('../core/ai/DesignOrchestrator');
+const { capabilityFor, listCapabilities } = require('../core/engineering/RefrigerantCapabilityService');
 
 // Initialize orchestrator
 let orchestrator = null;
@@ -354,6 +355,23 @@ router.post('/calculate-load', async (req, res) => {
             error: error.message
         });
     }
+});
+
+/**
+ * GET /api/core/refrigerant-capabilities
+ * Return profile-specific cycle, equipment and calculation readiness without claiming final selection.
+ */
+router.get('/refrigerant-capabilities', (_req, res) => {
+    try {
+        res.json({ success: true, capabilities: listCapabilities(), policy: 'Profiles provide semantic design intent only. Property sources, manufacturer maps and procurement evidence remain review gates.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/refrigerant-capabilities/:code', (req, res) => {
+    const capability = capabilityFor(req.params.code);
+    res.status(capability.supported ? 200 : 404).json({ success: capability.supported, capability });
 });
 
 /**

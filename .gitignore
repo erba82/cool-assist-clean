@@ -110,3 +110,8 @@ energy_view_full.txt
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+.render-audit/
+
+# Runtime payloads and user-supplied concept folders intentionally kept outside source control
+backend/runtime/
+ammonia-bim-engine/

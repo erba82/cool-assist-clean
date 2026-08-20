@@ -24,6 +24,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import axios from 'axios';
 import ProfessionalPIDCanvas from './ProfessionalPIDCanvas';
 import PIDDrawingEngine from './PIDDrawingEngine';
@@ -1082,6 +1083,8 @@ const UnifiedChatPage: React.FC = () => {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [chatMode, setChatMode] = useState<'general' | 'design'>('design');
+    const [attachmentSummary, setAttachmentSummary] = useState<any>(null);
+    const attachmentInputRef = useRef<HTMLInputElement>(null);
     const endRef = useRef<HTMLDivElement>(null);
 
     // Floating Tools State
@@ -1109,6 +1112,43 @@ const UnifiedChatPage: React.FC = () => {
     }, [messages]);
 
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth"}); }, [messages]);
+
+    const handleAttachmentSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (file.size > 40 * 1024 * 1024) {
+            setMessages(p => [...p, { id: Date.now(), text: `Attachment not analyzed: ${file.name} exceeds the 40 MB in-app limit.`, sender: 'ai' as const, type: 'text' as const, timestamp: Date.now() }]);
+            return;
+        }
+        setLoading(true);
+        try {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(new Error('The selected file could not be read.'));
+                reader.readAsDataURL(file);
+            });
+            const response = await axios.post('/api/attachments/analyze', {
+                fileName: file.name,
+                mimeType: file.type || 'application/octet-stream',
+                base64: dataUrl
+            });
+            if (!response.data?.success) throw new Error(response.data?.error || 'Attachment analysis failed.');
+            const { attachment, analysis } = response.data;
+            const summary = { attachment, analysis };
+            setAttachmentSummary(summary);
+            const statusText = `Attached ${attachment.fileName} · ${analysis.kind} · ${analysis.status}. Review required before any design use.`;
+            setMessages(p => [...p, { id: Date.now(), text: statusText, sender: 'ai' as const, type: 'text' as const, timestamp: Date.now() }]);
+            if (analysis.contentForAI) {
+                setInput((current) => `${current ? `${current}\n\n` : ''}[Attachment: ${attachment.fileName}; extraction status: ${analysis.status}]\n${analysis.contentForAI}\n\nPlease use this material as evidence only and identify anything that still needs engineering review.`);
+            }
+        } catch (error: any) {
+            setMessages(p => [...p, { id: Date.now(), text: `Attachment analysis failed: ${error?.response?.data?.error || error?.message || 'Unknown error'}`, sender: 'ai' as const, type: 'text' as const, timestamp: Date.now() }]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSend = async (messageOverride?: any) => {
         const rawMsg = messageOverride !== undefined ? messageOverride : input;
@@ -1565,6 +1605,10 @@ const UnifiedChatPage: React.FC = () => {
 
                     {/* Input Area */}
                     <Box display="flex" gap={1}>
+                        <input ref={attachmentInputRef} type="file" hidden accept=".txt,.md,.csv,.json,.pdf,.docx,.xlsx,.xls,.dxf,.png,.jpg,.jpeg,.webp,.mp4,.webm,.mov,.mp3,.wav" onChange={handleAttachmentSelected} />
+                        <IconButton aria-label="Attach file for review" title="Attach file for review" onClick={() => attachmentInputRef.current?.click()} disabled={loading} sx={{ border: `1px solid ${theme.palette.divider}`, color: 'text.secondary', borderRadius: 2 }}>
+                            <AttachFileIcon fontSize="small" />
+                        </IconButton>
                         <TextField
                             fullWidth
                             placeholder="Ask questions or describe your project..."
@@ -1611,8 +1655,11 @@ const UnifiedChatPage: React.FC = () => {
                             <SendIcon sx={{ transform: 'rotate(-45deg)' }} />
                         </IconButton>
                     </Box>
+                    {attachmentSummary && <Alert severity="info" sx={{ mt: 1, py: 0, fontSize: '11px' }} onClose={() => setAttachmentSummary(null)}>
+                        Attachment ready as review evidence: {attachmentSummary.attachment.fileName} · {attachmentSummary.analysis.kind} · {attachmentSummary.analysis.status}.
+                    </Alert>}
                     <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={1} sx={{ fontSize: '10px' }}>
-                        AI can make mistakes. Verify important calculations.
+                        Attachments are extracted as review evidence only. AI can make mistakes. Verify important calculations.
                     </Typography>
                 </Paper>
             </Box>

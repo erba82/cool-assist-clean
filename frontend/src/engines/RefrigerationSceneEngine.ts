@@ -230,6 +230,75 @@ const nodeRotation = (node: any): number => {
   return Math.abs(raw) > Math.PI * 2 ? raw * Math.PI / 180 : raw;
 };
 
+/**
+ * P&ID coordinates express logical reading order, not a certified construction
+ * layout. This renderer-only transform assigns those semantic zones to a compact
+ * plant preview while retaining every equipment-to-port and port-to-pipe mapping.
+ * It never modifies the source P&ID, BOM, or calculation data.
+ */
+type PreviewZone = { centerX: number; centerZ: number; width: number; depth: number };
+
+const translateEquipment = (item: SceneEquipment, nextPosition: Vec3) => {
+  const delta: Vec3 = [
+    nextPosition[0] - item.position[0],
+    nextPosition[1] - item.position[1],
+    nextPosition[2] - item.position[2],
+  ];
+  item.position = nextPosition;
+  item.ports = item.ports.map((port) => ({ ...port, position: add(port.position, delta) }));
+};
+
+const previewZoneBounds = (items: SceneEquipment[]) => {
+  const xs = items.map((item) => item.position[0]).filter(Number.isFinite);
+  const zs = items.map((item) => item.position[2]).filter(Number.isFinite);
+  if (!xs.length || !zs.length) return null;
+  return {
+    minX: Math.min(...xs), maxX: Math.max(...xs),
+    minZ: Math.min(...zs), maxZ: Math.max(...zs),
+  };
+};
+
+const placePreviewZone = (items: SceneEquipment[], target: PreviewZone) => {
+  if (!items.length) return;
+  const source = previewZoneBounds(items);
+  if (!source) return;
+
+  const sourceCenterX = (source.minX + source.maxX) / 2;
+  const sourceCenterZ = (source.minZ + source.maxZ) / 2;
+  const sourceWidth = Math.max(0, source.maxX - source.minX);
+  const sourceDepth = Math.max(0, source.maxZ - source.minZ);
+  const scaleX = sourceWidth > .001 ? target.width / sourceWidth : 0;
+  const scaleZ = sourceDepth > .001 ? target.depth / sourceDepth : 0;
+  const scaleFactor = sourceWidth > .001 && sourceDepth > .001
+    ? Math.min(scaleX, scaleZ)
+    : sourceWidth > .001 ? scaleX : sourceDepth > .001 ? scaleZ : 0;
+
+  items.forEach((item) => {
+    const x = scaleFactor > 0 ? target.centerX + (item.position[0] - sourceCenterX) * scaleFactor : target.centerX;
+    const z = scaleFactor > 0 ? target.centerZ + (item.position[2] - sourceCenterZ) * scaleFactor : target.centerZ;
+    translateEquipment(item, [x, item.position[1], z]);
+  });
+};
+
+const normalizePreviewPlantLayout = (equipment: SceneEquipment[]) => {
+  const compressorBank = equipment.filter((item) => item.params.zone === 'compressor-bank');
+  const receiverRack = equipment.filter((item) => item.params.zone === 'receiver-rack');
+  const processSkid = equipment.filter((item) => item.params.zone === 'process-skid');
+  const machineRoom = equipment.filter((item) => item.params.zone === 'machine-room');
+  const coldRooms = equipment.filter((item) => item.params.zone === 'cold-room');
+  const roofPlant = equipment.filter((item) => item.params.zone === 'roof-plant');
+
+  // Values below are presentation envelopes in scene metres, not construction
+  // set-out dimensions. Each zone retains the source equipment order and all
+  // connected ports translate by exactly the same rigid offset as its equipment.
+  placePreviewZone(compressorBank, { centerX: -5.6, centerZ: -0.9, width: 3.2, depth: 3.2 });
+  placePreviewZone(receiverRack, { centerX: 4.2, centerZ: -0.2, width: 8.2, depth: 6.0 });
+  placePreviewZone(processSkid, { centerX: 0, centerZ: 4.6, width: 14.0, depth: 4.0 });
+  placePreviewZone(machineRoom, { centerX: -0.6, centerZ: -4.2, width: 13.0, depth: 2.8 });
+  placePreviewZone(coldRooms, { centerX: 0, centerZ: 25.0, width: 24.0, depth: 8.0 });
+  placePreviewZone(roofPlant, { centerX: 0, centerZ: 0, width: 14.0, depth: 8.0 });
+};
+
 const rotateY = (point: Vec3, yaw: number): Vec3 => {
   const [x, y, z] = point;
   return [x * Math.cos(yaw) - z * Math.sin(yaw), y, x * Math.sin(yaw) + z * Math.cos(yaw)];
@@ -414,6 +483,8 @@ export const buildSceneGraph = (data: any): SceneGraph => {
     equipment.push(item);
     equipmentById.set(item.id, item);
   });
+
+  normalizePreviewPlantLayout(equipment);
 
   const pipes: ScenePipe[] = [];
   const supports: SceneSupport[] = [];

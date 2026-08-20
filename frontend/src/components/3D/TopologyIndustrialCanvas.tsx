@@ -89,8 +89,8 @@ const RoundedPipe: React.FC<{ pipe: ScenePipe }> = ({ pipe }) => {
       <WeldBead point={pipe.waypoints[0]} radius={pipe.radius} direction={[0, 1, 0]} color={finish.paint} />
       <WeldBead point={pipe.waypoints[pipe.waypoints.length - 1]} radius={pipe.radius} direction={[0, 1, 0]} color={finish.paint} />
     </>}
-    {hasLabel && <Html position={[mid[0], mid[1] + .38, mid[2]]} center distanceFactor={10} style={{ pointerEvents: 'none' }}>
-      <div style={{ color: '#0f172a', background: 'rgba(255,255,255,.9)', borderTop: `3px solid ${finish.paint}`, padding: '2px 5px', fontSize: 8, fontWeight: 900, letterSpacing: .25, whiteSpace: 'nowrap' }}>{finish.label} · DN{pipe.dn}</div>
+    {hasLabel && <Html position={[mid[0], mid[1] + .38, mid[2]]} center distanceFactor={8} style={{ pointerEvents: 'none' }}>
+      <div style={{ color: '#f8fafc', background: 'rgba(7,16,29,.90)', borderTop: `2px solid ${finish.paint}`, border: '1px solid rgba(148,163,184,.46)', padding: '1px 4px', fontSize: 7, fontWeight: 900, letterSpacing: .2, whiteSpace: 'nowrap' }}>{finish.label} · DN{pipe.dn}</div>
     </Html>}
   </group>;
 };const SpringIsolator: React.FC<{ position: [number, number, number] }> = ({ position }) => <group position={position}>
@@ -131,7 +131,7 @@ const ReceiverAssembly: React.FC<{ refrigerant: string }> = ({ refrigerant }) =>
   <mesh position={[0, 2.12, 0]} castShadow><cylinderGeometry args={[.14, .14, .52, 18]} /><meshStandardMaterial color="#aab4bc" metalness={.88} roughness={.20} /></mesh>
   <mesh position={[.28, 2.08, .58]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[.11, .11, .05, 20]} /><meshStandardMaterial color="#f3f4f6" metalness={.30} roughness={.40} /></mesh>
   <mesh position={[.28, 2.08, .62]}><boxGeometry args={[.012, .06, .012]} /><meshBasicMaterial color="#be2f2a" /></mesh>
-  <Html position={[0, 1.30, .85]} center distanceFactor={9} style={{ pointerEvents: 'none' }}><div style={{ color: '#111827', fontSize: 8, fontWeight: 900, whiteSpace: 'pre-line', textAlign: 'center' }}>{`${refrigerant || 'REFRIGERANT'}\nHP RECEIVER`}</div></Html>
+  <Html position={[0, 1.30, .85]} center distanceFactor={8} style={{ pointerEvents: 'none' }}><div style={{ color: '#f8fafc', background: 'rgba(7,16,29,.82)', border: '1px solid rgba(148,163,184,.46)', padding: '1px 3px', fontSize: 7, fontWeight: 900, whiteSpace: 'pre-line', textAlign: 'center' }}>{`${refrigerant || 'REFRIGERANT'}\nHP RECEIVER`}</div></Html>
 </group>;
 
 const RoofCondenserAssembly: React.FC = () => <group>
@@ -154,14 +154,20 @@ const EquipmentDetail: React.FC<{ item: SceneEquipment; refrigerant: string }> =
 };
 
 const EquipmentInstance: React.FC<{ item: SceneEquipment; factory: ThreeDModelFactory; refrigerant: string }> = ({ item, factory, refrigerant }) => {
-  const placed = useMemo(() => factory.createEquipment(item.params.proId, item.params.tag, vector(item.position), new THREE.Euler(0, item.rotation || 0, 0)), [factory, item]);
+  const placed = useMemo(() => factory.createEquipment(
+    item.params.proId,
+    item.params.tag,
+    vector(item.position),
+    new THREE.Euler(0, item.rotation || 0, 0),
+    { connectionStyle: item.params.connectionType },
+  ), [factory, item]);
   if (!placed) return null;
   const elevation = /BIM_COMP/.test(item.params.proId) ? 2.45 : item.params.proId === 'BIM_VESSEL_HORIZ' ? 2.80 : item.params.proId === 'BIM_CONDENSER_EVAP' ? 3.85 : 1.65;
   return <group>
     <primitive object={placed.group} />
     <group position={vector(item.position)} rotation={[0, item.rotation || 0, 0]}><EquipmentDetail item={item} refrigerant={refrigerant} /></group>
     {item.params.connectionType === 'flanged' && item.ports.map((port: ScenePort) => <FlangedJoint key={`${item.id}-${port.id}`} point={port.position} dn={port.dn} direction={port.direction} />)}
-    <Html position={[item.position[0], item.position[1] + elevation, item.position[2]]} center distanceFactor={9} style={{ pointerEvents: 'none' }}><div style={{ color: '#1f2937', background: 'rgba(15,23,42,.88)', border: '1px solid rgba(148,163,184,.72)', padding: '3px 6px', fontSize: 9, fontWeight: 900, letterSpacing: .4, whiteSpace: 'nowrap' }}>{item.params.tag}</div></Html>
+    <Html position={[item.position[0], item.position[1] + elevation, item.position[2]]} center distanceFactor={8} style={{ pointerEvents: 'none' }}><div style={{ color: '#f8fafc', background: 'rgba(7,16,29,.92)', border: '1px solid rgba(148,163,184,.72)', padding: '2px 4px', fontSize: 8, fontWeight: 900, letterSpacing: .3, whiteSpace: 'nowrap' }}>{item.params.tag}</div></Html>
   </group>;
 };
 
@@ -181,44 +187,74 @@ const RackSupport: React.FC<{ support: SceneSupport }> = ({ support }) => {
 
 const RoomShell: React.FC<{ room: SceneGraph['rooms'][number] }> = ({ room }) => {
   const roof = room.type === 'roof-plant';
-  const floor = roof ? '#d2d7da' : room.type === 'cold-room' ? '#d8e0e4' : '#d9dde0';
+  const floor = roof ? '#26394b' : room.type === 'cold-room' ? '#14263a' : '#0f1d2e';
   return <group position={[room.center[0], room.center[1] || 0, room.center[2]]}>
     <mesh receiveShadow position={[0, -.05, 0]}><boxGeometry args={[room.width, .10, room.depth]} /><meshStandardMaterial color={floor} metalness={.22} roughness={.68} transparent opacity={roof ? .80 : .48} /></mesh>
-    {!roof && [-1, 1].map((side, index) => <mesh key={index} position={[side * room.width / 2, room.height / 2, 0]} castShadow><boxGeometry args={[.10, room.height, room.depth]} /><meshStandardMaterial color="#F6F3ED" metalness={.02} roughness={.88} transparent opacity={.92} /></mesh>)}
-    <Html position={[0, Math.max(.42, room.height * .52), -room.depth / 2 + .35]} center distanceFactor={12} style={{ pointerEvents: 'none' }}><div style={{ color: '#334155', fontSize: 10, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 2px #fff', whiteSpace: 'nowrap' }}>{room.name.toUpperCase()}</div></Html>
+    {!roof && [-1, 1].map((side, index) => <mesh key={index} position={[side * room.width / 2, room.height / 2, 0]} castShadow><boxGeometry args={[.10, room.height, room.depth]} /><meshStandardMaterial color="#D7E2EB" metalness={.05} roughness={.88} transparent opacity={.18} /></mesh>)}
+    <Html position={[0, Math.max(.42, room.height * .52), -room.depth / 2 + .35]} center distanceFactor={12} style={{ pointerEvents: 'none' }}><div style={{ color: '#dce8f3', fontSize: 10, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 2px #07101d', whiteSpace: 'nowrap' }}>{room.name.toUpperCase()}</div></Html>
   </group>;
 };
 
 const CameraTargets: React.FC<{ graph: SceneGraph; mode: ViewMode }> = ({ graph, mode }) => {
   const { camera } = useThree();
   const frame = useMemo(() => {
-    const plantItems = graph.equipment.filter(item => /BIM_COMP|BIM_VESSEL/.test(item.params.proId));
-    const selectedItems = mode === 'roof'
-      ? graph.equipment.filter(item => item.params.zone === 'roof-plant')
-      : mode === 'plant' ? plantItems : graph.equipment;
-    const selectedPipes = mode === 'overview' ? graph.pipes : graph.pipes.filter(pipe =>
-      selectedItems.some(item => item.id === pipe.sourceEquipmentId || item.id === pipe.targetEquipmentId)
+    // Plant view deliberately frames the generated machine-room assembly, not
+    // every long return run that happens to touch it. The lines themselves stay
+    // fully rendered and remain port-to-port; only the camera envelope changes.
+    const plantCoreItems = graph.equipment.filter((item) =>
+      /BIM_COMP|BIM_VESSEL_HORIZ|BIM_OIL_SEPARATOR|BIM_PUMP/.test(item.params.proId),
     );
-    const points: Vec3[] = [...selectedItems.map(item => item.position), ...selectedPipes.flatMap(pipe => pipe.waypoints)];
+    const plantItems = plantCoreItems.length
+      ? plantCoreItems
+      : graph.equipment.filter((item) => item.params.zone !== 'cold-room' && item.params.zone !== 'roof-plant');
+    const selectedItems = mode === 'roof'
+      ? graph.equipment.filter((item) => item.params.zone === 'roof-plant')
+      : mode === 'plant'
+        ? plantItems
+        : graph.equipment;
+    const selectedPipes = mode === 'overview'
+      ? graph.pipes
+      : graph.pipes.filter((pipe) => selectedItems.some((item) =>
+        item.id === pipe.sourceEquipmentId || item.id === pipe.targetEquipmentId,
+      ));
+
+    // Long refrigerant mains may lead from the machine room to cold rooms.
+    // Including all of their route waypoints causes an unusably distant Plant
+    // camera. In Plant mode, derive the framing solely from the physical plant
+    // equipment; Overview and Roof views retain complete routing extents.
+    const points: Vec3[] = mode === 'plant'
+      ? selectedItems.map((item) => item.position)
+      : [...selectedItems.map((item) => item.position), ...selectedPipes.flatMap((pipe) => pipe.waypoints)];
     if (!points.length) return { target: new THREE.Vector3(0, 2, 0), span: 18 };
-    const xs = points.map(point => point[0]); const ys = points.map(point => point[1]); const zs = points.map(point => point[2]);
+
+    const xs = points.map((point) => point[0]);
+    const ys = points.map((point) => point[1]);
+    const zs = points.map((point) => point[2]);
     const minX = Math.min(...xs); const maxX = Math.max(...xs);
     const minY = Math.min(...ys); const maxY = Math.max(...ys);
     const minZ = Math.min(...zs); const maxZ = Math.max(...zs);
-    return { target: new THREE.Vector3((minX + maxX) / 2, Math.max(1.6, (minY + maxY) / 2), (minZ + maxZ) / 2), span: Math.max(12, maxX - minX, maxZ - minZ, (maxY - minY) * 1.75) };
+    const plantSpan = Math.max(8.5, maxX - minX, maxZ - minZ, (maxY - minY) * 1.75);
+
+    return {
+      target: new THREE.Vector3(
+        (minX + maxX) / 2,
+        mode === 'plant' ? Math.max(2.15, (minY + maxY) / 2) : Math.max(1.6, (minY + maxY) / 2),
+        (minZ + maxZ) / 2,
+      ),
+      span: mode === 'plant' ? plantSpan : Math.max(12, maxX - minX, maxZ - minZ, (maxY - minY) * 1.75),
+    };
   }, [graph, mode]);
+
   useEffect(() => {
-    // Span is the plan-view envelope. Use it once as the orbit radius rather
-    // than applying it independently on three axes, which pushed compact P&IDs
-    // too far away in a nearly square canvas.
-    const horizontal = frame.span * (mode === 'overview' ? .95 : mode === 'plant' ? .76 : .68);
-    const vertical = frame.span * (mode === 'overview' ? .70 : mode === 'plant' ? .47 : .42);
+    const horizontal = frame.span * (mode === 'overview' ? .95 : mode === 'plant' ? .72 : .68);
+    const vertical = frame.span * (mode === 'overview' ? .70 : mode === 'plant' ? .70 : .42);
     camera.position.set(frame.target.x + horizontal, frame.target.y + vertical, frame.target.z + horizontal);
     camera.lookAt(frame.target);
     camera.updateProjectionMatrix();
   }, [camera, mode, frame]);
-  return <OrbitControls makeDefault target={frame.target} enableDamping dampingFactor={.07} screenSpacePanning minDistance={4} maxDistance={Math.max(100, frame.span * 5)} />;
-};const ServiceLegend: React.FC = () => <Stack direction="row" spacing={.9} flexWrap="wrap" sx={{ mt: .75, maxWidth: 450 }}>
+
+  return <OrbitControls makeDefault target={frame.target} enableDamping dampingFactor={.07} screenSpacePanning minDistance={3.5} maxDistance={Math.max(100, frame.span * 5)} />;
+};const ServiceLegend: React.FC = () => <Stack direction="row" spacing={.9} flexWrap="wrap" sx={{ mt: .35, maxWidth: 450 }}>
   {(['suction', 'discharge', 'liquid', 'oil'] as LineService[]).map(service => <Box key={service} sx={{ display: 'flex', alignItems: 'center', gap: .45 }}><Box sx={{ width: 9, height: 9, bgcolor: SERVICE[service].paint, borderRadius: '50%' }} /><Typography variant="caption" sx={{ color: '#dce8f3', fontSize: 9, fontWeight: 800 }}>{SERVICE[service].label}</Typography></Box>)}
 </Stack>;
 
@@ -241,21 +277,21 @@ const TopologyIndustrialCanvas: React.FC<any> = ({ data, projectInfo }) => {
   const gridSize = Math.max(50, graph.room.width + 16, graph.room.depth + 16);
   useEffect(() => () => factory.dispose(), [factory]);
 
-  return <Box sx={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', overflow: 'hidden', bgcolor: '#e7ebed' }} data-engine="pid-refrigerant-aware-bim">
+  return <Box sx={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', overflow: 'hidden', bgcolor: '#07101d' }} data-engine="pid-refrigerant-aware-bim">
     <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.18 }}>
       <PerspectiveCamera makeDefault position={[19, 13, 22]} fov={38} />
       <CameraTargets graph={graph} mode={viewMode} />
-      <color attach="background" args={['#e7ebed']} />
-      <fog attach="fog" args={['#e7ebed', 58, 160]} />
-      <ambientLight intensity={1.12} />
-      <directionalLight position={[24, 31, 18]} intensity={1.18} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-.0002} />
-      <directionalLight position={[-20, 15, -16]} intensity={.34} color="#fff5e6" />
-      <hemisphereLight args={['#ffffff', '#c5cdd1', .58]} />
+      <color attach="background" args={['#07101d']} />
+      <fog attach="fog" args={['#07101d', 58, 160]} />
+      <ambientLight intensity={1.04} />
+      <directionalLight position={[24, 31, 18]} intensity={1.38} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-.0002} />
+      <directionalLight position={[-20, 15, -16]} intensity={.46} color="#fff5e6" />
+      <hemisphereLight args={['#ffffff', '#c5cdd1', .64]} />
       <Suspense fallback={null}><Environment preset="city" /></Suspense>
-      <Grid args={[gridSize, gridSize]} sectionSize={5} sectionThickness={.75} sectionColor="#aeb9bf" cellColor="#d3dadd" cellThickness={.32} fadeDistance={110} position={[0, -.07, 0]} />
+      <Grid args={[gridSize, gridSize]} sectionSize={5} sectionThickness={.75} sectionColor="#315675" cellColor="#17334d" cellThickness={.32} fadeDistance={110} position={[0, -.07, 0]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -.1, 0]} receiveShadow>
         <planeGeometry args={[gridSize * 2, gridSize * 2]} />
-        <meshStandardMaterial color="#d9dde0" roughness={.82} metalness={.06} />
+        <meshStandardMaterial color="#0b1626" roughness={.82} metalness={.10} />
       </mesh>
       <ContactShadows position={[0, 0, 0]} scale={gridSize} blur={2.6} far={36} opacity={.28} />
       {graph.rooms.map(room => <RoomShell key={room.id} room={room} />)}
@@ -265,11 +301,11 @@ const TopologyIndustrialCanvas: React.FC<any> = ({ data, projectInfo }) => {
       </group>}
       {visualSupports.map(support => <RackSupport key={support.id} support={support} />)}
     </Canvas>
-    <Box sx={{ position: 'absolute', top: 14, left: 14, pointerEvents: 'none', bgcolor: 'rgba(255,255,255,.88)', border: '1px solid rgba(100,116,139,.35)', px: 1.25, py: .95, boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
-      <Typography variant="caption" sx={{ display: 'block', color: '#0f6f86', fontWeight: 900, letterSpacing: 1.0 }}>{`${graph.meta.refrigerant} P&ID TO BIM ASSEMBLY`}</Typography>
-      <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 800 }}>{projectInfo?.projectName || data?.project?.name || 'Refrigeration Design'}</Typography>
-      <Typography variant="caption" sx={{ color: '#475569' }}>{graph.meta.refrigerant} · {graph.equipment.length} assets · {graph.pipes.length} process lines · {visualSupports.length} rack/support elements</Typography>
-      <Typography variant="caption" sx={{ display: 'block', mt: .35, color: '#8a5a00', fontWeight: 800, fontSize: 9 }}>{graph.meta.jointPolicy}</Typography>
+    <Box sx={{ position: 'absolute', top: 14, left: 14, pointerEvents: 'none', bgcolor: 'rgba(7,16,29,.88)', border: '1px solid rgba(100,116,139,.52)', px: 1.0, py: .65, boxShadow: '0 8px 24px rgba(0,0,0,.38)' }}>
+      <Typography variant="caption" sx={{ display: 'block', color: '#9fd3ff', fontWeight: 900, letterSpacing: 1.0 }}>{`${graph.meta.refrigerant} P&ID TO BIM ASSEMBLY`}</Typography>
+      <Typography variant="body2" noWrap sx={{ color: '#f8fafc', fontWeight: 800, fontSize: 12, maxWidth: 560, overflow: 'hidden', textOverflow: 'ellipsis' }}>{projectInfo?.projectName || data?.project?.name || 'Refrigeration Design'}</Typography>
+      <Typography variant="caption" sx={{ color: '#cbd5e1' }}>{graph.meta.refrigerant} · {graph.equipment.length} assets · {graph.pipes.length} process lines · {visualSupports.length} rack/support elements</Typography>
+      <Typography variant="caption" sx={{ display: 'block', mt: .35, color: '#f6c454', fontWeight: 800, fontSize: 9 }}>{graph.meta.jointPolicy}</Typography>
       <ServiceLegend />
     </Box>
     <Stack direction="row" spacing={.6} sx={{ position: 'absolute', right: 12, bottom: 12, bgcolor: 'rgba(8,15,28,.88)', border: '1px solid rgba(136,170,207,.42)', p: .65 }}>

@@ -24,6 +24,18 @@ class AdvancedPIDGenerator {
         return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
     }
 
+    _selectDanfossIcfStation(branchDn, preferredModelId) {
+        const dn = Number(branchDn);
+        if (!Number.isFinite(dn) || dn <= 0 || !preferredModelId) return null;
+        const stations = [
+            { catalogueModelId: 'DANFOSS_ICF_20_4', label: 'Danfoss ICF 20-4 Valve Station', allowedDn: [20, 25, 32] },
+            { catalogueModelId: 'DANFOSS_ICF_25_40_4', label: 'Danfoss ICF 25-4 / 40-4 Valve Station', allowedDn: [25, 32, 40] },
+            { catalogueModelId: 'DANFOSS_ICF_25_40_6', label: 'Danfoss ICF 25-6 / 40-6 Valve Station', allowedDn: [25, 32, 40] }
+        ];
+        const selected = stations.find((station) => station.catalogueModelId === preferredModelId);
+        return selected?.allowedDn.includes(dn) ? selected : null;
+    }
+
     _first(value) {
         return Array.isArray(value) ? value[0] || {} : value || {};
     }
@@ -95,6 +107,9 @@ class AdvancedPIDGenerator {
             oil: this._findNominalDiameter(calculations, 'oil', 25)
         };
 
+        const requestedIcfModel = semantic.valveStationModel || project?.designIntent?.valveStationModel || project?.valveStationModel || null;
+        const icfStation = isAmmonia && feedMethod === 'pumped_recirculated'
+            ? this._selectDanfossIcfStation(dn.branchLiquid, requestedIcfModel) : null;
         const nodes = [];
         const edges = [];
         let nodeNumber = 1;
@@ -210,10 +225,10 @@ class AdvancedPIDGenerator {
             if (!liquidHeaderId) return;
             if (isAmmonia && feedMethod === 'pumped_recirculated') {
                 const stationId = addNode({
-                    x: x - 155, y, label: equipmentPolicy.includeAmmoniaValveStation ? 'Danfoss ICF 25-4 / 40-4 Valve Station' : 'Ammonia Feed Valve Station — review required',
+                    x: x - 155, y, label: equipmentPolicy.includeAmmoniaValveStation && icfStation ? icfStation.label : 'Ammonia Feed Valve Station — review required',
                     componentType: 'ammonia_valve_station', tag: `VST-IQF-${String(index + 1).padStart(2, '0')}`,
                     roomId: evaporator.roomId, roomName: evaporator.roomName,
-                    details: { service: 'liquid feed', refrigerant, manufacturer: equipmentPolicy.includeAmmoniaValveStation ? 'Danfoss' : null, catalogueModelId: equipmentPolicy.includeAmmoniaValveStation ? 'DANFOSS_ICF_25_40_4' : null, source: equipmentPolicy.includeAmmoniaValveStation ? 'manufacturer-catalogue' : 'semantic-review-required' }
+                    details: { service: 'liquid feed', refrigerant, manufacturer: equipmentPolicy.includeAmmoniaValveStation && icfStation ? 'Danfoss' : null, catalogueModelId: equipmentPolicy.includeAmmoniaValveStation && icfStation ? icfStation.catalogueModelId : null, source: equipmentPolicy.includeAmmoniaValveStation && icfStation ? 'manufacturer-catalogue' : 'semantic-review-required', nominalDiameter: dn.branchLiquid, selectionReason: icfStation ? 'confirmed-model-and-dn-compatible' : requestedIcfModel ? `Requested ${requestedIcfModel} is not configured for branch DN${dn.branchLiquid}` : `Danfoss ICF model must be confirmed for branch DN${dn.branchLiquid}` }
                 });
                 connect(liquidHeaderId, stationId, 'liquid', dn.branchLiquid, `${refrigerant} pumped feed DN${dn.branchLiquid}`, { branch: evaporator.roomId });
                 connect(stationId, evaporatorId, 'liquid', dn.branchLiquid, `${refrigerant} controlled feed DN${dn.branchLiquid}`);

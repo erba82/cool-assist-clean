@@ -198,6 +198,9 @@ class InputParser {
         const feedMethod = /pumped[\s-]*(?:recirculation|recirc|overfeed)|liquid recirculation|پمپ[\s-]*(?:آمونیاک|مایع)|ریسیرکوله|سیرکولاسیون/.test(normalized) ? 'pumped_recirculated' : /gravity[\s-]*(?:fed|flooded)|ثقلی/.test(normalized) ? 'gravity_flooded' : /direct[\s-]*expansion|\bdx\b|انبساط مستقیم/.test(normalized) ? 'direct_expansion' : null;
         const thermosiphon = /thermosiphon|ترموسیفون/.test(normalized);
         const ammoniaValveStation = /danfoss[\s-]*icf|\bicf\b|valve[\s-]*station|ولو[\s-]*استیشن|ایستگاه[\s-]*شیر/.test(normalized);
+        const valveStationModel = /icf\s*20[\s-]*4/.test(normalized) ? 'DANFOSS_ICF_20_4'
+            : /icf\s*25[\s-]*(?:4|40[\s-]*4)/.test(normalized) ? 'DANFOSS_ICF_25_40_4'
+                : /icf\s*25[\s-]*(?:6|40[\s-]*6)/.test(normalized) ? 'DANFOSS_ICF_25_40_6' : null;
         return {
             compressorType,
             compressorCount: Number.isFinite(compressorCount) ? compressorCount : null,
@@ -206,6 +209,7 @@ class InputParser {
             feedMethod,
             thermosiphon,
             ammoniaValveStation,
+            valveStationModel,
             roofCondenser: condenserType === 'evaporative_condenser' && /roof|roof top|بام|سقف/.test(normalized),
             horizontalReceiver: /horizontal\s+(?:high[-\s]*pressure\s+)?receiver|رسیور افقی/.test(normalized),
             liquidPump: feedMethod === 'pumped_recirculated',

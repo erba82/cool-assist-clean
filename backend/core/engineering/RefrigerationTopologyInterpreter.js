@@ -2,6 +2,7 @@
 
 const { getRefrigerantProfile, normalizeRefrigerant } = require('../data/RefrigerantProfiles');
 const { resolveCycleTemplate } = require('../data/CycleTemplateRegistry');
+const { extractPidEvidence } = require('./PidEvidenceExtractor');
 
 const KNOWN_COMPRESSORS = new Set(['screw', 'reciprocating', 'scroll']);
 const KNOWN_CONDENSERS = new Set(['evaporative_condenser', 'air_cooled_condenser', 'gas_cooler']);
@@ -67,12 +68,15 @@ class RefrigerationTopologyInterpreter {
         const evidence = [];
         const warnings = [];
         const blocking = [];
+        const pidEvidence = extractPidEvidence(project.pidDocument || project.pidDiagram || project.diagram || project.pid || null);
 
         const explicitCompressor = compressorFamily(supplied.compressorFamily || intent.compressorType || project.compressorType);
+        const diagramCompressor = compressorFamily(pidEvidence.compressorFamily);
         const calculatedCompressor = compressorFamily(calculations?.compressors?.[0]?.type || calculations?.compressors?.[0]?.series);
         const profileCompressor = compressorFamily(profile?.compressor?.family);
-        const selectedCompressor = explicitCompressor || calculatedCompressor || profileCompressor || 'unknown';
-        evidence.push({ field: 'compressorFamily', value: selectedCompressor, source: explicitCompressor ? 'user-confirmed' : calculatedCompressor ? 'calculation-selection' : profileCompressor ? 'refrigerant-profile' : 'unknown' });
+        const selectedCompressor = explicitCompressor || diagramCompressor || calculatedCompressor || profileCompressor || 'unknown';
+        evidence.push({ field: 'compressorFamily', value: selectedCompressor, source: explicitCompressor ? 'user-confirmed' : diagramCompressor ? 'pid-structured-evidence' : calculatedCompressor ? 'calculation-selection' : profileCompressor ? 'refrigerant-profile' : 'unknown' });
+        warnings.push(...pidEvidence.warnings);
 
         const explicitCondenser = condenserFamily(supplied.condenserType || intent.condenserType || project.condenserType || (intent.roofCondenser ? 'evaporative_condenser' : null));
         const calculatedCondenser = condenserFamily(calculations?.condensers?.[0]?.type || calculations?.condensers?.[0]?.model);
@@ -142,6 +146,7 @@ class RefrigerationTopologyInterpreter {
                 includeAmmoniaValveStation: isAmmonia && selectedFeed === 'pumped_recirculated' && Boolean(intent.ammoniaValveStation),
             },
             processAreas: areas,
+            pidEvidence,
             evidence,
             validation: {
                 valid: validated,

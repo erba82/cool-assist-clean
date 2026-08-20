@@ -11,7 +11,7 @@ const baseProject = {
     rooms: [{ id: 'IQF-01', name: 'IQF Tunnel 01', type: 'iqf', length: 30, width: 12, height: 5, temperature: -35 }],
     designIntent: {
         compressorType: 'screw', condenserType: 'evaporative_condenser', feedMethod: 'pumped_recirculated',
-        thermosiphon: true, ammoniaValveStation: true, oilSeparator: true, horizontalReceiver: true
+        thermosiphon: true, ammoniaValveStation: true, valveStationModel: 'DANFOSS_ICF_25_40_4', oilSeparator: true, horizontalReceiver: true
     }
 };
 
@@ -48,6 +48,18 @@ const calculateFixture = {
     assert(componentTypes.includes('iqf_tunnel_evaporator'), 'IQF process area must retain an IQF evaporator identity');
     assert(componentTypes.includes('thermosiphon_vessel'), 'explicit thermosiphon must be represented');
     assert(!componentTypes.includes('tev'), 'pumped ammonia branch must not silently become a DX TEV branch');
+    const selectedStation = layout.nodes.find((node) => node.data.componentType === 'ammonia_valve_station');
+    assert.strictEqual(selectedStation.data.details.catalogueModelId, 'DANFOSS_ICF_25_40_4');
+    assert.strictEqual(selectedStation.data.details.nominalDiameter, 32);
+    assert.strictEqual(selectedStation.data.details.selectionReason, 'confirmed-model-and-dn-compatible');
+
+    const oversizedBranchFixture = JSON.parse(JSON.stringify(calculateFixture));
+    oversizedBranchFixture.calculations.piping.lines = oversizedBranchFixture.calculations.piping.lines.map((line) => line.service === 'branch liquid' ? { ...line, dn: 80 } : line);
+    const oversizedLayout = await generator.generate(oversizedBranchFixture, { ...baseProject, semanticCycle: pumped });
+    const reviewStation = oversizedLayout.nodes.find((node) => node.data.componentType === 'ammonia_valve_station');
+    assert.strictEqual(reviewStation.data.details.catalogueModelId, null);
+    assert.strictEqual(reviewStation.data.details.source, 'semantic-review-required');
+    assert(/DN80/.test(reviewStation.data.details.selectionReason));
 
     const gravity = interpreter.interpret({ refrigerant: 'R717', rooms: [], designIntent: { compressorType: 'reciprocating', condenserType: 'air_cooled_condenser', feedMethod: 'gravity_flooded' } }, {});
     assert.strictEqual(gravity.compressorFamily, 'reciprocating');
@@ -61,11 +73,36 @@ const calculateFixture = {
     assert.strictEqual(dx.equipmentPolicy.includeLowPressureSeparator, false);
     assert.strictEqual(dx.template.id, 'DX_AIR_COOLED');
 
+    const screwFromPid = interpreter.interpret({
+        refrigerant: 'R404A', rooms: [], designIntent: { condenserType: 'air_cooled_condenser', feedMethod: 'direct_expansion' },
+        pidDocument: { nodes: [{ id: 'CMP-S-01', data: { componentType: 'screw_compressor', label: 'Open Screw Compressor Package', tag: 'CMP-S-01' } }] }
+    }, {});
+    assert.strictEqual(screwFromPid.compressorFamily, 'screw');
+    assert.strictEqual(screwFromPid.evidence.find((item) => item.field === 'compressorFamily').source, 'pid-structured-evidence');
+    assert.strictEqual(screwFromPid.pidEvidence.compressorEvidence[0].tag, 'CMP-S-01');
+
+    const recipFromPid = interpreter.interpret({
+        refrigerant: 'R717', rooms: [], designIntent: { condenserType: 'evaporative_condenser', feedMethod: 'gravity_flooded' },
+        pidDocument: { nodes: [{ id: 'CMP-R-01', data: { componentType: 'reciprocating_compressor', label: 'Piston Compressor', tag: 'CMP-R-01' } }] }
+    }, {});
+    assert.strictEqual(recipFromPid.compressorFamily, 'reciprocating');
+    assert.strictEqual(recipFromPid.evidence.find((item) => item.field === 'compressorFamily').source, 'pid-structured-evidence');
+
+    const ambiguousPid = interpreter.interpret({
+        refrigerant: 'R717', rooms: [], designIntent: { condenserType: 'evaporative_condenser', feedMethod: 'pumped_recirculated' },
+        pidDocument: { nodes: [
+            { id: 'CMP-S-01', data: { componentType: 'screw_compressor', label: 'Screw Compressor', tag: 'CMP-S-01' } },
+            { id: 'CMP-R-01', data: { componentType: 'reciprocating_compressor', label: 'Piston Compressor', tag: 'CMP-R-01' } }
+        ] }
+    }, {});
+    assert.strictEqual(ambiguousPid.pidEvidence.compressorFamily, null);
+    assert(ambiguousPid.validation.warnings.some((warning) => /conflicting explicit compressor-family evidence/.test(warning)));
+
     const invalid = interpreter.interpret({ refrigerant: 'UNSUPPORTED-REFRIGERANT', rooms: [], designIntent: {} }, {});
     assert.strictEqual(invalid.validation.valid, false);
     assert(invalid.validation.blocking.length > 0);
 
-    console.log(JSON.stringify({ status: 'passed', scenarios: ['r717-pumped-iqf', 'r717-gravity', 'r404a-dx', 'unsupported-refrigerant'] }, null, 2));
+    console.log(JSON.stringify({ status: 'passed', scenarios: ['r717-pumped-iqf', 'r717-gravity', 'r404a-dx', 'pid-screw-detection', 'pid-reciprocating-detection', 'pid-conflict-detection', 'unsupported-refrigerant'] }, null, 2));
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;

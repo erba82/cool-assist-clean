@@ -330,6 +330,7 @@ const TopologyIndustrialCanvas: React.FC<any> = ({ data, projectInfo }) => {
       <Typography variant="caption" sx={{ display: 'block', color: '#9fd3ff', fontWeight: 900, letterSpacing: 1.0 }}>{`${graph.meta.refrigerant} P&ID TO BIM ASSEMBLY`}</Typography>
       <Typography variant="body2" noWrap sx={{ color: '#f8fafc', fontWeight: 800, fontSize: 12, maxWidth: 560, overflow: 'hidden', textOverflow: 'ellipsis' }}>{projectInfo?.projectName || data?.project?.name || 'Refrigeration Design'}</Typography>
       <Typography variant="caption" sx={{ color: '#cbd5e1' }}>{graph.meta.refrigerant} · {graph.equipment.length} assets · {graph.pipes.length} process lines · {visualSupports.length} rack/support elements</Typography>
+      {graph.meta.cycleTemplate && <Typography variant="caption" sx={{ display: 'block', mt: .22, color: '#8ee7c1', fontWeight: 800, fontSize: 9 }}>{`SEMANTIC PRESET · ${graph.meta.cycleTemplate.id}`}</Typography>}
       <Typography variant="caption" sx={{ display: 'block', mt: .35, color: '#f6c454', fontWeight: 800, fontSize: 9 }}>{graph.meta.jointPolicy}</Typography>
       <ServiceLegend />
     </Box>

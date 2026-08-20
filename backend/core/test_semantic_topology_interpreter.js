@@ -34,6 +34,8 @@ const calculateFixture = {
     assert.strictEqual(pumped.oilCooling, 'thermosiphon');
     assert.strictEqual(pumped.equipmentPolicy.includeLiquidPump, true);
     assert.strictEqual(pumped.equipmentPolicy.includeAmmoniaValveStation, true);
+    assert.strictEqual(pumped.template.id, 'R717_PUMPED_SCREW_EVAPORATIVE');
+    assert(pumped.template.expectedEquipment.includes('liquid_pump'));
     assert.strictEqual(pumped.processAreas[0].type, 'iqf_tunnel');
 
     const generator = new AdvancedPIDGenerator();
@@ -51,11 +53,13 @@ const calculateFixture = {
     assert.strictEqual(gravity.compressorFamily, 'reciprocating');
     assert.strictEqual(gravity.feedMethod, 'gravity_flooded');
     assert.strictEqual(gravity.equipmentPolicy.includeLiquidPump, false);
+    assert.strictEqual(gravity.template.id, 'R717_GRAVITY_RECIP');
 
     const dx = interpreter.interpret({ refrigerant: 'R404A', rooms: [], designIntent: { compressorType: 'reciprocating', condenserType: 'air_cooled_condenser', feedMethod: 'direct_expansion' } }, {});
     assert.strictEqual(dx.feedMethod, 'direct_expansion');
     assert.strictEqual(dx.equipmentPolicy.includeLiquidPump, false);
     assert.strictEqual(dx.equipmentPolicy.includeLowPressureSeparator, false);
+    assert.strictEqual(dx.template.id, 'DX_AIR_COOLED');
 
     const invalid = interpreter.interpret({ refrigerant: 'UNSUPPORTED-REFRIGERANT', rooms: [], designIntent: {} }, {});
     assert.strictEqual(invalid.validation.valid, false);

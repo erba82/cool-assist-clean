@@ -1,6 +1,7 @@
 'use strict';
 
 const { getRefrigerantProfile, normalizeRefrigerant } = require('../data/RefrigerantProfiles');
+const { resolveCycleTemplate } = require('../data/CycleTemplateRegistry');
 
 const KNOWN_COMPRESSORS = new Set(['screw', 'reciprocating', 'scroll']);
 const KNOWN_CONDENSERS = new Set(['evaporative_condenser', 'air_cooled_condenser', 'gas_cooler']);
@@ -107,6 +108,16 @@ class RefrigerationTopologyInterpreter {
         if (selectedFeed === 'pumped_recirculated' && selectedCondenser === 'air_cooled_condenser' && refrigerant === 'R717') warnings.push('R717 pumped recirculation with an air-cooled condenser requires project-specific engineering review; no general suitability is asserted.');
 
         const isAmmonia = profile?.family === 'ammonia-industrial';
+        const template = resolveCycleTemplate({
+            profile,
+            compressorFamily: selectedCompressor,
+            condenserType: selectedCondenser,
+            feedMethod: selectedFeed
+        });
+        if (!template && profile) {
+            warnings.push('No approved semantic cycle template matches the resolved refrigerant, compressor, condenser and feed combination; preserve the graph as review-required.');
+        }
+        if (template) evidence.push({ field: 'cycleTemplate', value: template.id, source: 'validated-semantic-registry' });
         const validated = blocking.length === 0;
         const inferredFields = evidence.filter((item) => item.source !== 'user-confirmed').length;
         const confidence = Math.max(0, Math.min(1, Number(((evidence.length - inferredFields * 0.45) / Math.max(1, evidence.length)).toFixed(2))));
@@ -121,6 +132,7 @@ class RefrigerationTopologyInterpreter {
             condenserType: KNOWN_CONDENSERS.has(selectedCondenser) ? selectedCondenser : 'unknown',
             feedMethod: KNOWN_FEEDS.has(selectedFeed) ? selectedFeed : 'unknown',
             oilCooling: KNOWN_OIL_COOLING.has(selectedOilCooling) ? selectedOilCooling : 'unknown',
+            template,
             equipmentPolicy: {
                 includeOilSeparator: isAmmonia || selectedCompressor === 'screw' || Boolean(intent.oilSeparator),
                 includeHighPressureReceiver: isAmmonia || Boolean(intent.horizontalReceiver),

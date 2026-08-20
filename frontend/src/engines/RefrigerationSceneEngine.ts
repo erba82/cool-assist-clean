@@ -101,6 +101,7 @@ export interface SceneGraph {
     manufacturer: string;
     topologyValid: boolean;
     jointPolicy: string;
+    cycleTemplate?: { id: string; title: string; expectedEquipment: string[] } | null;
     engineeringReadiness: { state: 'review-ready' | 'inputs-required'; missing: string[] };
   };
 }
@@ -444,6 +445,7 @@ const valvesFromNodes = (nodes: any[], equipmentById: Map<string, SceneEquipment
 
 export const buildSceneGraph = (data: any): SceneGraph => {
   const diagram = normalizeDiagram(data);
+  const semanticCycle = data?.semanticCycle || data?.pidData?.metadata?.semanticCycle || diagram?.metadata?.semanticCycle || null;
   const refrigerant = String(data?.systemParams?.refrigerant || data?.project?.refrigerant || data?.projectInfo?.refrigerant || data?.pidData?.refrigerant || data?.metadata?.refrigerant || diagram?.metadata?.refrigerant || 'R404A').replace('-', '');
   const synchronization = data?.synchronization || null;
   const synchronizedLines = Array.isArray(synchronization?.piping?.lines)
@@ -548,6 +550,6 @@ export const buildSceneGraph = (data: any): SceneGraph => {
   return {
     room: { width: Math.max(18, width), depth: Math.max(18, depth), height: Math.max(7, ...rooms.map(room => room.height)) },
     rooms, equipment, pipes, valves: valvesFromNodes(nodes, equipmentById, manufacturer), supports: [...dedupedSupports.values()],
-    meta: { refrigerant, cycle: data?.systemParams?.cycle || data?.cycle || diagram?.metadata?.cycle || 'DESIGN_SPECIFIC', colors: COLORS, capacity: Number(data?.summary?.totalCoolingLoad || data?.capacity || 0), source: diagram ? 'PID_TO_BIM_GENERATED' : 'NO_PID_DATA', manufacturer, topologyValid: Boolean(diagram && equipment.length && pipes.length), jointPolicy: /717|ammonia|nh3/.test(refrigerant) ? 'R717 PIPE-RUNS DEFAULT TO WELDED; FLANGES REQUIRE EXPLICIT SOURCE DATA' : 'PIPE JOINTS REQUIRE EXPLICIT SOURCE DATA', engineeringReadiness: { state: missing.length ? 'inputs-required' : 'review-ready', missing } },
+    meta: { refrigerant, cycle: data?.systemParams?.cycle || data?.cycle || diagram?.metadata?.cycle || 'DESIGN_SPECIFIC', colors: COLORS, capacity: Number(data?.summary?.totalCoolingLoad || data?.capacity || 0), source: diagram ? 'PID_TO_BIM_GENERATED' : 'NO_PID_DATA', manufacturer, topologyValid: Boolean(diagram && equipment.length && pipes.length), jointPolicy: /717|ammonia|nh3/.test(refrigerant) ? 'R717 PIPE-RUNS DEFAULT TO WELDED; FLANGES REQUIRE EXPLICIT SOURCE DATA' : 'PIPE JOINTS REQUIRE EXPLICIT SOURCE DATA', cycleTemplate: semanticCycle?.template || null, engineeringReadiness: { state: missing.length ? 'inputs-required' : 'review-ready', missing } },
   };
 };

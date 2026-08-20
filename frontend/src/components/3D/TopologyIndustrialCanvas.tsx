@@ -254,7 +254,22 @@ const CameraTargets: React.FC<{ graph: SceneGraph; mode: ViewMode }> = ({ graph,
   }, [camera, mode, frame]);
 
   return <OrbitControls makeDefault target={frame.target} enableDamping dampingFactor={.07} screenSpacePanning minDistance={3.5} maxDistance={Math.max(100, frame.span * 5)} />;
-};const ServiceLegend: React.FC = () => <Stack direction="row" spacing={.9} flexWrap="wrap" sx={{ mt: .35, maxWidth: 450 }}>
+};
+/**
+ * Presentation-only industrial warehouse rig. It adopts the useful visual idea
+ * from the reviewed prototype while leaving refrigerant rules, topology,
+ * equipment placement and verified port frames untouched.
+ */
+const IndustrialWarehouseLightRig: React.FC = () => <>
+  <ambientLight intensity={.72} />
+  <hemisphereLight args={['#d9efff', '#07101d', .72]} />
+  <directionalLight position={[24, 31, 18]} intensity={1.46} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-.0002} />
+  <directionalLight position={[-20, 15, -16]} intensity={.52} color="#fff1de" />
+  <pointLight position={[-7, 7.8, 4]} intensity={8.5} distance={24} decay={2} color="#b9e7ff" />
+  <pointLight position={[9, 6.8, -5]} intensity={6.5} distance={22} decay={2} color="#ffe4c0" />
+</>;
+
+const ServiceLegend: React.FC = () => <Stack direction="row" spacing={.9} flexWrap="wrap" sx={{ mt: .35, maxWidth: 450 }}>
   {(['suction', 'discharge', 'liquid', 'oil'] as LineService[]).map(service => <Box key={service} sx={{ display: 'flex', alignItems: 'center', gap: .45 }}><Box sx={{ width: 9, height: 9, bgcolor: SERVICE[service].paint, borderRadius: '50%' }} /><Typography variant="caption" sx={{ color: '#dce8f3', fontSize: 9, fontWeight: 800 }}>{SERVICE[service].label}</Typography></Box>)}
 </Stack>;
 
@@ -278,16 +293,13 @@ const TopologyIndustrialCanvas: React.FC<any> = ({ data, projectInfo }) => {
   useEffect(() => () => factory.dispose(), [factory]);
 
   return <Box sx={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', overflow: 'hidden', bgcolor: '#07101d' }} data-engine="pid-refrigerant-aware-bim">
-    <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.18 }}>
+    <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.24 }}>
       <PerspectiveCamera makeDefault position={[19, 13, 22]} fov={38} />
       <CameraTargets graph={graph} mode={viewMode} />
       <color attach="background" args={['#07101d']} />
       <fog attach="fog" args={['#07101d', 58, 160]} />
-      <ambientLight intensity={1.04} />
-      <directionalLight position={[24, 31, 18]} intensity={1.38} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-.0002} />
-      <directionalLight position={[-20, 15, -16]} intensity={.46} color="#fff5e6" />
-      <hemisphereLight args={['#ffffff', '#c5cdd1', .64]} />
-      <Suspense fallback={null}><Environment preset="city" /></Suspense>
+      <IndustrialWarehouseLightRig />
+      <Suspense fallback={null}><Environment preset="warehouse" /></Suspense>
       <Grid args={[gridSize, gridSize]} sectionSize={5} sectionThickness={.75} sectionColor="#315675" cellColor="#17334d" cellThickness={.32} fadeDistance={110} position={[0, -.07, 0]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -.1, 0]} receiveShadow>
         <planeGeometry args={[gridSize * 2, gridSize * 2]} />

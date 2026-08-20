@@ -372,14 +372,24 @@ class RefrigerationEngine extends EventEmitter {
         const vesselModule = this.getModule('vessel');
         if (!vesselModule) return null;
 
-        // Calculate total compressor power for thermosiphon sizing
-        const totalPower = compressors?.reduce((sum, c) =>
-            sum + (c.motorPower || c.electrical?.ratedPower || 100), 0) || 0;
+        // Thermosiphon sizing cannot use an invented motor-power fallback.  A
+        // manufacturer performance point or explicit electrical rating is needed.
+        const compressorPowers = (compressors || [])
+            .map((compressor) => Number(compressor?.motorPower ?? compressor?.electrical?.ratedPower))
+            .filter((power) => Number.isFinite(power) && power > 0);
+        if (!compressorPowers.length) {
+            return {
+                selected: false,
+                status: 'input-required',
+                issues: ['Traceable compressor motor power is required before thermosiphon vessel sizing.']
+            };
+        }
+        const totalPower = compressorPowers.reduce((sum, power) => sum + power, 0);
 
         return await vesselModule.selectThermosiphon({
             totalPower,
-            compressorCount: compressors?.length || 1,
-            oilType: 'mineral'
+            compressorCount: compressorPowers.length,
+            oilType: project?.oilType || null
         });
     }
 

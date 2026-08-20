@@ -55,32 +55,60 @@ class LoadCalculator {
             this.products = this.engine.getData('products');
         }
 
-        // Normalize room with defaults to prevent undefined errors
+        // Preserve only explicit SI inputs.  Zero is a valid operational value for
+        // occupancy, lighting and door-open time; it must not become a hidden default.
+        const finiteOrNull = (value) => {
+            const number = Number(value);
+            return Number.isFinite(number) ? number : null;
+        };
+        const nonNegativeOrZero = (value) => {
+            const number = finiteOrNull(value);
+            return number !== null && number >= 0 ? number : 0;
+        };
         const safeRoom = {
             name: room.name || 'Room',
-            length: Number(room.length) || 10,
-            width: Number(room.width) || 10,
-            height: Number(room.height) || 4,
-            temperature: Number(room.temperature) || -18,
+            length: finiteOrNull(room.length),
+            width: finiteOrNull(room.width),
+            height: finiteOrNull(room.height),
+            temperature: finiteOrNull(room.temperature),
             type: room.type || 'storage',
-            // Optional properties with defaults
-            occupancy: Number(room.occupancy) || 1,
-            occupancyHours: Number(room.occupancyHours) || 8,
-            lightingPower: Number(room.lightingPower) || 5,
-            lightingHours: Number(room.lightingHours) || 12,
-            equipmentPower: Number(room.equipmentPower) || 0,
-            equipmentHours: Number(room.equipmentHours) || 4,
+            occupancy: nonNegativeOrZero(room.occupancy),
+            occupancyHours: nonNegativeOrZero(room.occupancyHours),
+            lightingPower: nonNegativeOrZero(room.lightingPower),
+            lightingHours: nonNegativeOrZero(room.lightingHours),
+            equipmentPower: nonNegativeOrZero(room.equipmentPower),
+            equipmentHours: nonNegativeOrZero(room.equipmentHours),
             product: room.product || null,
             insulation: room.insulation || null,
+            floorUFactor: finiteOrNull(room.floorUFactor),
             door: room.door || null,
-            doorProtection: room.doorProtection || 0.7, // Strip curtain default
-            specifiedCoolingLoadKW: Number(room.specifiedCoolingLoadKW ?? project.specifiedCoolingLoadKW) || null,
-            designLoadBasis: room.designLoadBasis || null
+            doorProtection: finiteOrNull(room.doorProtection),
+            specifiedCoolingLoadKW: (() => {
+                // A project-total load can govern one-room designs only.  For
+                // multi-room projects, each room must carry an allocated design load.
+                const projectTotalEligible = Array.isArray(project?.rooms) && project.rooms.length === 1
+                    ? (project.specifiedCoolingLoadKW ?? project.capacity) : null;
+                // `capacity` is retained as a legacy/API alias only when it is
+                // explicitly present in the design request; it is never inferred.
+                const value = finiteOrNull(room.specifiedCoolingLoadKW ?? room.coolingLoadKW ?? room.capacity ?? projectTotalEligible);
+                return value !== null && value > 0 ? value : null;
+            })(),
+            designLoadBasis: room.designLoadBasis || null,
+            loadAllowanceFactor: (() => {
+                const value = finiteOrNull(room.loadAllowanceFactor ?? project.loadAllowanceFactor);
+                return value !== null && value >= 1 ? value : 1;
+            })()
         };
+        const ambientTemp = finiteOrNull(project?.climate?.summerDB);
+        const geometryIsComplete = [safeRoom.length, safeRoom.width, safeRoom.height].every((value) => value !== null && value > 0);
+        const inputIssues = [];
+        if (!geometryIsComplete) inputIssues.push('Room length, width and height in metres are required for component load calculation.');
+        if (safeRoom.temperature === null) inputIssues.push('Room design temperature in °C is required for component load calculation.');
+        if (ambientTemp === null) inputIssues.push('Site summer dry-bulb temperature in °C is required for component load calculation.');
 
         const results = {
             roomName: safeRoom.name,
-            dimensions: {
+            dimensions: geometryIsComplete ? {
                 length: safeRoom.length,
                 width: safeRoom.width,
                 height: safeRoom.height,
@@ -88,27 +116,48 @@ class LoadCalculator {
                 floorArea: safeRoom.length * safeRoom.width,
                 wallArea: 2 * (safeRoom.length + safeRoom.width) * safeRoom.height,
                 ceilingArea: safeRoom.length * safeRoom.width
-            },
+            } : null,
             temperature: safeRoom.temperature,
-            ambientTemp: project.climate?.summerDB || 35
+            ambientTemp,
+            calculationStatus: inputIssues.length ? 'input-required' : 'calculated',
+            inputIssues
         };
 
-        // Calculate each component using normalized safeRoom
-        results.transmission = this._calculateTransmission(safeRoom, project);
-        results.product = this._calculateProductLoad(safeRoom, project);
-        results.infiltration = this._calculateInfiltration(safeRoom, project);
-        results.internal = this._calculateInternalGains(safeRoom, project);
+        // Never manufacture envelope, product or infiltration loads from defaults.
+        if (inputIssues.length) {
+            if (!safeRoom.specifiedCoolingLoadKW) {
+                throw new Error(`Room ${safeRoom.name}: ${inputIssues.join(' ')}`);
+            }
+            results.transmission = { total: 0, status: 'input-required', issues: inputIssues };
+            results.product = { total: 0, status: 'input-required', issues: inputIssues };
+            results.infiltration = { total: 0, status: 'input-required', issues: inputIssues };
+            results.internal = { total: 0, status: 'input-required', issues: inputIssues };
+        } else {
+            results.transmission = this._calculateTransmission(safeRoom, project);
+            results.product = this._calculateProductLoad(safeRoom, project);
+            results.infiltration = this._calculateInfiltration(safeRoom, project);
+            results.internal = this._calculateInternalGains(safeRoom, project);
+        }
 
-        // Sum components
+        const componentIssues = [results.transmission, results.product, results.infiltration, results.internal]
+            .filter((component) => component?.status === 'input-required')
+            .flatMap((component) => component.issues || []);
+        if (componentIssues.length) {
+            results.calculationStatus = 'input-required';
+            results.inputIssues = [...results.inputIssues, ...componentIssues];
+        }
+
+        // Sum only explicitly calculated components.  The status above prevents a
+        // partial subtotal from being presented as a complete thermal load.
         results.subtotal =
             results.transmission.total +
             results.product.total +
             results.infiltration.total +
             results.internal.total;
 
-        // Apply safety factor
-        const roomType = safeRoom.type;
-        results.safetyFactor = this.safetyFactors[roomType] || 1.15;
+        // A load allowance is a project-design decision, not an unstated generic
+        // safety factor.  Use 1.0 unless the designer supplied a documented factor.
+        results.safetyFactor = safeRoom.loadAllowanceFactor;
         results.total = results.subtotal * results.safetyFactor;
 
         // Round to 2 decimal places
@@ -117,7 +166,7 @@ class LoadCalculator {
             results.calculatedThermalLoad = results.total;
             results.total = safeRoom.specifiedCoolingLoadKW;
             results.designLoad = {
-                basis: safeRoom.designLoadBasis || 'user-specified',
+                basis: safeRoom.designLoadBasis || 'user-specified-design-load',
                 specifiedCoolingLoadKW: safeRoom.specifiedCoolingLoadKW,
                 calculatedThermalLoadKW: results.calculatedThermalLoad,
                 note: 'User-specified design cooling load governs equipment sizing; component heat-load calculation is retained for engineering review.'
@@ -137,15 +186,16 @@ class LoadCalculator {
         const roomTemp = room.temperature;
         const deltaT = ambientTemp - roomTemp;
 
-        // Get insulation properties
-        const insulation = room.insulation || {
-            type: 'polyurethane_40',
-            thickness: this._getRecommendedThickness(roomTemp)
-        };
-
-        const insulationProps = this.materials?.insulation?.[insulation.type] || {
-            thermalConductivity: 0.024
-        };
+        // Envelope U-values require declared material and thickness.  Do not use
+        // an inferred panel type or thickness in an engineering calculation.
+        const insulation = room.insulation;
+        if (!insulation?.type || !Number.isFinite(Number(insulation.thickness)) || Number(insulation.thickness) <= 0) {
+            return { walls: 0, ceiling: 0, floor: 0, total: 0, status: 'input-required', issues: ['Declared insulation type and thickness in mm are required for transmission load.'] };
+        }
+        const insulationProps = this.materials?.insulation?.[insulation.type];
+        if (!insulationProps || !Number.isFinite(Number(insulationProps.thermalConductivity)) || Number(insulationProps.thermalConductivity) <= 0) {
+            return { walls: 0, ceiling: 0, floor: 0, total: 0, status: 'input-required', issues: [`No validated thermal-conductivity record is available for insulation type ${insulation.type}.`] };
+        }
 
         // Calculate U-value for sandwich panel
         // U = 1 / (Rsi + R_insulation + Rse)
@@ -163,22 +213,30 @@ class LoadCalculator {
         const wallLoad = U_wall * wallArea * deltaT / 1000;  // kW
         const ceilingLoad = U_wall * ceilingArea * deltaT / 1000;
 
-        // Floor load (ground factor)
-        const groundTemp = 15;  // Assumed ground temperature
-        const floorDeltaT = groundTemp - roomTemp;
-        const U_floor = U_wall * 0.8;  // Floor has additional insulation from ground
-        const floorLoad = U_floor * floorArea * floorDeltaT / 1000;
+        // Ground/floor boundary conditions must come from the project.  Keep the
+        // wall/ceiling result visible, but mark the aggregate as input-required if
+        // the floor state has not been supplied.
+        const groundTemp = Number(project?.climate?.groundTemperatureC ?? project?.groundTemperatureC);
+        const floorUFactor = Number(room.floorUFactor);
+        const hasFloorInputs = Number.isFinite(groundTemp) && Number.isFinite(floorUFactor) && floorUFactor > 0;
+        const floorDeltaT = hasFloorInputs ? groundTemp - roomTemp : null;
+        const U_floor = hasFloorInputs ? U_wall * floorUFactor : null;
+        const floorLoad = hasFloorInputs ? U_floor * floorArea * floorDeltaT / 1000 : 0;
 
         return {
             walls: Math.round(wallLoad * 100) / 100,
             ceiling: Math.round(ceilingLoad * 100) / 100,
             floor: Math.round(floorLoad * 100) / 100,
             total: Math.round((wallLoad + ceilingLoad + floorLoad) * 100) / 100,
+            status: hasFloorInputs ? 'calculated' : 'input-required',
+            issues: hasFloorInputs ? [] : ['Ground temperature and floor U-factor must be supplied before the total transmission load is complete.'],
             parameters: {
                 U_value: Math.round(U_wall * 1000) / 1000,
                 deltaT: deltaT,
                 insulationType: insulation.type,
-                insulationThickness: insulation.thickness
+                insulationThickness: insulation.thickness,
+                groundTemperatureC: hasFloorInputs ? groundTemp : null,
+                floorUFactor: hasFloorInputs ? floorUFactor : null
             }
         };
     }
@@ -198,74 +256,42 @@ class LoadCalculator {
 
     _calculateProductLoad(room, project) {
         const product = room.product || project.product;
-        if (!product) {
-            return { total: 0, sensible: 0, latent: 0, note: 'No product specified' };
+        if (!product?.type) {
+            return { total: 0, sensible: 0, latent: 0, status: 'input-required', issues: ['Product type and a traceable product-property source are required to calculate product load.'] };
         }
 
-        // Get product properties from database
-        let productProps = this._getProductProperties(product.type);
+        const productProps = this._getProductProperties(product.type);
+        if (!productProps) {
+            return { total: 0, sensible: 0, latent: 0, status: 'input-required', issues: [`No validated thermal-property record is available for product type ${product.type}.`] };
+        }
 
-        // INTELLIGENT PRODUCT MASS CALCULATION based on room type
-        // Instead of using unrealistic stacking density, use practical throughput
-        const volume = room.length * room.width * room.height;
-        let productMass = 0;
-        let cycleTime = 24; // default 24 hours
-        let calculationMethod = '';
-
-        // Check if user provided explicit product mass/throughput
-        if (product.mass || product.dailyThroughput || room.dailyThroughput) {
-            productMass = product.mass || product.dailyThroughput || room.dailyThroughput;
-            calculationMethod = 'user_specified';
+        // Product heat load requires an explicit mass basis.  Storage volume and
+        // room type are not a defensible substitute for actual throughput.
+        const batchMass = Number(product.mass ?? room.productMass);
+        const dailyThroughput = Number(product.dailyThroughput ?? room.dailyThroughput);
+        const explicitCycleTime = Number(product.cycleTime ?? room.cycleTime);
+        let productMass = null;
+        let cycleTime = null;
+        let calculationMethod = null;
+        if (Number.isFinite(batchMass) && batchMass > 0 && Number.isFinite(explicitCycleTime) && explicitCycleTime > 0) {
+            productMass = batchMass;
+            cycleTime = explicitCycleTime;
+            calculationMethod = 'explicit-batch-mass-and-cycle-time';
+        } else if (Number.isFinite(dailyThroughput) && dailyThroughput > 0) {
+            productMass = dailyThroughput;
+            cycleTime = 24;
+            calculationMethod = 'explicit-daily-throughput';
         } else {
-            // Intelligent estimation based on room type
-            const roomType = room.type?.toLowerCase() || 'storage';
-
-            switch (roomType) {
-                case 'tunnel':
-                case 'blast':
-                    // Blast freezer: High turnover, 2-4 hour cycles
-                    // Typical capacity: 50-100 kg/m³ floor area per batch
-                    const floorArea = room.length * room.width;
-                    productMass = floorArea * 80; // 80 kg per m² floor
-                    cycleTime = room.cycleTime || 4; // 4 hour default for blast
-                    calculationMethod = 'blast_freezer_estimate';
-                    break;
-
-                case 'chilling':
-                case 'chill':
-                    // Chilling room: Continuous flow, based on production
-                    // For slaughterhouse: ~50kg/m² floor, 12-24h cycle
-                    productMass = (room.length * room.width) * 50;
-                    cycleTime = room.cycleTime || 12;
-                    calculationMethod = 'chilling_estimate';
-                    break;
-
-                case 'precooler':
-                case 'precool':
-                    // Pre-cooler: High turnover, 6-12 hour cycles
-                    productMass = (room.length * room.width) * 60;
-                    cycleTime = room.cycleTime || 8;
-                    calculationMethod = 'precooler_estimate';
-                    break;
-
-                case 'storage':
-                case 'holding':
-                default:
-                    // Storage: Low turnover - 5-10% of static capacity per day
-                    // Static capacity: ~300 kg/m³, Daily turnover: 5%
-                    const staticCapacity = volume * 0.6 * 300; // 60% utilization, 300 kg/m³
-                    const dailyTurnover = 0.05; // 5% daily
-                    productMass = staticCapacity * dailyTurnover;
-                    cycleTime = 24;
-                    calculationMethod = 'storage_turnover_estimate';
-                    break;
-            }
+            return { total: 0, sensible: 0, latent: 0, status: 'input-required', issues: ['Provide batch mass with cycle time, or daily throughput, for product-load calculation.'], parameters: { productType: product.type } };
         }
 
-        // Entry and exit temperatures
-        const entryTemp = product.entryTemp || room.entryTemp ||
-            (room.type === 'tunnel' ? 5 : 25); // Tunnel gets pre-chilled product
-        const exitTemp = room.temperature;
+        // Entry temperature must come from the process specification; it cannot
+        // be inferred from room type.
+        const entryTemp = Number(product.entryTemp ?? room.entryTemp);
+        const exitTemp = Number(room.temperature);
+        if (!Number.isFinite(entryTemp) || !Number.isFinite(exitTemp)) {
+            return { total: 0, sensible: 0, latent: 0, status: 'input-required', issues: ['Explicit product entry temperature and room exit temperature are required for product-load calculation.'], parameters: { productType: product.type, productMass, cycleTime } };
+        }
         const freezingPoint = productProps.freezingPoint || -2;
 
         let sensibleLoad = 0;
@@ -356,14 +382,9 @@ class LoadCalculator {
             }
         }
 
-        // Default properties (chicken/poultry - most common cold storage)
-        return {
-            specificHeatAboveFreezing: 3.31,  // kJ/kg·K (ASHRAE)
-            specificHeatBelowFreezing: 1.55,  // kJ/kg·K (ASHRAE)
-            latentHeat: 247,                   // kJ/kg (ASHRAE)
-            freezingPoint: -2.5,               // °C
-            waterContent: 0.74                 // fraction
-        };
+        // Unknown product properties are input-required; do not silently reuse
+        // poultry values for another product or process.
+        return null;
     }
 
     // ============================================================
@@ -374,13 +395,12 @@ class LoadCalculator {
         const ambientTemp = project.climate?.summerDB || 35;
         const roomTemp = room.temperature;
 
-        // Door specifications
-        const door = room.door || {
-            width: 2.5,     // meters
-            height: 2.8,    // meters
-            openingsPerDay: 10,
-            openDuration: 10  // minutes per opening
-        };
+        // Door opening geometry and operation are project inputs.  No generic
+        // door, opening frequency or duration is injected into the calculation.
+        const door = room.door;
+        if (!door || ![door.width, door.height, door.openingsPerDay, door.openDuration].every((value) => Number.isFinite(Number(value)) && Number(value) >= 0)) {
+            return { total: 0, status: 'input-required', issues: ['Door width, height, openings per day and open duration must be supplied for infiltration load.'] };
+        }
 
         // Calculate total open time per day
         const totalOpenTime = door.openingsPerDay * door.openDuration;  // minutes
@@ -425,7 +445,10 @@ class LoadCalculator {
         const infiltrationLoad = roomVolume * airChanges * rhoIn * delta_h / (24 * 3600);
 
         // Door protection factor (strip curtain, air curtain, etc.)
-        const protectionFactor = room.doorProtection || 1.0;
+        const protectionFactor = Number(room.doorProtection);
+        if (!Number.isFinite(protectionFactor) || protectionFactor <= 0 || protectionFactor > 1) {
+            return { total: 0, status: 'input-required', issues: ['Door protection factor in the range (0, 1] is required for infiltration load.'] };
+        }
 
         return {
             total: Math.round(infiltrationLoad * protectionFactor * 100) / 100,
@@ -457,8 +480,8 @@ class LoadCalculator {
 
     _calculateInternalGains(room, project) {
         // People load
-        const numPeople = room.occupancy || 1;
-        const occupancyHours = room.occupancyHours || 8;
+        const numPeople = Number(room.occupancy);
+        const occupancyHours = Number(room.occupancyHours);
 
         // Get heat gain with fallback to prevent undefined errors
         const heatGain = this._getPeopleHeatGain(room.temperature) || { sensible: 200, latent: 100 };
@@ -466,14 +489,14 @@ class LoadCalculator {
             occupancyHours / 24 / 1000;
 
         // Lighting load
-        const lightingPower = room.lightingPower || 0;  // W/m²
-        const lightingHours = room.lightingHours || 12;
-        const floorArea = (room.length || 10) * (room.width || 10); // Default dimensions if not provided
+        const lightingPower = Number(room.lightingPower);  // W/m²
+        const lightingHours = Number(room.lightingHours);
+        const floorArea = Number(room.length) * Number(room.width);
         const lightingLoad = lightingPower * floorArea * lightingHours / 24 / 1000;
 
         // Equipment/forklift load
-        const equipmentPower = room.equipmentPower || 0;  // kW
-        const equipmentHours = room.equipmentHours || 4;
+        const equipmentPower = Number(room.equipmentPower);  // kW
+        const equipmentHours = Number(room.equipmentHours);
         const equipmentLoad = equipmentPower * equipmentHours / 24;
 
         // Fan motor heat (evaporator fans)

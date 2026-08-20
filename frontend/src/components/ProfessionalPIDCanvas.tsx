@@ -327,14 +327,17 @@ const ScrewCompressor: React.FC<{
     tag: string;
     model?: string;
     power?: string;
-}> = ({ x, y, tag, model = 'N320VLD-K', power = '500KW' }) => (
+    family?: string;
+}> = ({ x, y, tag, model = 'MODEL REVIEW', power = 'POWER REVIEW', family = 'screw_compressor' }) => {
+    const isScrew = /screw/i.test(family);
+    const title = isScrew ? 'SCREW COMPRESSOR' : /recip|piston/i.test(family) ? 'RECIPROCATING COMPRESSOR' : 'COMPRESSOR';
+    return (
     <g transform={`translate(${x}, ${y})`}>
         {/* Main body */}
         <rect x={0} y={10} width={100} height={50} fill="white" stroke="black" strokeWidth={2} />
 
-        {/* Internal screw indication */}
-        <ellipse cx={30} cy={35} rx={15} ry={12} fill="none" stroke="black" strokeWidth={1.5} />
-        <ellipse cx={70} cy={35} rx={15} ry={12} fill="none" stroke="black" strokeWidth={1.5} />
+        {/* Family-specific internal indication */}
+        {isScrew ? <><ellipse cx={30} cy={35} rx={15} ry={12} fill="none" stroke="black" strokeWidth={1.5} /><ellipse cx={70} cy={35} rx={15} ry={12} fill="none" stroke="black" strokeWidth={1.5} /></> : <><circle cx={30} cy={35} r={12} fill="none" stroke="black" strokeWidth={1.5} /><line x1={55} y1={22} x2={55} y2={48} stroke="black" strokeWidth={1.5} /><circle cx={78} cy={35} r={12} fill="none" stroke="black" strokeWidth={1.5} /></>}
 
         {/* Motor */}
         <rect x={100} y={20} width={30} height={30} fill="white" stroke="black" strokeWidth={2} />
@@ -353,14 +356,15 @@ const ScrewCompressor: React.FC<{
         <EquipmentCallout
             x={-20}
             y={70}
-            title="SCREW COMPRESSOR"
+            title={title}
             lines={[
                 `DRIVE MOTOR RATING ${power}`,
-                `MODEL:MYCOM ${model}`
+                `MODEL: ${model}`
             ]}
         />
     </g>
-);
+    );
+};
 
 // ============================================================
 // EVAPORATIVE CONDENSER
@@ -460,7 +464,21 @@ const VerticalVessel: React.FC<{
     tag: string;
     type?: string;
     volume?: string;
-}> = ({ x, y, tag, type = 'AMMONIA RECEIVER', volume = '450 L' }) => (
+    family?: string;
+}> = ({ x, y, tag, type = 'VESSEL', volume = 'VOLUME REVIEW', family = '' }) => {
+    const horizontal = /horizontal|thermosiphon/i.test(family);
+    if (horizontal) return (
+        <g transform={`translate(${x}, ${y})`}>
+            <ellipse cx={12} cy={30} rx={8} ry={25} fill="white" stroke="black" strokeWidth={2} />
+            <rect x={12} y={5} width={100} height={50} fill="white" stroke="black" strokeWidth={2} />
+            <ellipse cx={112} cy={30} rx={8} ry={25} fill="white" stroke="black" strokeWidth={2} />
+            <line x1={35} y1={-5} x2={35} y2={5} stroke="black" strokeWidth={2} />
+            <line x1={90} y1={55} x2={90} y2={65} stroke="black" strokeWidth={2} />
+            <text x={60} y={-15} textAnchor="middle" fontSize={10} fontWeight="bold" fontFamily="Arial">{tag}</text>
+            <EquipmentCallout x={125} y={10} title={type} lines={[`VOLUME: ${volume}`, 'DIMENSIONS / NOZZLES: REVIEW']} />
+        </g>
+    );
+    return (
     <g transform={`translate(${x}, ${y})`}>
         {/* Vessel body */}
         <ellipse cx={30} cy={10} rx={25} ry={8} fill="white" stroke="black" strokeWidth={2} />
@@ -486,12 +504,13 @@ const VerticalVessel: React.FC<{
             y={30}
             title={type}
             lines={[
-                `MODEL:LR-95-${volume}`,
-                `VOLUME: ${volume}`
+                `VOLUME: ${volume}`,
+                'DIMENSIONS / NOZZLES: REVIEW'
             ]}
         />
     </g>
-);
+    );
+};
 
 // ============================================================
 // OIL SEPARATOR
@@ -570,10 +589,11 @@ const PipeSegment: React.FC<{
     size?: string;
     showArrow?: boolean;
     flowDirection?: string;
-}> = ({ points, fluidType, size, showArrow = false }) => {
-    // Null check for points array
+}> = ({ points, fluidType, size, showArrow = false, flowDirection = 'forward' }) => {
+    // Null check for points array.  Reverse the rendered orientation when the
+    // authoritative P&ID edge explicitly defines reverse flow.
     if (!points || !Array.isArray(points) || points.length < 2) return null;
-
+    const orientedPoints = flowDirection === 'reverse' ? [...points].reverse() : points;
 
     const color = PIPE_COLORS[fluidType] || PIPE_COLORS.default;
 
@@ -597,19 +617,19 @@ const PipeSegment: React.FC<{
     const lineStyle = getLineStyle(fluidType);
 
     // Build path
-    const pathData = points.map((p, i) =>
+    const pathData = orientedPoints.map((p, i) =>
         `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
     ).join(' ');
 
     // Arrow at end
-    const lastTwo = points.slice(-2);
+    const lastTwo = orientedPoints.slice(-2);
     const dx = lastTwo[1].x - lastTwo[0].x;
     const dy = lastTwo[1].y - lastTwo[0].y;
     const angle = Math.atan2(dy, dx) * 180 / Math.PI;
 
     // Calculate label position (middle of pipe)
-    const labelX = (points[0].x + points[points.length - 1].x) / 2;
-    const labelY = (points[0].y + points[points.length - 1].y) / 2;
+    const labelX = (orientedPoints[0].x + orientedPoints[orientedPoints.length - 1].x) / 2;
+    const labelY = (orientedPoints[0].y + orientedPoints[orientedPoints.length - 1].y) / 2;
 
     return (
         <g>
@@ -775,7 +795,9 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
 
     const layout = useMemo(() => {
         console.log('[PIDCanvas] Received data:', data);
-        if (!data) return demoLayout;
+        // A blank source must remain blank; never substitute an ammonia demo for
+        // a user project with incomplete or unavailable P&ID data.
+        if (!data) return { compressors: [], condensers: [], evaporators: [], vessels: [], oilSeparators: [], pumps: [], pipes: [], valves: [], instruments: [] };
 
         // Normalize the two real P&ID contracts without inventing equipment.
         // DesignOrchestrator emits { equipment, pipes }; imported GFDDE emits { nodes, edges }.
@@ -811,12 +833,12 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                 return 'See equipment schedule';
             };
             return {
-                compressors: nodes.filter((n: any) => n.data?.componentType?.includes('compressor')).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label, power: equipmentDetailLabel(n.data.details) })),
-                condensers: nodes.filter((n: any) => n.data?.componentType === 'evaporative_condenser').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label, capacity: equipmentDetailLabel(n.data.details) })),
-                evaporators: nodes.filter((n: any) => n.data?.componentType === 'evaporator').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, capacity: equipmentDetailLabel(n.data.details) })),
-                vessels: nodes.filter((n: any) => n.data?.componentType?.includes('vessel')).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, type: n.data.label, volume: equipmentDetailLabel(n.data.details) })),
-                oilSeparators: nodes.filter((n: any) => n.data?.componentType === 'oil_separator').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag })),
-                pumps: nodes.filter((n: any) => n.data?.componentType === 'pump').map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label })),
+                compressors: nodes.filter((n: any) => /compressor|screw|recip|piston|scroll/i.test(String(n.data?.componentType || ''))).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label, power: equipmentDetailLabel(n.data.details), family: n.data.componentType })),
+                condensers: nodes.filter((n: any) => /condenser|gas_cooler/i.test(String(n.data?.componentType || ''))).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label, capacity: equipmentDetailLabel(n.data.details), family: n.data.componentType })),
+                evaporators: nodes.filter((n: any) => /evaporator|air_cooler|iqf|tunnel|spiral/i.test(String(n.data?.componentType || ''))).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, capacity: equipmentDetailLabel(n.data.details), family: n.data.componentType })),
+                vessels: nodes.filter((n: any) => /vessel|receiver|separator|surge|accumulator/i.test(String(n.data?.componentType || ''))).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, type: n.data.label, volume: equipmentDetailLabel(n.data.details), family: n.data.componentType })),
+                oilSeparators: nodes.filter((n: any) => /oil_separator/i.test(String(n.data?.componentType || ''))).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag })),
+                pumps: nodes.filter((n: any) => /pump|circulator/i.test(String(n.data?.componentType || ''))).map((n: any) => ({ x: n.position.x * 2.5 + 200, y: n.position.y * 2.5 + 100, tag: n.data.tag, model: n.data.label })),
 
                 pipes: edges.map((e: any) => {
                     const sourceNode = nodes.find((n: any) => n.id === e.source);
@@ -853,7 +875,7 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                     return {
                         points,
                         fluidType: normalizePipeService(rawService),
-                        size: synchronizedLine?.dn || e?.data?.dn || e.label || '',
+                        size: (() => { const dn = synchronizedLine?.dn || e?.data?.dn || e?.dn || e?.data?.nominalDiameter; return Number.isFinite(Number(dn)) && Number(dn) > 0 ? `DN${Math.round(Number(dn))}` : 'DN REVIEW'; })(),
                         flowDirection: e?.data?.flowDirection || e?.flowDirection || 'forward',
                         jointPolicy: synchronizedLine?.jointPolicy || e?.data?.jointType || null
                     };
@@ -1076,7 +1098,7 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                                 lines={[
                                     `Model: ${c.model || 'N/A'}`,
                                     `Power: ${c.power || 'N/A'}`,
-                                    `Type: Screw Compressor`
+                                    `Type: ${String(c.family || 'compressor').replace(/_/g, ' ')}`
                                 ]}
                             />
                         ))}
@@ -1090,7 +1112,7 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                                 lines={[
                                     `Model: ${c.model || 'N/A'}`,
                                     `Capacity: ${c.capacity || 'N/A'}`,
-                                    `Type: Evaporative`
+                                    `Type: ${String(c.family || 'condenser').replace(/_/g, ' ')}`
                                 ]}
                             />
                         ))}
@@ -1103,7 +1125,7 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                                 title={e.tag}
                                 lines={[
                                     `Capacity: ${e.capacity || 'N/A'}`,
-                                    `Type: Air Cooler`
+                                    `Type: ${String(e.family || 'evaporator').replace(/_/g, ' ')}`
                                 ]}
                             />
                         ))}
@@ -1190,13 +1212,13 @@ const ProfessionalPIDCanvas: React.FC<ProfessionalPIDCanvasProps> = ({
                     <g transform={`translate(20, ${height - 80})`}>
                         <text fontSize={9} fontWeight="bold" fontFamily="Arial">NOTE:</text>
                         <text x={0} y={14} fontSize={8} fontFamily="Arial">
-                            ALL DIMENSIONS ARE IN MILLIMETERS
+                            PROCESS DIAGRAM — NOT FOR CONSTRUCTION SET-OUT
                         </text>
                         <text x={0} y={26} fontSize={8} fontFamily="Arial">
-                            * Pipe sizing per ASHRAE velocity criteria
+                            * DN and flow direction are shown from synchronized P&ID data; unresolved values are marked REVIEW.
                         </text>
                         <text x={0} y={38} fontSize={8} fontFamily="Arial">
-                            * Ammonia system - follow EN 378 safety requirements
+                            * Symbols and drafting are aligned to project diagram rules; verify ISO 10628 / ISO 14617 registration and local safety requirements before issue.
                         </text>
                     </g>
 

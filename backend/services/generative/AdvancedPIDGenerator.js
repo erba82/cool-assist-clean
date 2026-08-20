@@ -14,14 +14,16 @@ class AdvancedPIDGenerator {
         return styles[service] || { stroke: '#64748b', strokeWidth: 2.5 };
     }
 
-    _findNominalDiameter(calculations, service, fallback) {
+    _findNominalDiameter(calculations, service, explicitDn = null) {
         const piping = calculations?.piping || {};
         const lines = Array.isArray(piping.lines) ? piping.lines
             : Array.isArray(piping.segments) ? piping.segments
                 : Array.isArray(piping.sizes) ? piping.sizes : [];
         const candidate = lines.find((line) => String(line.service || line.type || line.name || line.description || '').toLowerCase().includes(service.toLowerCase()));
-        const value = Number(candidate?.dn || candidate?.nominalDiameter || candidate?.sizeDN || candidate?.diameter);
-        return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
+        const calculated = Number(candidate?.dn || candidate?.nominalDiameter || candidate?.sizeDN || candidate?.diameter);
+        if (Number.isFinite(calculated) && calculated > 0) return Math.round(calculated);
+        const requested = Number(explicitDn);
+        return Number.isFinite(requested) && requested > 0 ? Math.round(requested) : null;
     }
 
     _selectDanfossIcfStation(branchDn, preferredModelId) {
@@ -98,13 +100,14 @@ class AdvancedPIDGenerator {
             };
         });
 
+        const explicitDn = project?.designIntent?.pipeDn || project?.pipeDn || {};
         const dn = {
-            discharge: this._findNominalDiameter(calculations, 'discharge', isAmmonia ? 100 : 50),
-            liquid: this._findNominalDiameter(calculations, 'liquid', isAmmonia ? 80 : 32),
-            suction: this._findNominalDiameter(calculations, 'suction', isAmmonia ? 125 : 65),
-            branchLiquid: this._findNominalDiameter(calculations, 'branch liquid', isAmmonia ? 32 : 20),
-            branchSuction: this._findNominalDiameter(calculations, 'branch suction', isAmmonia ? 50 : 32),
-            oil: this._findNominalDiameter(calculations, 'oil', 25)
+            discharge: this._findNominalDiameter(calculations, 'discharge', explicitDn.discharge),
+            liquid: this._findNominalDiameter(calculations, 'liquid', explicitDn.liquid),
+            suction: this._findNominalDiameter(calculations, 'suction', explicitDn.suction),
+            branchLiquid: this._findNominalDiameter(calculations, 'branch liquid', project?.designIntent?.valveStationDN ?? explicitDn.branchLiquid),
+            branchSuction: this._findNominalDiameter(calculations, 'branch suction', explicitDn.branchSuction),
+            oil: this._findNominalDiameter(calculations, 'oil', explicitDn.oil)
         };
 
         const requestedIcfModel = semantic.valveStationModel || project?.designIntent?.valveStationModel || project?.valveStationModel || null;
@@ -126,11 +129,16 @@ class AdvancedPIDGenerator {
         };
         const connect = (source, target, service, nominalDiameter, label, extra = {}) => {
             const id = `edge-${edgeNumber++}`;
+            const dnValue = Number.isFinite(Number(nominalDiameter)) && Number(nominalDiameter) > 0 ? Math.round(Number(nominalDiameter)) : null;
+            const resolvedLabel = String(label || `${refrigerant} ${service} ${dnValue ? `DN${dnValue}` : 'DN REVIEW'}`)
+                .replace(/DN(?:null|undefined|NaN)/gi, 'DN REVIEW')
+                .replace(/\bDN\d+\b/gi, dnValue ? `DN${dnValue}` : 'DN REVIEW');
             edges.push({
-                id, source, target, type: 'smoothstep', label: label || `${refrigerant} ${service} DN${nominalDiameter}`,
-                service, dn: nominalDiameter,
+                id, source, target, type: 'smoothstep', label: resolvedLabel,
+                service, dn: dnValue,
                 data: {
-                    service, dn: nominalDiameter, nominalDiameter, medium: refrigerant,
+                    service, dn: dnValue, nominalDiameter: dnValue, medium: refrigerant,
+                    sizingStatus: dnValue ? 'traceable-input-or-calculation' : 'review-required',
                     jointType: profile.piping.jointType, connectionType: profile.piping.jointType,
                     ...extra
                 },

@@ -26,6 +26,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 import ProfessionalPIDCanvas from './ProfessionalPIDCanvas';
+import PIDDrawingEngine from './PIDDrawingEngine';
 import CalculationBook from './CalculationBook';
 
 const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refrigerant?: string }) => {
@@ -49,6 +50,7 @@ const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refr
 // Lazy load 3D component to prevent react-three-fiber from crashing on initial load
 const Refrigeration3DCanvasV2 = lazy(() => import('./3D/Refrigeration3DCanvasV2')); const Refrigeration3DCanvas = lazy(() => import('./3D/Refrigeration3DCanvas')); const TopologyIndustrialCanvas = lazy(() => import('./3D/TopologyIndustrialCanvas'));
 import { AnnualEnergyChart, EnergySankeyDiagram, StrategySelection } from './EnergyVisualization';
+import EnergyManagementHub from './EnergyManagementHub';
 import InformationGatheringPanel from './InformationGatheringPanel';
 import { ToolsPanel, CalculatorWidget, UnitConverterWidget, RefrigerantPropsWidget } from './FloatingTools';
 import { useParams } from 'react-router-dom';
@@ -1645,17 +1647,10 @@ const UnifiedChatPage: React.FC = () => {
                             {previewTab === 2 && <CalculationBook data={activeDesign} onProcurementTierChange={applyProcurementTier} />}
                             {previewTab === 3 && <EquipmentSection equipment={activeDesign.proposals?.best || activeDesign.equipment || {}} />}
                             {previewTab === 4 && (
-                                <Box height="100%" minHeight="500px">
-                                    <ProfessionalPIDCanvas
-                                        data={activeDesign}
-                                        projectInfo={{
-                                            client: activeDesign.projectInfo?.location?.city || activeDesign.project?.location?.city || 'Client',
-                                            projectName: activeDesign.projectInfo?.name || activeDesign.project?.name || 'Project',
-                                            drawingTitle: 'GENERAL PIPING DIAGRAM',
-                                            drawingNo: 'PID-001',
-                                            designer: 'GFDDE AI',
-                                            date: new Date().toLocaleDateString()
-                                        }}
+                                <Box height="100%" minHeight="620px">
+                                    <PIDDrawingEngine
+                                        nodes={activeDesign.pidData?.equipment || activeDesign.pidData?.nodes || []}
+                                        edges={activeDesign.pidData?.pipes || activeDesign.pidData?.edges || []}
                                     />
                                 </Box>
                             )}
@@ -1677,7 +1672,7 @@ const UnifiedChatPage: React.FC = () => {
                                     </Suspense>
                                 </Box>
                             )}
-                            {previewTab === 6 && <EnergyAnalysisView data={activeDesign} />}
+                            {previewTab === 6 && <EnergyManagementHub data={activeDesign} />}
                             {previewTab === 7 && <ComplianceSection compliance={activeDesign.compliance} refrigerant={activeDesign.project?.refrigerant || activeDesign.projectInfo?.refrigerant} />}
                         </Box>
                     </>

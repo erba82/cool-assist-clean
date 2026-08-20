@@ -70,7 +70,7 @@ function now() {
     await page.waitForTimeout(1500);
     await take('01_calculations_tab.png');
 
-    const procurementHeading = page.getByText('5. Location-Aware Procurement & Price Inquiry', { exact: true });
+    const procurementHeading = page.getByText('5. Selection Evidence, Vessel / Valve Register and BOM', { exact: true });
     await procurementHeading.scrollIntoViewIfNeeded();
     await procurementHeading.waitFor({ state: 'visible', timeout: 30000 });
 

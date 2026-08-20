@@ -26,6 +26,7 @@ const AIModelRouter = require('../../services/AIModelRouter');
 const OllamaService = require('../../services/OllamaService');
 const RefrigerationTopologyInterpreter = require('../engineering/RefrigerationTopologyInterpreter');
 const LearningGovernanceService = require('./LearningGovernanceService');
+const EnergyManagementService = require('../modules/EnergyManagementService');
 
 class DesignOrchestrator {
     constructor() {
@@ -40,6 +41,7 @@ class DesignOrchestrator {
         this.ollama = new OllamaService();
         this.topologyInterpreter = new RefrigerationTopologyInterpreter();
         this.learningGovernance = new LearningGovernanceService();
+        this.energyManagement = new EnergyManagementService();
         this.conversationState = new Map();
 
         console.log('🎯 DesignOrchestrator v4.0 initialized with AI Captain');
@@ -207,6 +209,7 @@ class DesignOrchestrator {
             regionalData: regionalData,
             innovativeEnergyStrategies: energyStrategies,
             energy: energyAnalysis,
+            energyManagement: this.energyManagement.build(results, project),
             standards: standards,
             safety: results.safety || {},
             pidData: null, // Set externally via async

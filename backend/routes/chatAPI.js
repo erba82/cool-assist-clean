@@ -7,17 +7,18 @@ const express = require('express');
 const router = express.Router();
 const DesignOrchestrator = require('../core/ai/DesignOrchestrator');
 const GeminiService = require('../services/GeminiService');
-const SelfLearningAI = require('../services/SelfLearningAI'); 
-const AIServiceRouter = require('../services/AIServiceRouter'); // 🌟 وارد کردن روتر پیشرفته لوکال
+ 
+const AIServiceRouter = require('../services/AIServiceRouter'); // local fallback
+const AIModelRouter = require('../services/AIModelRouter');
 
 // Create orchestrator instance
 const orchestrator = new DesignOrchestrator();
 
 // Create Gemini service for general chat
 const geminiService = new GeminiService();
+const generalModelRouter = new AIModelRouter({ geminiService });
 
-// Initialize SelfLearningAI for enhanced intelligence
-const selfLearningAI = new SelfLearningAI();
+
 
 // 🌟 ساخت نمونه از روتر لوکال برای هندل کردن چت‌ها
 const aiRouter = new AIServiceRouter();
@@ -40,22 +41,10 @@ router.post('/message', async (req, res) => {
         console.log(`\n📨 Chat Message from session: ${sessionId || 'default'}`);
         console.log(`   Message: "${message.substring(0, 100)}..."`);
 
-        if (message.toLowerCase().includes('learn') || message.toLowerCase().includes('improve') || 
-            message.toLowerCase().includes('teach') || message.toLowerCase().includes('better')) {
-            
-            const learningResult = await selfLearningAI.processQuery(message, { sessionId }, sessionId || 'default');
-            
-            if (learningResult.learned || learningResult.source !== 'error') {
-                return res.json({
-                    success: true,
-                    type: 'learning_response',
-                    message: learningResult.response,
-                    source: learningResult.source,
-                    confidence: learningResult.confidence,
-                    sessionId: sessionId || 'default'
-                });
-            }
-        }
+                // Design-mode requests remain under DesignOrchestrator governance. Learning
+        // proposals are review-gated and never modify rules or skills automatically.
+
+
 
         // Handle message with intelligent orchestrator
         const response = await orchestrator.handleMessage(message, sessionId || 'default');
@@ -174,23 +163,20 @@ router.post('/general', async (req, res) => {
         const classifier = new IntentClassifier();
         const language = classifier.detectLanguage(message);
 
-        // Try SelfLearning AI first
-        const learningResult = await selfLearningAI.processQuery(message, { 
-            sessionId, language, context: 'general_chat'
-        }, sessionId || 'default');
-
-        if (learningResult.success && learningResult.source !== 'error') {
-            return res.json({
-                success: true, type: 'general_response',
-                message: learningResult.response,
-                language, sessionId: sessionId || 'default', enhanced: true
-            });
-        }
-
-        // 🌟 بخش کلیدی: مسیریابی هوشمند درخواست‌ها 🌟
-        
-        // مرحله اول: تلاش برای اتصال به جمنای (در صورت وجود API Key)
-        let response = await geminiService.chatWithHistory(message, sessionId || 'default', language);
+        // General chat is read-only: it does not call project parsing, design execution,
+        // learning mutation or rule updates. Provider provenance is retained in the response.
+        const routed = await generalModelRouter.complete({
+            purpose: 'general-chat',
+            temperature: 0.3,
+            maxTokens: 1200,
+            messages: [
+                { role: 'system', content: 'Answer the user directly and professionally. Do not claim to have changed a project, created engineering data, standards compliance, prices or files. For requests that affect a design, explain that the user must use Design & Calculations Mode and confirm a reviewable proposal.' },
+                { role: 'user', content: String(message) }
+            ]
+        });
+        let response = routed.success
+            ? { success: true, message: routed.text, sessionId: sessionId || 'default', provider: routed.provider, model: routed.model }
+            : { success: false, fallback: true, error: routed.error };
 
         // مرحله دوم: اگر جمنای نبود یا ارور داد، از روتر قدرتمند لوکال استفاده کن!
         if (!response.success || response.fallback) {
@@ -232,8 +218,9 @@ router.post('/general', async (req, res) => {
             type: 'general_response',
             message: response.message,
             language,
-            sessionId: response.sessionId || sessionId || 'default'
-        });
+                sessionId: response.sessionId || sessionId || 'default',
+                provenance: response.provider ? { provider: response.provider, model: response.model || null, purpose: 'general-chat', reviewRequired: false } : null
+            });
 
     } catch (error) {
         console.error('❌ General chat error:', error);

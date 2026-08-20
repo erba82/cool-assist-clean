@@ -117,13 +117,27 @@ class AdvancedPIDGenerator {
         const edges = [];
         let nodeNumber = 1;
         let edgeNumber = 1;
+        const resolvePreviewPorts = (details = {}) => {
+            if (Array.isArray(details.connectionPorts) && details.connectionPorts.length) return details.connectionPorts;
+            // Generic drawing ports only support editable topology. They are not
+            // manufacturer nozzle coordinates and remain review-required.
+            return [
+                { id: 'inlet', direction: 'in', side: 'left', service: null, evidenceStatus: 'review-required' },
+                { id: 'outlet', direction: 'out', side: 'right', service: null, evidenceStatus: 'review-required' }
+            ];
+        };
         const addNode = ({ x, y, label, componentType, tag, details = {}, roomId, roomName, mounting, elevation }) => {
             const id = `node-${nodeNumber++}`;
+            const connectionPorts = resolvePreviewPorts(details);
             nodes.push({
                 id,
                 type: 'industrial',
                 position: { x, y },
-                data: { label, componentType, tag, details, roomId, roomName, mounting, elevation, refrigerant }
+                data: {
+                    label, componentType, tag,
+                    details: { ...details, connectionPorts, portEvidenceStatus: details.connectionPorts?.length ? 'catalogue-or-source-record' : 'review-required' },
+                    roomId, roomName, mounting, elevation, refrigerant
+                }
             });
             return id;
         };
@@ -139,6 +153,9 @@ class AdvancedPIDGenerator {
                 data: {
                     service, dn: dnValue, nominalDiameter: dnValue, medium: refrigerant,
                     sizingStatus: dnValue ? 'traceable-input-or-calculation' : 'review-required',
+                    sourcePortId: extra.sourcePortId || 'outlet',
+                    targetPortId: extra.targetPortId || 'inlet',
+                    portValidationStatus: extra.portValidationStatus || 'review-required',
                     jointType: profile.piping.jointType, connectionType: profile.piping.jointType,
                     ...extra
                 },

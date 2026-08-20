@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Alert, Box, Chip, Divider, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Divider, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import PrintIcon from '@mui/icons-material/Print';
 import ProcurementBOMPanel from './ProcurementBOMPanel';
 
 interface Props {
@@ -34,9 +35,11 @@ const CalculationBook: React.FC<Props> = ({ data, onProcurementTierChange }) => 
       loads: Array.isArray(data?.loads) ? data.loads : [],
       equipment: data?.equipment || data?.proposals?.best || {},
       energy: data?.energy || {},
+      energyManagement: data?.energyManagement || {},
       procurement: data?.synchronization?.procurement || data?.procurement || data?.fullResults?.synchronization?.procurement || null,
       calculations: data?.calculations || data?.fullResults?.calculations || {},
       pidMetadata: pid?.metadata || {},
+      pidNodes,
       pidEdges,
       tags
     };
@@ -51,6 +54,14 @@ const CalculationBook: React.FC<Props> = ({ data, onProcurementTierChange }) => 
     ...(Array.isArray(model.equipment.oilSeparators) ? model.equipment.oilSeparators : []),
     ...(model.equipment.receiver ? [model.equipment.receiver] : [])
   ];
+  const pidEquipmentRows = model.pidNodes.map((node: any) => ({
+    tag: node.data?.tag || node.id,
+    family: node.data?.componentType || 'unspecified',
+    model: node.data?.details?.catalogueModelId || node.data?.model || node.data?.label || '—',
+    source: node.data?.details?.sourceDocumentId || node.data?.details?.manufacturer || 'P&ID semantic record',
+    status: node.data?.details?.selectionStatus || node.data?.selectionStatus || 'review-required'
+  }));
+  const printBook = () => window.print();
 
   if (!data) return <Box p={3}><Alert severity="info">No completed design is loaded. Submit and confirm a design request to generate the calculation book.</Alert></Box>;
 
@@ -60,7 +71,7 @@ const CalculationBook: React.FC<Props> = ({ data, onProcurementTierChange }) => 
         <Typography variant="h6" sx={{ fontWeight: 900, color: '#0b2942' }}>Engineering Calculation Book</Typography>
         <Typography variant="body2" color="text.secondary">Generated from the active design response. Missing fields are deliberately shown as “—”; they are not replaced with estimated engineering values.</Typography>
       </Box>
-      <Chip label={model.refrigerant} color="primary" variant="outlined" sx={{ fontWeight: 800 }} />
+      <Box sx={{ display: 'flex', gap: 1 }}><Chip label={model.refrigerant} color="primary" variant="outlined" sx={{ fontWeight: 800 }} /><Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={printBook}>Print / Save PDF</Button></Box>
     </Box>
 
     <Grid container spacing={1.25} sx={{ mb: 2 }}>
@@ -88,14 +99,15 @@ const CalculationBook: React.FC<Props> = ({ data, onProcurementTierChange }) => 
       </TableBody></Table> : <Alert severity="warning">No refrigerant-profile metadata was returned with this design.</Alert>}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>The profile establishes the generated selection policy. Final component ratings, pressure classes, charge limits, safety zoning, and relief design remain subject to manufacturer selection and engineering review.</Typography>
     </Section>
-    <Section title="2. Cooling Load Calculation">
+    <Section title="3. Cooling Load Calculation">
       {model.loads.length ? <Table size="small"><TableHead><TableRow><TableCell>Room</TableCell><TableCell>Temperature</TableCell><TableCell align="right">Total load</TableCell><TableCell align="right">Transmission</TableCell><TableCell align="right">Product</TableCell><TableCell align="right">Infiltration</TableCell><TableCell align="right">Internal</TableCell></TableRow></TableHead><TableBody>
-        {model.loads.map((load: any, index: number) => <TableRow key={`${load.room || 'room'}-${index}`}><TableCell>{dash(load.room || load.roomName)}</TableCell><TableCell>{dash(load.temperature, ' °C')}</TableCell><TableCell align="right">{dash(load.load ?? load.total, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.transmission, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.product, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.infiltration, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.internal, ' kW')}</TableCell></TableRow>)}
+        {model.loads.map((load: any, index: number) => <TableRow key={`${load.room || 'room'}-${index}`}><TableCell>{dash(load.room || load.roomName)}<Typography variant="caption" display="block" color={load.calculationStatus === 'calculated' ? 'success.main' : 'warning.main'}>{load.calculationStatus || 'review-required'}</Typography></TableCell><TableCell>{dash(load.temperature, ' °C')}</TableCell><TableCell align="right">{dash(load.load ?? load.total, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.transmission, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.product, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.infiltration, ' kW')}</TableCell><TableCell align="right">{dash(load.breakdown?.internal, ' kW')}</TableCell></TableRow>)}
         <TableRow sx={{ '& td': { fontWeight: 900 } }}><TableCell colSpan={2}>Calculated total</TableCell><TableCell align="right">{dash(data?.summary?.totalCoolingLoad ?? loadTotal, ' kW')}</TableCell><TableCell colSpan={4}>The total shown is the active engine output; no load component is synthesized here.</TableCell></TableRow>
       </TableBody></Table> : <Alert severity="warning">The active response did not contain room-level load results.</Alert>}
     </Section>
 
     <Section title="4. Equipment Selection">
+      <Alert severity="info" sx={{ mb: 1 }}>A schedule item is purchase-ready only when its manufacturer record, operating point, port/DN compatibility and source document are returned as selected. Otherwise it remains a candidate or review-required.</Alert>
       <Box sx={{ p: 1.25 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: .5 }}>Compressors</Typography>
         <Table size="small"><TableHead><TableRow><TableCell>Tag</TableCell><TableCell>Model</TableCell><TableCell>Type</TableCell><TableCell align="right">Capacity</TableCell><TableCell align="right">Power</TableCell></TableRow></TableHead><TableBody>{compressorRows.length ? compressorRows.map((item: any, index: number) => <TableRow key={item.tag || index}><TableCell>{dash(item.tag)}</TableCell><TableCell>{dash(item.model)}</TableCell><TableCell>{dash(item.type)}</TableCell><TableCell align="right">{dash(item.capacity ?? item.capacityKW, ' kW')}</TableCell><TableCell align="right">{dash(item.power ?? item.powerKW, ' kW')}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5}>No compressor selection was returned.</TableCell></TableRow>}</TableBody></Table>
@@ -106,17 +118,23 @@ const CalculationBook: React.FC<Props> = ({ data, onProcurementTierChange }) => 
       </Box>
     </Section>
 
-    <Section title="5. Location-Aware Procurement & Price Inquiry">
+    <Section title="5. Selection Evidence, Vessel / Valve Register and BOM">
+      <Table size="small"><TableHead><TableRow><TableCell>Tag</TableCell><TableCell>Family</TableCell><TableCell>Model / catalogue ID</TableCell><TableCell>Evidence source</TableCell><TableCell>Status</TableCell></TableRow></TableHead><TableBody>
+        {pidEquipmentRows.length ? pidEquipmentRows.map((item: any, index: number) => <TableRow key={`${item.tag}-${index}`}><TableCell>{dash(item.tag)}</TableCell><TableCell>{dash(item.family)}</TableCell><TableCell>{dash(item.model)}</TableCell><TableCell>{dash(item.source)}</TableCell><TableCell><Chip size="small" color={item.status === 'selected' ? 'success' : 'warning'} label={item.status} /></TableCell></TableRow>) : <TableRow><TableCell colSpan={5}>No P&amp;ID equipment register was returned.</TableCell></TableRow>}
+      </TableBody></Table>
+      <Divider sx={{ my: 1.5 }} />
+      <Typography variant="subtitle2" sx={{ fontWeight: 800, px: 1.25, pt: 1 }}>Location-Aware Procurement &amp; Price Inquiry</Typography>
       <ProcurementBOMPanel procurement={model.procurement} onTierChange={onProcurementTierChange} />
     </Section>
-    <Section title="4. Generated P&ID Line Register">
+    <Section title="6. Generated P&ID Line Register">
       {model.pidEdges.length ? <Table size="small"><TableHead><TableRow><TableCell>Line</TableCell><TableCell>Service</TableCell><TableCell>From</TableCell><TableCell>To</TableCell><TableCell align="right">DN</TableCell><TableCell>Joint policy</TableCell></TableRow></TableHead><TableBody>{model.pidEdges.map((edge: any, index: number) => <TableRow key={edge.id || index}><TableCell>{dash(edge.label || edge.id)}</TableCell><TableCell>{dash(edge.data?.service || edge.service)}</TableCell><TableCell>{dash(model.tags.get(edge.source))}</TableCell><TableCell>{dash(model.tags.get(edge.target))}</TableCell><TableCell align="right">{dash(edge.data?.dn ?? edge.dn)}</TableCell><TableCell>{dash(edge.data?.jointType || edge.jointType)}</TableCell></TableRow>)}</TableBody></Table> : <Alert severity="warning">No generated P&ID topology was returned with this design.</Alert>}
     </Section>
 
-    <Section title="6. Energy and Review Status">
+    <Section title="7. Energy and Review Status">
       <Table size="small"><TableBody>
-        <TableRow><TableCell>Reported COP</TableCell><TableCell>{dash(model.energy.cop ?? model.energy.COP)}</TableCell><TableCell>Annual energy</TableCell><TableCell>{dash(model.energy.annualEnergy ?? model.energy.annualConsumption, ' kWh')}</TableCell></TableRow>
-        <TableRow><TableCell>Calculation payload</TableCell><TableCell>{Object.keys(model.calculations).length ? 'Available' : 'Not returned'}</TableCell><TableCell>Engineering issue status</TableCell><TableCell>Review required before IFC issue</TableCell></TableRow>
+        <TableRow><TableCell>Reported COP</TableCell><TableCell>{dash(model.energy.cop ?? model.energy.COP)}</TableCell><TableCell>Measured baseline energy</TableCell><TableCell>{model.energyManagement?.baseline?.origin === 'measured' ? dash(model.energyManagement.baseline.annualKwh, ' kWh') : 'Input required — see Energy Hub'}</TableCell></TableRow>
+        <TableRow><TableCell>Energy baseline status</TableCell><TableCell>{model.energyManagement?.baseline?.origin || 'input-required'}</TableCell><TableCell>Engineering issue status</TableCell><TableCell>Review required before IFC issue</TableCell></TableRow>
+        <TableRow><TableCell>Calculation payload</TableCell><TableCell>{Object.keys(model.calculations).length ? 'Available' : 'Not returned'}</TableCell><TableCell>EnPI status</TableCell><TableCell>{model.energyManagement?.enpis?.[0]?.status || 'input-required'}</TableCell></TableRow>
       </TableBody></Table>
     </Section>
   </Box>;

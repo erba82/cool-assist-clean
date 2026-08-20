@@ -330,8 +330,10 @@ export const applyAmmoniaElevationHints = (equipment: SceneEquipment[], refriger
 
   const hints: ElevationHint[] = [];
   const compressors = equipment.filter((item) => /compressor|screw|recip|piston/.test(equipmentText(item)));
-  const oilCoolers = equipment.filter((item) => /oil.?cooler/.test(equipmentText(item)));
-  const lpSeparators = equipment.filter((item) => /lp.?separator|low.?pressure.?separator|pump.?separator|surge.?drum/.test(equipmentText(item)));
+  // A thermosiphon receiver and an oil cooler are separate physical elements.
+  // Do not let a combined label make a receiver its own elevation reference.
+  const oilCoolers = equipment.filter((item) => /oil.?cooler/.test(equipmentText(item)) && !/thermosiphon/.test(equipmentText(item)));
+  const lpSeparators = equipment.filter((item) => /lp.?separator|low.?pressure.*separator|pump.?separator|surge.?drum/.test(equipmentText(item)));
   const pumps = equipment.filter((item) => /pump|circulator/.test(equipmentText(item)) && !/pump.?separator/.test(equipmentText(item)));
   const thermosiphons = equipment.filter((item) => /thermosiphon/.test(equipmentText(item)));
   const condensers = equipment.filter((item) => /condenser/.test(equipmentText(item)));
@@ -350,8 +352,10 @@ export const applyAmmoniaElevationHints = (equipment: SceneEquipment[], refriger
     thermosiphons.forEach((item) => {
       const nextY = Math.max(item.position[1], coolerCentreline + 1.85);
       translateEquipment(item, [item.position[0], nextY, item.position[2]]);
-      review(item, 'Thermosiphon liquid source is shown >1.8 m above the oil-cooler centreline; verify required head from actual piping loss and oil-cooler data.', 'Johnson Controls/Frick Form 070.900-E, Thermosyphon Oil Cooling', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
+      review(item, 'Thermosiphon liquid source is shown >1.8 m above the separately tagged oil-cooler centreline; verify required head from actual piping loss and oil-cooler data.', 'Johnson Controls/Frick Form 070.900-E, Thermosyphon Oil Cooling', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
     });
+  } else {
+    thermosiphons.forEach((item) => review(item, 'No separately tagged oil cooler exists in the P&ID; the >1.8 m thermosiphon-head relationship was not evaluated.', 'Johnson Controls/Frick Form 070.900-E, Thermosyphon Oil Cooling', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content'));
   }
 
   const highestSuctionReference = compressors.length ? Math.max(...compressors.map((item) => item.position[1])) : null;

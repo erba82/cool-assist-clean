@@ -22,6 +22,8 @@ THERMOPHYSICAL_PROVIDER_URL=http://127.0.0.1:5011
 THERMOPHYSICAL_PROVIDER_ALLOW_OUTBOUND=true
 THERMOPHYSICAL_PROVIDER_REFERENCE_STATE=IIR
 THERMOPHYSICAL_PROVIDER_TIMEOUT_MS=3000
+THERMOPHYSICAL_PROVIDER_HEALTH_INTERVAL_MS=30000
+THERMOPHYSICAL_PROVIDER_HEALTH_STALE_AFTER_MS=90000
 ```
 
 `ALLOW_OUTBOUND` enables the backend-to-loopback request policy; it does **not** permit internet calls. Remote URLs are rejected by the Node client.
@@ -47,6 +49,18 @@ npm run test:coolprop-sidecar
 ```
 
 Run `npm test` separately for the full regression suite that does not require the local sidecar.
+
+## Runtime health governance and manual restart
+
+The backend exposes `GET /api/core/thermophysical-provider/runtime-status`. It performs an explicit local health observation and returns a **fail-closed** selection gate. When the sidecar is unavailable, malformed, or stale beyond `THERMOPHYSICAL_PROVIDER_HEALTH_STALE_AFTER_MS`, property-dependent candidate work is blocked. A healthy sidecar permits only review-gated candidate work; it never authorizes final equipment selection.
+
+The backend may poll health while it is running, but it **never automatically starts or restarts** a sidecar process. This prevents hidden runtime changes to the evidence chain. If the runtime gate is blocked, use this controlled runbook:
+
+1. Preserve the sidecar diagnostic output and identify the failed process; do not retain its unverified result as current evidence.
+2. Stop only that local sidecar process, then rerun the PowerShell launcher shown above from the repository root.
+3. Confirm `http://127.0.0.1:5011/health` reports `providerId: coolprop`, a non-empty version and revision, `outboundRequests: false`, and all required fluid mappings as available.
+4. Run `npm run test:coolprop-sidecar` from `backend`; restart the backend only after the approved opt-in variables are present.
+5. Record the provider version/revision in the review evidence. Repeat manufacturer-map and independent engineering review before any selection decision.
 
 ## Engineering boundary
 

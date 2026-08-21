@@ -16,12 +16,19 @@ const { capabilityFor, listCapabilities } = require('../core/engineering/Refrige
 const { getProviderStatus, validatePropertyRequest } = require('../core/engineering/ThermophysicalProviderRegistry');
 const ThermophysicalParallelComparisonService = require('../core/engineering/ThermophysicalParallelComparisonService');
 const { CoolPropSidecarClient } = require('../core/engineering/CoolPropSidecarClient');
+const { SidecarHealthGovernor } = require('../core/engineering/SidecarHealthGovernor');
 const { readinessFor, listReadiness } = require('../core/engineering/MultiRefrigerantReadinessService');
 const { disciplineFor, listDisciplines } = require('../core/engineering/DisciplineCapabilityRegistry');
 const { evaluateEngineeringSystem } = require('../core/engineering/EngineeringReviewGate');
 
 // Initialize orchestrator
 let orchestrator = null;
+
+// Runtime health is monitored independently from calculation execution. The governor
+// only permits review-gated property-dependent candidate work and never authorizes
+// final equipment selection or automatic sidecar process restarts.
+const sidecarHealthGovernor = new SidecarHealthGovernor();
+sidecarHealthGovernor.startMonitoring();
 
 function getOrchestrator() {
     if (!orchestrator) {
@@ -399,6 +406,16 @@ router.get('/multi-refrigerant-readiness/:code', (req, res) => {
  */
 router.get('/thermophysical-provider/status', (_req, res) => {
     res.json({ success: true, provider: getProviderStatus() });
+});
+
+/**
+ * GET /api/core/thermophysical-provider/runtime-status
+ * Performs an explicit health observation and returns the fail-closed selection gate.
+ * This endpoint never restarts the sidecar and never approves a final selection.
+ */
+router.get('/thermophysical-provider/runtime-status', async (_req, res) => {
+    const runtime = await sidecarHealthGovernor.checkNow();
+    res.json({ success: runtime.health.status === 'healthy', runtime, reviewRequired: true, finalSelectionAllowed: false });
 });
 
 /**

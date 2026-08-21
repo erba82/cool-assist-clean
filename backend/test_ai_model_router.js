@@ -4,53 +4,90 @@ const assert = require('assert');
 const AIModelRouter = require('./services/AIModelRouter');
 
 const response = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+const textResponse = (model, content = 'ok') => response(200, { model, choices: [{ message: { content } }] });
 const messages = [{ role: 'user', content: 'test' }];
+const nvidiaEnv = {
+    NVIDIA_API_KEY: 'nvidia-test',
+    NVIDIA_MODEL_ULTRA: 'nvidia/nemotron-3-ultra-550b-a55b',
+    NVIDIA_MODEL_SUPER: 'nvidia/nemotron-3-super-120b-a12b',
+    NVIDIA_MODEL_NANO_OMNI: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'
+};
 
 (async () => {
     const calls = [];
-    const nvidiaFirst = new AIModelRouter({
-        env: { NVIDIA_API_KEY: 'nvidia-test', GEMINI_API_KEY: 'gemini-test', DEEPSEEK_API_KEY: 'deepseek-test' },
-        geminiService: { available: true, chat: async () => ({ success: true, message: 'gemini should not run' }) },
-        fetchImpl: async (url) => {
-            calls.push(url);
-            return response(200, { model: 'nvidia-model', choices: [{ message: { content: '{"name":"NVIDIA project","rooms":[]}' } }] });
-        }
+    const deterministicNvidia = new AIModelRouter({
+        env: nvidiaEnv,
+        geminiService: { available: false },
+        ollamaService: { chat: async () => ({ success: true, message: 'local must not run' }) },
+        fetchImpl: async (url, options) => { calls.push({ url, body: JSON.parse(options.body) }); return textResponse(JSON.parse(options.body).model, '{"name":"NVIDIA project","rooms":[]}'); }
     });
-    const first = await nvidiaFirst.complete({ messages });
-    assert.strictEqual(first.success, true);
-    assert.strictEqual(first.provider, 'nvidia');
+
+    const engineering = await deterministicNvidia.complete({ messages, purpose: 'engineering-assistant' });
+    assert.strictEqual(engineering.success, true);
+    assert.strictEqual(engineering.provider, 'nvidia');
+    assert.strictEqual(engineering.model, nvidiaEnv.NVIDIA_MODEL_SUPER);
+    assert.strictEqual(engineering.profile, 'agentic-engineering');
     assert.strictEqual(calls.length, 1);
-    assert(/integrate\.api\.nvidia\.com/.test(calls[0]));
+    assert(/integrate\.api\.nvidia\.com/.test(calls[0].url));
+    assert.strictEqual(calls[0].body.chat_template_kwargs.enable_thinking, true);
+
+    const highStakes = await deterministicNvidia.complete({ messages, purpose: 'project-intake' });
+    assert.strictEqual(highStakes.model, nvidiaEnv.NVIDIA_MODEL_ULTRA);
+    assert.strictEqual(highStakes.profile, 'frontier-reasoning');
+
+    const multimodal = await deterministicNvidia.complete({
+        purpose: 'attachment-analysis',
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'analyze attachment' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AA==' } }] }]
+    });
+    assert.strictEqual(multimodal.model, nvidiaEnv.NVIDIA_MODEL_NANO_OMNI);
+    assert.strictEqual(multimodal.profile, 'multimodal-reasoning');
 
     const geminiFallback = new AIModelRouter({
-        env: { GEMINI_API_KEY: 'gemini-test' },
-        geminiService: { available: true, chat: async () => ({ success: true, message: 'gemini fallback response' }) },
-        fetchImpl: async () => { throw new Error('fetch must not be called when NVIDIA and DeepSeek lack keys'); }
+        env: { GEMINI_API_KEY: 'gemini-test', GEMINI_MODEL: 'gemini-3.5-flash' },
+        geminiService: { available: true, chat: async (_message, _language, options) => ({ success: true, message: 'Gemini fallback', model: options.model }) },
+        ollamaService: { chat: async () => ({ success: true, message: 'local must not run' }) },
+        fetchImpl: async () => { throw new Error('NVIDIA must not run without a key'); }
     });
-    const second = await geminiFallback.complete({ messages });
-    assert.strictEqual(second.success, true);
-    assert.strictEqual(second.provider, 'gemini');
+    const gemini = await geminiFallback.complete({ messages, purpose: 'general-chat' });
+    assert.strictEqual(gemini.success, true);
+    assert.strictEqual(gemini.provider, 'gemini');
+    assert.strictEqual(gemini.model, 'gemini-3.5-flash');
 
-    const deepseekFallback = new AIModelRouter({
-        env: { NVIDIA_API_KEY: 'nvidia-test', DEEPSEEK_API_KEY: 'deepseek-test' },
+    const localFallback = new AIModelRouter({
+        env: { DEEPSEEK_LOCAL_ENABLED: 'true', OLLAMA_MODEL: 'deepseek-r1:1.5b' },
         geminiService: { available: false },
-        fetchImpl: async (url) => {
-            calls.push(url);
-            if (/integrate\.api\.nvidia\.com/.test(url)) return response(503, {});
-            return response(200, { model: 'deepseek-test-model', choices: [{ message: { content: 'deepseek fallback response' } }] });
-        }
+        ollamaService: { chat: async (_prompt, _language, model) => ({ success: true, message: 'local response', model }) },
+        fetchImpl: async () => { throw new Error('No cloud call expected'); }
     });
-    const third = await deepseekFallback.complete({ messages });
-    assert.strictEqual(third.success, true);
-    assert.strictEqual(third.provider, 'deepseek');
-    assert(third.attempts.some((attempt) => attempt.provider === 'nvidia'));
+    const local = await localFallback.complete({ messages, purpose: 'general-chat' });
+    assert.strictEqual(local.success, true);
+    assert.strictEqual(local.provider, 'deepseek-local');
+    assert.strictEqual(local.model, 'deepseek-r1:1.5b');
 
-    const structured = await nvidiaFirst.structuredProject('R717 cold store');
+    const circuit = new AIModelRouter({
+        env: { ...nvidiaEnv, AI_ROUTER_MAX_FAILURES: '2', DEEPSEEK_LOCAL_ENABLED: 'false' },
+        geminiService: { available: false },
+        ollamaService: null,
+        fetchImpl: async () => response(503, {})
+    });
+    await circuit.complete({ messages, purpose: 'project-intake' });
+    await circuit.complete({ messages, purpose: 'project-intake' });
+    const blocked = await circuit.complete({ messages, purpose: 'project-intake' });
+    assert.strictEqual(blocked.success, false);
+    assert(blocked.attempts.some((attempt) => attempt.status === 'skipped-circuit-open'));
+
+    const structured = await deterministicNvidia.structuredProject('R717 cold store');
     assert.strictEqual(structured.name, 'NVIDIA project');
     assert.strictEqual(structured.aiProvenance.provider, 'nvidia');
+    assert.strictEqual(structured.aiProvenance.model, nvidiaEnv.NVIDIA_MODEL_ULTRA);
     assert.strictEqual(structured.aiProvenance.reviewRequired, true);
 
-    console.log(JSON.stringify({ status: 'passed', order: ['nvidia', 'gemini', 'deepseek'], checks: ['nvidia-first', 'gemini-fallback', 'deepseek-fallback', 'structured-provenance'] }, null, 2));
+    const proposal = deterministicNvidia.buildLearningProposal(engineering);
+    assert.strictEqual(proposal.kind, 'test-finding');
+    assert.strictEqual(proposal.evidence.model, nvidiaEnv.NVIDIA_MODEL_SUPER);
+    assert.strictEqual(proposal.evidence.success, true);
+
+    console.log(JSON.stringify({ status: 'passed', checks: ['nvidia-super-engineering', 'nvidia-ultra-high-stakes', 'nvidia-nano-omni-multimodal', 'gemini-fallback', 'local-deepseek-fallback', 'circuit-breaker', 'structured-provenance', 'proposal-only-learning'] }, null, 2));
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;

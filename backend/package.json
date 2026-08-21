@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "test": "npm run test:governance",
     "test:governance": "node core/test_load_calculator_input_governance.js && node test_pid_traceable_contract.js && node test_pid_port_contract.js && node test_co2_pid_contract.js && node test_all_refrigerant_pid_profiles.js && node core/test_refrigerant_capability_matrix.js && node core/test_thermophysical_provider_registry.js && node core/test_sidecar_health_governor.js && node core/test_manufacturer_evidence_contract.js && node core/test_golden_case_registry.js && node core/test_pilot_scorecard.js && node core/test_pilot_readiness_evaluator.js && node core/test_multirefrigerant_catalogue_readiness.js && node core/test_multidiscipline_governance.js && node services/generative/test_design_generator_multirefrigerant_components.js && node test_ai_model_router.js && node core/test_learning_governance.js && node core/test_learning_review_registry.js && node test_multimodal_mcp_governance.js && node test_ammonia_elevation_hints.js && node core/test_energy_management_governance.js && node test_design_orchestrator_governance.js",
-    "test:coolprop-sidecar": "node core/test_sidecar_health_governor.js && node core/test_coolprop_sidecar_contract.js && node core/test_thermophysical_parallel_comparison.js && node services/generative/test_design_generator_multirefrigerant_thermo.js"
+    "test:coolprop-sidecar": "node core/test_sidecar_health_governor.js && node core/test_coolprop_sidecar_contract.js && node core/test_thermophysical_parallel_comparison.js && node services/generative/test_design_generator_multirefrigerant_thermo.js",
+    "test:ai-router-local": "node test_ai_router_local_integration.js"
   },
   "keywords": [
     "hvacr",

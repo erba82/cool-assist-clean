@@ -1,166 +1,85 @@
+'use strict';
+
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const OllamaService = require('./OllamaService');
 
 /**
- * Gemini Service for General Purpose Chat
- * Provides direct access to Google's Gemini API for answering any questions
- * Falls back to local Ollama when Gemini is unavailable
+ * Thin Gemini provider adapter. Provider fallback belongs only to AIModelRouter,
+ * so a failed Gemini call can never be misreported as a Gemini response.
  */
 class GeminiService {
-    constructor() {
-        this.apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-
-        // Initialize Ollama service as backup
-        this.ollamaService = new OllamaService();
-
-        if (!this.apiKey) {
-            console.warn('⚠️ GEMINI_API_KEY not found - attempting to use Ollama as fallback');
-            this.available = false;
-            return;
-        }
-
-        try {
-            this.genAI = new GoogleGenerativeAI(this.apiKey);
-            this.model = this.genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.7,
-                    topP: 0.9,
-                    topK: 40,
-                    maxOutputTokens: 2048,
-                }
-            });
-            this.available = true;
-            console.log('✅ GeminiService initialized');
-        } catch (error) {
-            console.error('❌ GeminiService initialization failed:', error.message);
-            this.available = false;
-        }
-
-        // Session storage: sessionId -> chat instance
+    constructor({ env = process.env, clientFactory } = {}) {
+        this.env = env;
+        this.apiKey = env.GEMINI_API_KEY || env.GOOGLE_API_KEY;
+        this.modelName = env.GEMINI_MODEL || 'gemini-3.5-flash';
         this.sessions = new Map();
-    }
+        this.models = new Map();
+        this.clientFactory = clientFactory || ((key) => new GoogleGenerativeAI(key));
+        this.available = false;
 
-    /**
-     * Chat with Gemini (stateless single message)
-     */
-    async chat(message, language = 'en') {
-        if (!this.available) {
-            console.log('⚠️ Gemini not available, falling back to Ollama');
-            // Fall back to Ollama if available
-            if (this.ollamaService.available) {
-                return await this.ollamaService.chat(message, language);
-            }
-            
-            return {
-                success: false,
-                error: 'Gemini API not available. Please check GEMINI_API_KEY.',
-                fallback: true
-            };
-        }
-
+        if (!this.apiKey) return;
         try {
-            const result = await this.model.generateContent(message);
-            const response = result.response.text();
-
-            return {
-                success: true,
-                message: response,
-                language
-            };
+            this.genAI = this.clientFactory(this.apiKey);
+            this.available = Boolean(this.genAI && typeof this.genAI.getGenerativeModel === 'function');
+            if (this.available) console.log(`GeminiService initialized for ${this.modelName}.`);
         } catch (error) {
-            console.error('❌ Gemini chat error:', error.message);
-            
-            // Fall back to Ollama if available
-            if (this.ollamaService.available) {
-                console.log('⚠️ Gemini failed, falling back to Ollama');
-                return await this.ollamaService.chat(message, language);
-            }
-            
-            return {
-                success: false,
-                error: error.message,
-                fallback: true
-            };
+            console.error('GeminiService initialization failed:', error.message);
+            this.available = false;
         }
     }
 
-    /**
-     * Chat with conversation history (stateful)
-     */
-    async chatWithHistory(message, sessionId, language = 'en') {
-        if (!this.available) {
-            console.log('⚠️ Gemini not available, falling back to Ollama for session:', sessionId);
-            // Fall back to Ollama if available
-            if (this.ollamaService.available) {
-                return await this.ollamaService.chatWithHistory(message, sessionId, language);
-            }
-            
-            return {
-                success: false,
-                error: 'Gemini API not available',
-                fallback: true
-            };
+    _model(modelName = this.modelName, { temperature = 0.3, maxTokens = 2048 } = {}) {
+        if (!this.available) throw new Error('Gemini API is not configured.');
+        const safeModel = String(modelName || this.modelName).trim();
+        const key = `${safeModel}:${temperature}:${maxTokens}`;
+        if (!this.models.has(key)) {
+            this.models.set(key, this.genAI.getGenerativeModel({
+                model: safeModel,
+                generationConfig: { temperature, topP: 0.9, topK: 40, maxOutputTokens: maxTokens }
+            }));
         }
+        return { model: this.models.get(key), modelName: safeModel };
+    }
 
+    async chat(message, language = 'en', options = {}) {
         try {
-            // Get or create session chat
-            if (!this.sessions.has(sessionId)) {
-                const chat = this.model.startChat({
-                    history: [],
-                });
-                this.sessions.set(sessionId, chat);
-            }
-
-            const chat = this.sessions.get(sessionId);
-            const result = await chat.sendMessage(message);
-            const response = result.response.text();
-
-            return {
-                success: true,
-                message: response,
-                language,
-                sessionId
-            };
-        } catch (error) { 
-            console.error('❌ Gemini chat error:', error.message);
-
-            // If error, clear session and try Ollama fallback
-            if (this.sessions.has(sessionId)) {
-                this.sessions.delete(sessionId);
-            }
-            
-            // Fall back to Ollama if available
-            if (this.ollamaService.available) {
-                console.log('⚠️ Gemini failed, falling back to Ollama for session:', sessionId);
-                return await this.ollamaService.chatWithHistory(message, sessionId, language);
-            }
-
-            return {
-                success: false,
-                error: error.message,
-                fallback: true
-            };
+            const selected = this._model(options.model, options);
+            const result = await selected.model.generateContent(String(message || ''));
+            const response = result?.response?.text?.();
+            if (!response) throw new Error('Gemini response did not contain text.');
+            return { success: true, message: response, language, model: selected.modelName };
+        } catch (error) {
+            return { success: false, error: error.message, provider: 'gemini' };
         }
     }
 
-    /**
-     * Clear session history
-     */
+    async chatWithHistory(message, sessionId, language = 'en', options = {}) {
+        try {
+            const selected = this._model(options.model, options);
+            const cacheKey = `${selected.modelName}:${String(sessionId || 'default')}`;
+            if (!this.sessions.has(cacheKey)) this.sessions.set(cacheKey, selected.model.startChat({ history: [] }));
+            const result = await this.sessions.get(cacheKey).sendMessage(String(message || ''));
+            const response = result?.response?.text?.();
+            if (!response) throw new Error('Gemini response did not contain text.');
+            return { success: true, message: response, language, sessionId, model: selected.modelName };
+        } catch (error) {
+            this.clearSession(sessionId);
+            return { success: false, error: error.message, provider: 'gemini' };
+        }
+    }
+
     clearSession(sessionId) {
-        if (this.sessions.has(sessionId)) {
-            this.sessions.delete(sessionId);
-            return true;
+        const suffix = `:${String(sessionId || 'default')}`;
+        let cleared = false;
+        for (const key of this.sessions.keys()) {
+            if (key.endsWith(suffix)) {
+                this.sessions.delete(key);
+                cleared = true;
+            }
         }
-        return false;
+        return cleared;
     }
 
-    /**
-     * Get session count (for monitoring)
-     */
-    getSessionCount() {
-        return this.sessions.size;
-    }
+    getSessionCount() { return this.sessions.size; }
 }
 
 module.exports = GeminiService;

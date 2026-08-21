@@ -7,9 +7,8 @@ const express = require('express');
 const router = express.Router();
 const DesignOrchestrator = require('../core/ai/DesignOrchestrator');
 const GeminiService = require('../services/GeminiService');
- 
-const AIServiceRouter = require('../services/AIServiceRouter'); // local fallback
 const AIModelRouter = require('../services/AIModelRouter');
+const LearningReviewRegistry = require('../core/ai/LearningReviewRegistry');
 
 // Create orchestrator instance
 const orchestrator = new DesignOrchestrator();
@@ -17,11 +16,7 @@ const orchestrator = new DesignOrchestrator();
 // Create Gemini service for general chat
 const geminiService = new GeminiService();
 const generalModelRouter = new AIModelRouter({ geminiService });
-
-
-
-// 🌟 ساخت نمونه از روتر لوکال برای هندل کردن چت‌ها
-const aiRouter = new AIServiceRouter();
+const learningReviewRegistry = new LearningReviewRegistry();
 
 /**
  * POST /api/chat/message
@@ -163,8 +158,8 @@ router.post('/general', async (req, res) => {
         const classifier = new IntentClassifier();
         const language = classifier.detectLanguage(message);
 
-        // General chat is read-only: it does not call project parsing, design execution,
-        // learning mutation or rule updates. Provider provenance is retained in the response.
+        // General chat is read-only: it does not invoke design execution or mutate engineering rules.
+        // One governed router owns all provider fallback, including the local DeepSeek endpoint.
         const routed = await generalModelRouter.complete({
             purpose: 'general-chat',
             temperature: 0.3,
@@ -174,57 +169,47 @@ router.post('/general', async (req, res) => {
                 { role: 'user', content: String(message) }
             ]
         });
-        let response = routed.success
-            ? { success: true, message: routed.text, sessionId: sessionId || 'default', provider: routed.provider, model: routed.model }
-            : { success: false, fallback: true, error: routed.error };
 
-        // مرحله دوم: اگر جمنای نبود یا ارور داد، از روتر قدرتمند لوکال استفاده کن!
-        if (!response.success || response.fallback) {
-            console.log('🚀 Redirecting to Advanced Local AI Router...');
-            
-            const localResponse = await aiRouter.chatWithHistory(
-                message,
-                sessionId || 'default',
-                'general_qa', // هدایت به تسک چت عمومی
-                language
-            );
-
-            if (localResponse && localResponse.success) {
-                response = localResponse;
-            } else {
-                response = { success: false, fallback: true, error: localResponse?.error };
-            }
+        // Router telemetry can become a review proposal, never an automatic routing-policy,
+        // skill, calculation, standards, or equipment-selection change.
+        if (routed.success && String(process.env.AI_ROUTER_LEARNING_PROPOSALS || 'true').toLowerCase() !== 'false') {
+            const proposal = generalModelRouter.buildLearningProposal(routed);
+            if (proposal) learningReviewRegistry.record(proposal).catch((error) => console.warn('AI router learning observation was not recorded:', error.message));
         }
 
-        // اگر حتی تمام مدل‌های لوکال ما هم کِرَش کردند:
-        if (!response.success && response.fallback) {
+        if (!routed.success) {
             const fallbackMessages = {
-                en: "I'm currently unable to connect to the AI models. If running locally, please ensure Ollama is open and your PC has enough RAM.",
-                fa: "در حال حاضر امکان اتصال به هوش مصنوعی وجود ندارد. لطفاً مطمئن شوید Ollama در حال اجراست و سیستم شما رم کافی دارد.",
-                ar: "لا يمكنني الاتصال بخدمة الذكاء الاصطناعي حالياً."
+                en: "I'm currently unable to connect to the configured AI providers. Please verify local Ollama or the provider credentials.",
+                fa: "در حال حاضر اتصال به مدل‌های هوش مصنوعی پیکربندی‌شده ممکن نیست. لطفاً Ollama محلی یا کلیدهای provider را بررسی کنید.",
+                ar: "لا يمكنني الاتصال بنماذج الذكاء الاصطناعي المهيأة حالياً."
             };
-
-            return res.json({
-                success: true, 
-                type: 'general_response',
-                message: fallbackMessages[language] || fallbackMessages.en,
-                language,
-                fallback: true
-            });
+            return res.json({ success: true, type: 'general_response', message: fallbackMessages[language] || fallbackMessages.en, language, fallback: true, attempts: routed.attempts || [] });
         }
 
         res.json({
             success: true,
             type: 'general_response',
-            message: response.message,
+            message: routed.text,
             language,
-                sessionId: response.sessionId || sessionId || 'default',
-                provenance: response.provider ? { provider: response.provider, model: response.model || null, purpose: 'general-chat', reviewRequired: false } : null
-            });
+            sessionId: sessionId || 'default',
+            provenance: { provider: routed.provider, model: routed.model, profile: routed.profile, purpose: routed.purpose, routing: routed.routing, reviewRequired: true }
+        });
 
     } catch (error) {
         console.error('❌ General chat error:', error);
         res.status(500).json({ success: false, error: error.message, type: 'error' });
+    }
+});
+
+/**
+ * GET /api/chat/providers
+ * Secret-safe router observability. This endpoint never returns credentials or prompts.
+ */
+router.get('/providers', (_req, res) => {
+    try {
+        res.json({ success: true, router: generalModelRouter.status() });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

@@ -164,6 +164,60 @@ class AgentLearningStore {
         return { flushed, remaining: remaining.length };
     }
 
+    async routingMetrics({ purpose, windowDays = 30 } = {}) {
+        await this.initialize();
+        if (this.state !== 'ready' || !this.Event) return { windowDays: 0, candidates: {} };
+        const days = Math.max(1, Math.min(90, Number(windowDays) || 30));
+        const observedAfter = new Date(this.now().getTime() - days * 24 * 60 * 60 * 1000);
+        const purposeFilter = asText(purpose, 80);
+        const routingMatch = { kind: 'model-routing-outcome', observedAt: { $gte: observedAfter } };
+        if (purposeFilter) routingMatch['evidence.purpose'] = purposeFilter;
+        const feedbackMatch = { kind: 'user-feedback', observedAt: { $gte: observedAfter } };
+        if (purposeFilter) feedbackMatch['evidence.purpose'] = purposeFilter;
+        const [routingRows, feedbackRows] = await Promise.all([
+            this.Event.aggregate([
+                { $match: routingMatch },
+                { $group: {
+                    _id: { provider: '$evidence.provider', model: '$evidence.model', profile: '$evidence.profile' },
+                    attempts: { $sum: 1 },
+                    successes: { $sum: { $cond: ['$evidence.success', 1, 0] } },
+                    totalLatencyMs: { $sum: { $ifNull: ['$evidence.latencyMs', 0] } }
+                } }
+            ]),
+            this.Event.aggregate([
+                { $match: feedbackMatch },
+                { $match: { 'evidence.provider': { $type: 'string' }, 'evidence.model': { $type: 'string' }, 'evidence.rating': { $type: 'number' } } },
+                { $group: {
+                    _id: { provider: '$evidence.provider', model: '$evidence.model', profile: '$evidence.profile' },
+                    feedbackCount: { $sum: 1 },
+                    averageRating: { $avg: '$evidence.rating' }
+                } }
+            ])
+        ]);
+        const candidates = {};
+        for (const row of routingRows) {
+            const key = `${row._id.provider}|${row._id.model}|${row._id.profile}`;
+            candidates[key] = {
+                provider: row._id.provider,
+                model: row._id.model,
+                profile: row._id.profile,
+                attempts: row.attempts,
+                successes: row.successes,
+                successRate: row.attempts ? row.successes / row.attempts : 0,
+                averageLatencyMs: row.attempts ? Math.round(row.totalLatencyMs / row.attempts) : null,
+                feedbackCount: 0,
+                averageRating: null
+            };
+        }
+        for (const row of feedbackRows) {
+            const key = `${row._id.provider}|${row._id.model}|${row._id.profile}`;
+            candidates[key] = candidates[key] || { provider: row._id.provider, model: row._id.model, profile: row._id.profile, attempts: 0, successes: 0, successRate: 0, averageLatencyMs: null, feedbackCount: 0, averageRating: null };
+            candidates[key].feedbackCount = row.feedbackCount;
+            candidates[key].averageRating = Math.round(row.averageRating * 100) / 100;
+        }
+        return { windowDays: days, purpose: purposeFilter || null, candidates };
+    }
+
     async list({ limit = 100, kind } = {}) {
         await this.initialize();
         if (this.state !== 'ready' || !this.Event) return [];

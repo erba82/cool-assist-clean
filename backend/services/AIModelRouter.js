@@ -23,6 +23,7 @@ const MULTIMODAL_PURPOSES = new Set(['attachment-analysis', 'multimodal-analysis
 const stripCodeFence = (value) => String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 const asText = (value, max = 240) => String(value || '').replace(/\u0000/g, '').trim().slice(0, max);
 const asFinite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const candidateKey = (candidate) => `${candidate.provider}|${candidate.model}|${candidate.profile}`;
 
 function hasNonTextContent(messages = []) {
     return messages.some((message) => Array.isArray(message?.content) || Boolean(message?.attachment) || Boolean(message?.attachments));
@@ -49,6 +50,12 @@ class AIModelRouter {
         this.maxFailures = Math.max(1, Number(env.AI_ROUTER_MAX_FAILURES) || DEFAULTS.maxFailures);
         this.learningStore = learningStore;
         this.telemetry = new Map();
+        this.adaptiveMetrics = new Map();
+        this.adaptiveRefreshes = new Map();
+        this.adaptiveEnabled = String(env.AI_ROUTER_ADAPTIVE_WEIGHTS || 'true').toLowerCase() !== 'false';
+        this.adaptiveWindowDays = Math.max(1, Math.min(90, Number(env.AI_ROUTER_ADAPTIVE_WINDOW_DAYS) || 30));
+        this.adaptiveMinSamples = Math.max(3, Math.min(50, Number(env.AI_ROUTER_ADAPTIVE_MIN_SAMPLES) || 3));
+        this.adaptiveRefreshMs = Math.max(5000, Number(env.AI_ROUTER_ADAPTIVE_REFRESH_MS) || 60000);
     }
 
     _modelConfig() {
@@ -85,9 +92,53 @@ class AIModelRouter {
         return { id, provider, model, profile, ...extra };
     }
 
+    _refreshAdaptiveMetrics(purpose) {
+        if (!this.adaptiveEnabled || !this.learningStore || typeof this.learningStore.routingMetrics !== 'function') return;
+        const current = this.adaptiveMetrics.get(purpose);
+        if (current && this.now() - current.fetchedAt < this.adaptiveRefreshMs) return;
+        if (this.adaptiveRefreshes.has(purpose)) return;
+        const refresh = Promise.resolve(this.learningStore.routingMetrics({ purpose, windowDays: this.adaptiveWindowDays }))
+            .then((metrics) => this.adaptiveMetrics.set(purpose, { fetchedAt: this.now(), metrics }))
+            .catch((error) => console.warn('Adaptive AI telemetry refresh failed:', error.message))
+            .finally(() => this.adaptiveRefreshes.delete(purpose));
+        this.adaptiveRefreshes.set(purpose, refresh);
+    }
+
+    _adaptiveCandidate(candidate, purpose) {
+        const snapshot = this.adaptiveMetrics.get(purpose)?.metrics;
+        const metric = snapshot?.candidates?.[candidateKey(candidate)] || null;
+        if (!metric || metric.attempts < this.adaptiveMinSamples) return { eligible: false, score: null, attempts: metric?.attempts || 0, reason: 'insufficient-samples' };
+        const reliability = Math.max(0, Math.min(1, Number(metric.successRate) || 0));
+        const latency = Number(metric.averageLatencyMs);
+        const latencyScore = Number.isFinite(latency) ? Math.max(0, Math.min(1, 1 - latency / 30000)) : 0.5;
+        const hasFeedback = Number(metric.feedbackCount) >= this.adaptiveMinSamples && Number.isFinite(Number(metric.averageRating));
+        const feedbackScore = hasFeedback ? Math.max(0, Math.min(1, Number(metric.averageRating) / 5)) : 0.5;
+        // Feedback is deliberately capped at 10%; runtime reliability remains decisive.
+        const score = Math.round((reliability * 0.70 + latencyScore * 0.20 + feedbackScore * 0.10) * 1000) / 10;
+        return { eligible: true, score, attempts: metric.attempts, successRate: Math.round(reliability * 1000) / 10, averageLatencyMs: Number.isFinite(latency) ? latency : null, feedbackCount: Number(metric.feedbackCount) || 0, averageRating: hasFeedback ? Number(metric.averageRating) : null };
+    }
+
+    _applyAdaptiveOrdering(candidates, purpose) {
+        const enriched = candidates.map((candidate) => ({ ...candidate, adaptive: this._adaptiveCandidate(candidate, purpose) }));
+        const ordered = [];
+        for (let index = 0; index < enriched.length;) {
+            const provider = enriched[index].provider;
+            let end = index + 1;
+            while (end < enriched.length && enriched[end].provider === provider) end += 1;
+            const group = enriched.slice(index, end);
+            if (group.length > 1 && group.every((candidate) => candidate.adaptive.eligible)) {
+                group.sort((left, right) => right.adaptive.score - left.adaptive.score);
+            }
+            ordered.push(...group);
+            index = end;
+        }
+        return ordered;
+    }
+
     getRoutePlan(request = {}) {
         const requirements = this._requirements(request);
         const models = this._modelConfig();
+        this._refreshAdaptiveMetrics(requirements.purpose);
         const candidates = [];
         const nvidiaConfigured = Boolean(this.env.NVIDIA_API_KEY);
         const geminiConfigured = Boolean(this.env.GEMINI_API_KEY || this.env.GOOGLE_API_KEY) && Boolean(this.gemini?.available);
@@ -117,7 +168,7 @@ class AIModelRouter {
         return {
             strategy: 'capability-latency-provenance',
             requirements,
-            candidates: candidates.map((candidate) => ({ ...candidate, circuitOpen: this._isCircuitOpen(candidate) }))
+            candidates: this._applyAdaptiveOrdering(candidates, requirements.purpose).map((candidate) => ({ ...candidate, circuitOpen: this._isCircuitOpen(candidate) }))
         };
     }
 
@@ -138,7 +189,8 @@ class AIModelRouter {
             deepseekLocal: { configured: String(this.env.DEEPSEEK_LOCAL_ENABLED || 'true').toLowerCase() !== 'false', baseUrl: this.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434', model: models.deepseekLocal },
             deepseekRemote: { configured: Boolean(this.env.DEEPSEEK_API_KEY), baseUrl: this.env.DEEPSEEK_API_BASE_URL || DEFAULTS.deepSeekBaseUrl, model: models.deepseekRemote },
             defaultPlan: plan.candidates,
-            telemetry
+            telemetry,
+            adaptiveLearning: { enabled: this.adaptiveEnabled, windowDays: this.adaptiveWindowDays, minSamples: this.adaptiveMinSamples, refreshMs: this.adaptiveRefreshMs, profilesWithMetrics: this.adaptiveMetrics.get('general')?.metrics?.candidates ? Object.keys(this.adaptiveMetrics.get('general').metrics.candidates).length : 0, providerPrecedencePreserved: true }
         };
     }
 

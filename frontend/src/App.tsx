@@ -1,38 +1,36 @@
-import React, { useState, useMemo, createContext, useContext, ReactNode } from 'react';
+import React, { useState, useMemo, createContext, useContext, ReactNode, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, Theme, PaletteMode } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import axios from 'axios';
 
-// Components and pages
-import DashboardLayout from './pages/DashboardLayout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Welcome from './pages/Welcome';
-import Overview from './pages/Overview';
-import ProjectManagement from './pages/ProjectManagement';
-import RefrigerantProperties from './pages/RefrigerantProperties';
-import EngineeringCalculator from './pages/EngineeringCalculator';
-import UnitConverter from './pages/UnitConverter';
-import LoadCalculation from './pages/LoadCalculation';
-import Profile from './pages/Profile';
-import FinancialAccount from './pages/FinancialAccount';
-import SubscriptionPlans from './pages/SubscriptionPlans';
-import DiagramGenerator from './pages/DiagramGenerator';
-import DiagramViewerPage from './pages/DiagramViewerPage';
-import EnhancedDiagramGenerator from './pages/EnhancedDiagramGenerator';
-import AutomaticDiagramGenerator from './pages/AutomaticDiagramGenerator';
-
-import AmmoniaCalculationTest from './pages/AmmoniaCalculationTest';
-import PLCDesign from './pages/PLCDesign';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import AnimatedWelcome from './pages/AnimatedWelcome';
-import UnifiedChatPage from './components/UnifiedChatPage';
-import AmmoniaDesignWizard from './pages/AmmoniaDesignWizard';
-
-// Adding WiringDiagramPage
-import WiringDiagramPage from './pages/WiringDiagramPage';
+// Dashboard shell and feature pages are loaded only for their matching routes.
+const DashboardLayout = lazy(() => import('./pages/DashboardLayout'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Welcome = lazy(() => import('./pages/Welcome'));
+const Overview = lazy(() => import('./pages/Overview'));
+const ProjectManagement = lazy(() => import('./pages/ProjectManagement'));
+const RefrigerantProperties = lazy(() => import('./pages/RefrigerantProperties'));
+const EngineeringCalculator = lazy(() => import('./pages/EngineeringCalculator'));
+const UnitConverter = lazy(() => import('./pages/UnitConverter'));
+const LoadCalculation = lazy(() => import('./pages/LoadCalculation'));
+const Profile = lazy(() => import('./pages/Profile'));
+const FinancialAccount = lazy(() => import('./pages/FinancialAccount'));
+const SubscriptionPlans = lazy(() => import('./pages/SubscriptionPlans'));
+const DiagramGenerator = lazy(() => import('./pages/DiagramGenerator'));
+const DiagramViewerPage = lazy(() => import('./pages/DiagramViewerPage'));
+const EnhancedDiagramGenerator = lazy(() => import('./pages/EnhancedDiagramGenerator'));
+const AutomaticDiagramGenerator = lazy(() => import('./pages/AutomaticDiagramGenerator'));
+const AmmoniaCalculationTest = lazy(() => import('./pages/AmmoniaCalculationTest'));
+const PLCDesign = lazy(() => import('./pages/PLCDesign'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const AnimatedWelcome = lazy(() => import('./pages/AnimatedWelcome'));
+const UnifiedChatPage = lazy(() => import('./components/UnifiedChatPage'));
+const AmmoniaDesignWizard = lazy(() => import('./pages/AmmoniaDesignWizard'));
+const WiringDiagramPage = lazy(() => import('./pages/WiringDiagramPage'));
+const RouteFallback = () => <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>Loading application module…</div>;
 
 // Context and providers
 import { AIProvider } from './context/AIContext';
@@ -376,6 +374,7 @@ function App() {
           <AIProvider>
             <ProjectProvider>
               <LayoutProvider>
+                <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   {/* Public routes - redirect login to dashboard */}
                   <Route path="/" element={<AnimatedWelcome onComplete={() => window.location.href = '/welcome'} />} />
@@ -573,6 +572,7 @@ function App() {
                   {/* Fallback route */}
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
+                </Suspense>
               </LayoutProvider>
             </ProjectProvider>
           </AIProvider>

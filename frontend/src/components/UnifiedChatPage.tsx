@@ -26,9 +26,6 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import axios from 'axios';
-import ProfessionalPIDCanvas from './ProfessionalPIDCanvas';
-import PIDDrawingEngine from './PIDDrawingEngine';
-import CalculationBook from './CalculationBook';
 
 const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refrigerant?: string }) => {
   const declared = Array.isArray(compliance?.checks) ? compliance.checks : (Array.isArray(compliance?.standards) ? compliance.standards : []);
@@ -50,8 +47,14 @@ const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refr
 };
 // Lazy load 3D component to prevent react-three-fiber from crashing on initial load
 const Refrigeration3DCanvasV2 = lazy(() => import('./3D/Refrigeration3DCanvasV2')); const Refrigeration3DCanvas = lazy(() => import('./3D/Refrigeration3DCanvas')); const TopologyIndustrialCanvas = lazy(() => import('./3D/TopologyIndustrialCanvas'));
-import { AnnualEnergyChart, EnergySankeyDiagram, StrategySelection } from './EnergyVisualization';
-import EnergyManagementHub from './EnergyManagementHub';
+const ProfessionalPIDCanvas = lazy(() => import('./ProfessionalPIDCanvas'));
+const PIDDrawingEngine = lazy(() => import('./PIDDrawingEngine'));
+const CalculationBook = lazy(() => import('./CalculationBook'));
+const EnergyManagementHub = lazy(() => import('./EnergyManagementHub'));
+const AnnualEnergyChart = lazy(async () => ({ default: (await import('./EnergyVisualization')).AnnualEnergyChart }));
+const EnergySankeyDiagram = lazy(async () => ({ default: (await import('./EnergyVisualization')).EnergySankeyDiagram }));
+const StrategySelection = lazy(async () => ({ default: (await import('./EnergyVisualization')).StrategySelection }));
+const HeavyPanelFallback = ({ label }: { label: string }) => <Box display="flex" alignItems="center" justifyContent="center" height="100%" minHeight="120px"><CircularProgress size={24} /><Typography sx={{ ml: 1.5 }}>{label}</Typography></Box>;
 import InformationGatheringPanel from './InformationGatheringPanel';
 import { ToolsPanel, CalculatorWidget, UnitConverterWidget, RefrigerantPropsWidget } from './FloatingTools';
 import { useParams } from 'react-router-dom';
@@ -581,12 +584,12 @@ const EnergyAnalysisView = ({ data }: { data: any }) => {
 
             {/* Energy Flow Diagram */}
             <Box mt={3}>
-                <EnergySankeyDiagram data={data} strategies={strategies} />
+                <Suspense fallback={<HeavyPanelFallback label="Loading energy flow..." />}><EnergySankeyDiagram data={data} strategies={strategies} /></Suspense>
             </Box>
 
             {/* Annual Energy Chart */}
             <Box mt={3}>
-                <AnnualEnergyChart data={data} />
+                <Suspense fallback={<HeavyPanelFallback label="Loading energy chart..." />}><AnnualEnergyChart data={data} /></Suspense>
             </Box>
 
             {/* PDF Export Button */}
@@ -763,7 +766,7 @@ const PIDSection = ({ pidData, projectInfo, designData }: { pidData: any, projec
             </AccordionSummary>
             <AccordionDetails>
                 <Box height="500px" border="1px solid #ccc" borderRadius={1} overflow="hidden">
-                    <ProfessionalPIDCanvas
+                    <Suspense fallback={<HeavyPanelFallback label="Loading P&ID..." />}><ProfessionalPIDCanvas
                         data={designData ? { ...designData, pidData } : pidData}
                         projectInfo={{
                             client: safeString(projectInfo?.location),
@@ -773,7 +776,7 @@ const PIDSection = ({ pidData, projectInfo, designData }: { pidData: any, projec
                             designer: 'GFDDE AI',
                             date: new Date().toLocaleDateString()
                         }}
-                    />
+                    /></Suspense>
                 </Box>
             </AccordionDetails>
         </Accordion>
@@ -1691,14 +1694,14 @@ const UnifiedChatPage: React.FC = () => {
                         <Box flexGrow={1} overflow="auto" p={2}>
                             {previewTab === 0 && <ProjectSummaryCard data={activeDesign} />}
                             {previewTab === 1 && <LoadsSection loads={activeDesign.loads} />}
-                            {previewTab === 2 && <CalculationBook data={activeDesign} onProcurementTierChange={applyProcurementTier} />}
+                            {previewTab === 2 && <Suspense fallback={<HeavyPanelFallback label="Loading calculation book..." />}><CalculationBook data={activeDesign} onProcurementTierChange={applyProcurementTier} /></Suspense>}
                             {previewTab === 3 && <EquipmentSection equipment={activeDesign.proposals?.best || activeDesign.equipment || {}} />}
                             {previewTab === 4 && (
                                 <Box height="100%" minHeight="620px">
-                                    <PIDDrawingEngine
+                                    <Suspense fallback={<HeavyPanelFallback label="Loading editable P&ID..." />}><PIDDrawingEngine
                                         nodes={activeDesign.pidData?.equipment || activeDesign.pidData?.nodes || []}
                                         edges={activeDesign.pidData?.pipes || activeDesign.pidData?.edges || []}
-                                    />
+                                    /></Suspense>
                                 </Box>
                             )}
                             {previewTab === 5 && (
@@ -1719,7 +1722,7 @@ const UnifiedChatPage: React.FC = () => {
                                     </Suspense>
                                 </Box>
                             )}
-                            {previewTab === 6 && <EnergyManagementHub data={activeDesign} />}
+                            {previewTab === 6 && <Suspense fallback={<HeavyPanelFallback label="Loading energy management..." />}><EnergyManagementHub data={activeDesign} /></Suspense>}
                             {previewTab === 7 && <ComplianceSection compliance={activeDesign.compliance} refrigerant={activeDesign.project?.refrigerant || activeDesign.projectInfo?.refrigerant} />}
                         </Box>
                     </>

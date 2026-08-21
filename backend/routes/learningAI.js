@@ -21,6 +21,13 @@ router.get('/events', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+router.get('/routing-metrics', async (req, res) => {
+    try {
+        const metrics = await automaticStore.routingMetrics({ purpose: req.query?.purpose, windowDays: req.query?.windowDays });
+        res.json({ success: true, metrics, policy: 'Metrics may reorder eligible profiles within one provider only. Provider precedence and engineering governance are fixed.' });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 router.get('/proposals', async (_req, res) => {
     try {
         res.json({ success: true, proposals: await registry.list(), policy: 'Proposals are reserved for controlled promotion of engineering rules, skills, or other production-impacting changes.' });
@@ -36,6 +43,10 @@ router.post('/feedback', async (req, res) => {
                 interactionId: req.body?.interactionId || null,
                 rating: req.body?.rating ?? null,
                 category: req.body?.category || null,
+                provider: req.body?.provider || null,
+                model: req.body?.model || null,
+                profile: req.body?.profile || null,
+                purpose: req.body?.purpose || null,
                 feedback: req.body?.feedback || req.body?.summary || null
             },
             metadata: { attachmentId: req.body?.attachmentId || null }

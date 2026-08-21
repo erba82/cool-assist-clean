@@ -51,7 +51,8 @@ module.exports = (_env, argv = {}) => {
         cacheGroups: {
           framework: { test: /[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/, name: 'framework', chunks: 'all', priority: 30 },
           three: { test: /[\\/]node_modules[\\/](three|@react-three)[\\/]/, name: 'three', chunks: 'all', priority: 25 },
-          vendors: { test: /[\\/]node_modules[\\/]/, name: 'vendors', chunks: 'all', priority: 10 }
+          // Keep dependencies of lazy pages out of the initial entrypoint; webpack creates shared async vendor chunks as needed.
+          vendors: { test: /[\\/]node_modules[\\/]/, name: 'vendors', chunks: 'async', priority: 10 }
         }
       }
     },

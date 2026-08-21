@@ -81,6 +81,30 @@ const nvidiaEnv = {
     assert.strictEqual(local.provider, 'deepseek-local');
     assert.strictEqual(local.model, 'deepseek-r1:1.5b');
 
+    const adaptiveStore = {
+        routingMetrics: async () => ({
+            candidates: {
+                'nvidia|nvidia/nemotron-3-super-120b-a12b|general-reasoning': { attempts: 5, successRate: 0.80, averageLatencyMs: 8000, feedbackCount: 5, averageRating: 3 },
+                'nvidia|nvidia/nemotron-3-ultra-550b-a55b|escalated-reasoning': { attempts: 5, successRate: 0.95, averageLatencyMs: 1200, feedbackCount: 5, averageRating: 5 }
+            }
+        })
+    };
+    const adaptiveRouter = new AIModelRouter({
+        env: { ...nvidiaEnv, AI_ROUTER_ADAPTIVE_MIN_SAMPLES: '3', AI_ROUTER_ADAPTIVE_REFRESH_MS: '5000' },
+        learningStore: adaptiveStore,
+        geminiService: { available: false },
+        ollamaService: null,
+        fetchImpl: async () => textResponse(nvidiaEnv.NVIDIA_MODEL_ULTRA, 'adaptive response')
+    });
+    const adaptiveInitial = adaptiveRouter.getRoutePlan({ messages, purpose: 'general-chat' });
+    assert.strictEqual(adaptiveInitial.candidates[0].id, 'nvidia-super');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const adaptivePlan = adaptiveRouter.getRoutePlan({ messages, purpose: 'general-chat' });
+    assert.strictEqual(adaptivePlan.candidates[0].id, 'nvidia-ultra');
+    assert.strictEqual(adaptivePlan.candidates[0].adaptive.eligible, true);
+    assert.strictEqual(adaptivePlan.candidates[0].provider, 'nvidia');
+    assert.strictEqual(adaptiveRouter.status().adaptiveLearning.providerPrecedencePreserved, true);
+
     const circuit = new AIModelRouter({
         env: { ...nvidiaEnv, AI_ROUTER_MAX_FAILURES: '2', DEEPSEEK_LOCAL_ENABLED: 'false' },
         geminiService: { available: false },
@@ -104,7 +128,7 @@ const nvidiaEnv = {
     assert.strictEqual(proposal.evidence.model, nvidiaEnv.NVIDIA_MODEL_SUPER);
     assert.strictEqual(proposal.evidence.success, true);
 
-    console.log(JSON.stringify({ status: 'passed', checks: ['nvidia-super-engineering', 'nvidia-ultra-high-stakes', 'nvidia-nano-omni-multimodal', 'gemini-fallback', 'qwen-tokenrouter-fallback', 'local-deepseek-fallback', 'circuit-breaker', 'structured-provenance', 'proposal-only-learning'] }, null, 2));
+    console.log(JSON.stringify({ status: 'passed', checks: ['nvidia-super-engineering', 'nvidia-ultra-high-stakes', 'nvidia-nano-omni-multimodal', 'gemini-fallback', 'qwen-tokenrouter-fallback', 'local-deepseek-fallback', 'adaptive-profile-weighting', 'circuit-breaker', 'structured-provenance', 'proposal-only-learning'] }, null, 2));
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;

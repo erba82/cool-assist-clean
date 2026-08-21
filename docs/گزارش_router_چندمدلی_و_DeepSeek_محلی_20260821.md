@@ -14,11 +14,11 @@ router قبلی که تنها بر اساس ترتیب ثابت NVIDIA، Gemini 
 
 | provider / model | نقش در router | وضعیت این اجرا |
 |---|---|---|
-| NVIDIA Nemotron 3 Ultra 550B-A55B | reasoning پیشرفته، تحلیل high-stakes و long-context | model ID تأیید شد؛ کلید محلی وارد نشده است |
-| NVIDIA Nemotron 3 Super 120B-A12B | وظایف agentic و تحلیل مهندسی متنی | model ID تأیید شد؛ کلید محلی وارد نشده است |
-| NVIDIA Nemotron 3 Nano Omni 30B-A3B Reasoning | فایل‌های image/video/audio/PDF و تحلیل چندرسانه‌ای | model ID تأیید شد؛ کلید محلی وارد نشده است |
-| Gemini 3.5 Flash | fallback چندرسانه‌ای پایدار | model ID تأیید شد؛ کلید محلی وارد نشده است |
-| DeepSeek R1 1.5B از Ollama | fallback خصوصی و loopback-only برای گفت‌وگوی متنی | تست زنده با پاسخ موفق گذشت |
+| NVIDIA Nemotron 3 Ultra 550B-A55B | reasoning پیشرفته، تحلیل high-stakes و long-context | کلید معتبر است، اما دو probe مستقیم HTTP 503 «Service temporarily overloaded» گرفتند؛ router به Super fallback می‌کند |
+| NVIDIA Nemotron 3 Super 120B-A12B | وظایف agentic و تحلیل مهندسی متنی | PASS؛ پاسخ مستقیم HTTP 200 و مسیر live وب‌اپ NVIDIA Super را انتخاب کرد |
+| NVIDIA Nemotron 3 Nano Omni 30B-A3B Reasoning | فایل‌های image/video/audio/PDF و تحلیل چندرسانه‌ای | PASS در text-only probe؛ پاسخ مستقیم HTTP 200. تست واقعی فایل چندرسانه‌ای مرحلهٔ بعد است |
+| Gemini 3.5 Flash | fallback چندرسانه‌ای پایدار | PASS؛ adapter مستقیم Gemini با model ID پایدار پاسخ داد |
+| DeepSeek R1 1.5B از Ollama | fallback خصوصی و loopback-only برای گفت‌وگوی متنی | PASS؛ router و endpoint واقعی پاسخ گرفتند |
 
 ## فایل‌ها و رفتار افزوده‌شده
 
@@ -36,7 +36,12 @@ router قبلی که تنها بر اساس ترتیب ثابت NVIDIA، Gemini 
 | `npm test` در backend | PASS |
 | `npm run test:ai-router-local` با Ollama واقعی | PASS |
 | launcher محلی DeepSeek، مدل `deepseek-r1:1.5b`، loopback-only | healthy؛ پاسخ واقعی دریافت شد |
-| `POST /api/chat/general` پس از restart backend | PASS؛ provider=`deepseek-local` و model=`deepseek-r1:1.5b` |
+| `POST /api/chat/general` پیش از ورود cloud key | PASS؛ provider=`deepseek-local` و model=`deepseek-r1:1.5b` |
+| probe مستقیم NVIDIA Super | PASS؛ HTTP 200، returned model=`nvidia/nemotron-3-super-120b-a12b` |
+| probe مستقیم NVIDIA Nano Omni در text-only mode | PASS؛ HTTP 200، returned model=`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` |
+| probe مستقیم NVIDIA Ultra | FAIL موقت؛ HTTP 503 با پیام `Service temporarily overloaded` در دو تلاش مستقل |
+| Gemini 3.5 Flash از adapter مستقل | PASS؛ provider=`gemini` و response دریافت شد |
+| `POST /api/chat/general` پس از reload کلیدها | PASS؛ provider=`nvidia`، model=`nvidia/nemotron-3-super-120b-a12b` و sidecar=`healthy` |
 | CoolProp sidecar بعد از restart backend | healthy |
 | build production frontend | شروع شد اما بعد از ۱۸۰ ثانیه بدون خروجی متوقف شد؛ تغییری در frontend انجام نشده است |
 
@@ -44,7 +49,7 @@ router قبلی که تنها بر اساس ترتیب ثابت NVIDIA، Gemini 
 
 ## اقدام لازم برای تست cloud providerها
 
-کاربر باید تنها در `backend/.env` مقادیر `NVIDIA_API_KEY` و `GEMINI_API_KEY` را وارد کند و فایل را ذخیره کند. سپس backend restart می‌شود و هر provider مستقل با یک درخواست حداقلی تست خواهد شد. نتیجه شامل status، model ID، latency و provider انتخاب‌شده خواهد بود، اما هیچ credential یا prompt خصوصی در log یا Git گزارش نخواهد شد.
+کلیدهای `NVIDIA_API_KEY` و `GEMINI_API_KEY` اکنون در `backend/.env` محلی وارد شده‌اند، backend restart شده و در Git ثبت نشده‌اند. Super، Nano Omni و Gemini به‌طور زنده پاسخ می‌دهند. Ultra به‌دلیل overload موقت provider پاسخ نداده است؛ این وضعیت اعتبار کلید را رد نمی‌کند، زیرا دو مدل NVIDIA دیگر با همان کلید HTTP 200 برگردانده‌اند. router با حفظ policy، Ultra را در failure موقت به Super fallback می‌کند و پس از failureهای پی‌درپی circuit آن profile را موقتاً باز نگه می‌دارد.
 
 ## ملاحظات GPU
 

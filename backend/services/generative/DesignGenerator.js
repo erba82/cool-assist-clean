@@ -6,11 +6,15 @@
  */
 
 const RAGOrchestrator = require('./RAGOrchestrator');
-const CoolPropWrapper = require('../physics/CoolPropWrapper');
+const { CoolPropSidecarClient } = require('../../core/engineering/CoolPropSidecarClient');
+const { getProviderStatus } = require('../../core/engineering/ThermophysicalProviderRegistry');
+const { normalizeRefrigerant, getRefrigerantProfile } = require('../../core/data/RefrigerantProfiles');
+const { CatalogueRepository } = require('../../core/engineering/CatalogueRepository');
 
 class DesignGenerator {
     constructor() {
         this.ragOrchestrator = RAGOrchestrator;
+        this.catalogueRepository = new CatalogueRepository();
     }
 
     /**
@@ -108,175 +112,133 @@ class DesignGenerator {
      * Select components for variant based on strategy
      */
     selectComponents(requirements, context, strategy, variantIndex) {
-        const components = {
-            compressors: [],
-            condensers: [],
-            evaporators: [],
-            receiver: null,
-            expansionValves: [],
-            accessories: []
-        };
-
-        const capacity = requirements.cooling_capacity || 100;
-        const refrigerant = requirements.refrigerant || 'R717';
-
-        // Strategy affects component selection
+        const refrigerant = normalizeRefrigerant(requirements.refrigerant || 'R717');
+        const profile = getRefrigerantProfile(refrigerant);
+        if (!profile) throw new Error(`No refrigerant profile is registered for ${refrigerant}.`);
+        const capacity = Number(requirements.cooling_capacity);
+        const declaredCapacity = Number.isFinite(capacity) && capacity > 0 ? capacity : null;
         const strategyMultipliers = {
-            conservative: { safety: 1.3, efficiency: 0.9, cost: 0.8 },
-            balanced: { safety: 1.1, efficiency: 1.0, cost: 1.0 },
-            aggressive: { safety: 1.0, efficiency: 1.2, cost: 1.2 }
+            conservative: { safety: 1.3 },
+            balanced: { safety: 1.1 },
+            aggressive: { safety: 1.0 }
         };
-
         const multiplier = strategyMultipliers[strategy] || strategyMultipliers.balanced;
-
-        // Compressor selection
-        if (capacity > 200) {
-            // Two-stage system for high capacity
-            components.compressors = [
-                {
-                    tag: 'CMP-B-1',
-                    type: 'booster_compressor',
-                    model: `BITZER-${Math.floor(capacity * 0.4 * multiplier.efficiency)}`,
-                    capacity: capacity * 0.4,
-                    refrigerant,
-                    stage: 'booster'
-                },
-                {
-                    tag: 'CMP-H-1',
-                    type: 'high_stage_compressor',
-                    model: `BITZER-${Math.floor(capacity * 0.6 * multiplier.efficiency)}`,
-                    capacity: capacity * 0.6,
-                    refrigerant,
-                    stage: 'high'
-                }
-            ];
-        } else {
-            // Single-stage system
-            components.compressors = [
-                {
-                    tag: 'CMP-01',
-                    type: 'screw_compressor',
-                    model: `N320VLD-${Math.floor(capacity * multiplier.efficiency)}`,
-                    capacity: capacity * multiplier.safety,
-                    refrigerant
-                }
-            ];
-        }
-
-        // Condenser selection
-        components.condensers = [
-            {
-                tag: 'COND-01',
-                type: 'evaporative_condenser',
-                model: 'VXC-Series',
-                capacity: capacity * 1.2 * multiplier.safety,  // 120% of cooling load
-                refrigerant
-            }
-        ];
-
-        // Evaporator selection - vary by variant index
+        const compressorEvidence = this.catalogueRepository.resolve('compressor', profile.compressor, refrigerant);
+        const condenserEvidence = this.catalogueRepository.resolve('condenser', profile.heatRejection, refrigerant);
         const evaporatorCount = variantIndex % 2 === 0 ? 2 : 3;
-        for (let i = 0; i < evaporatorCount; i++) {
-            components.evaporators.push({
-                tag: `EVP-${String(i + 1).padStart(2, '0')}`,
-                type: 'unit_cooler',
-                model: 'OPTIGO-Plus',
-                capacity: capacity / evaporatorCount,
+        const isBooster = profile.cycle === 'co2_transcritical_booster';
+        const baseCompressor = {
+            type: profile.compressor.family,
+            capacity: declaredCapacity ? declaredCapacity * multiplier.safety : null,
+            refrigerant,
+            manufacturerIntent: profile.compressor.manufacturer || null,
+            model: compressorEvidence.compatibleWithSelectedRefrigerant ? compressorEvidence.model : null,
+            selectionStatus: compressorEvidence.status,
+            selectionReason: compressorEvidence.reason || null
+        };
+        const components = {
+            refrigerant,
+            profileId: profile.id,
+            cycle: profile.cycle,
+            pipingPolicy: profile.piping,
+            equipmentEvidence: { compressor: compressorEvidence, condenser: condenserEvidence },
+            compressors: isBooster
+                ? [
+                    { ...baseCompressor, tag: 'CMP-LT-01', stage: 'low_temperature_booster', capacity: declaredCapacity ? declaredCapacity * 0.5 * multiplier.safety : null },
+                    { ...baseCompressor, tag: 'CMP-MT-01', stage: 'medium_temperature_high_stage', capacity: declaredCapacity ? declaredCapacity * 0.5 * multiplier.safety : null }
+                  ]
+                : [{ ...baseCompressor, tag: 'CMP-01', stage: 'single_stage_or_profile_review' }],
+            condensers: [{
+                tag: profile.heatRejection.type === 'gas_cooler' ? 'GC-01' : 'COND-01',
+                type: profile.heatRejection.type,
+                capacity: declaredCapacity ? declaredCapacity * multiplier.safety : null,
                 refrigerant,
-                defrostType: strategy === 'aggressive' ? 'hot_gas' : 'electric'
-            });
-        }
-
-        // Receiver
-        components.receiver = {
-            tag: 'HPR-01',
-            type: 'horizontal_receiver',
-            volume: Math.ceil(capacity * 0.5), // liters
-            refrigerant
+                manufacturerIntent: profile.heatRejection.manufacturer || null,
+                model: condenserEvidence.compatibleWithSelectedRefrigerant ? condenserEvidence.model : null,
+                selectionStatus: condenserEvidence.status,
+                selectionReason: condenserEvidence.reason || null
+            }],
+            evaporators: [],
+            receiver: {
+                tag: isBooster ? 'FGR-01' : 'RCV-01',
+                type: profile.liquidManagement.receiver,
+                volume: null,
+                refrigerant,
+                selectionStatus: 'manufacturer-sizing-required',
+                selectionReason: 'Vessel volume, pressure class, nozzle configuration and manufacturer source data are required.'
+            },
+            expansionValves: [],
+            accessories: (profile.safeguards || []).map((safeguard) => ({
+                type: 'profile-safeguard',
+                safeguard,
+                selectionStatus: 'project-safety-review-required'
+            }))
         };
 
-        // Expansion valves
-        components.evaporators.forEach(evap => {
-            components.expansionValves.push({
-                tag: `TEV-${evap.tag.split('-')[1]}`,
-                type: 'thermostatic_expansion_valve',
-                model: 'DANFOSS-TEN',
-                capacity: evap.capacity,
-                servesEvaporator: evap.tag
+        for (let index = 0; index < evaporatorCount; index++) {
+            const tag = `EVP-${String(index + 1).padStart(2, '0')}`;
+            const evaporatorEvidence = this.catalogueRepository.resolve('evaporator', {}, refrigerant);
+            components.evaporators.push({
+                tag,
+                type: profile.feedMethod === 'pumped_recirculated' ? 'recirculated_air_cooler' : 'direct_expansion_air_cooler',
+                model: evaporatorEvidence.compatibleWithSelectedRefrigerant ? evaporatorEvidence.model : null,
+                capacity: declaredCapacity ? declaredCapacity / evaporatorCount : null,
+                refrigerant,
+                feedMethod: profile.feedMethod,
+                selectionStatus: evaporatorEvidence.status,
+                selectionReason: evaporatorEvidence.reason || null
             });
-        });
-
-        // Accessories based on best practices from context
-        if (context.bestPractices.find(bp => bp.category === 'safety')) {
-            components.accessories.push(
-                { type: 'pressure_relief_valve', location: 'receiver' },
-                { type: 'ammonia_detector', location: 'machinery_room' }
-            );
+            components.expansionValves.push({
+                tag: `LV-${String(index + 1).padStart(2, '0')}`,
+                type: profile.liquidManagement.conditioning || 'liquid-control-device',
+                model: null,
+                refrigerant,
+                capacity: declaredCapacity ? declaredCapacity / evaporatorCount : null,
+                servesEvaporator: tag,
+                selectionStatus: 'dn-and-manufacturer-capacity-map-required'
+            });
         }
 
+        // Preserve RAG knowledge as review evidence only; never turn it into an unverified component model.
+        components.contextSafetyEvidenceAvailable = Boolean(context?.bestPractices?.some((practice) => practice.category === 'safety'));
         return components;
     }
 
     /**
      * Design piping system
      */
-    designPiping(components, context, strategy) {
+    designPiping(components, _context, _strategy) {
         const pipes = [];
-
-        // Discharge lines (compressor → condenser)
-        components.compressors.forEach(comp => {
-            pipes.push({
-                id: `PIPE-DISCH-${comp.tag}`,
-                type: 'discharge',
-                from: comp.tag,
-                to: 'COND-01',
-                sizeDN: this.calculatePipeSize(comp.capacity, 'discharge'),
-                material: 'steel',
-                insulation: false,
-                color: 'red'
-            });
+        const condenserTag = components.condensers[0]?.tag || null;
+        const receiverTag = components.receiver?.tag || null;
+        const policy = components.pipingPolicy || {};
+        const material = policy.material || null;
+        const jointType = policy.jointType || null;
+        const pipe = (id, type, from, to, capacity, insulation, color) => ({
+            id,
+            type,
+            from,
+            to,
+            sizeDN: this.calculatePipeSize(capacity, type),
+            sizingStatus: 'validated-pressure-drop-calculation-required',
+            material,
+            jointType,
+            insulation,
+            color,
+            refrigerant: components.refrigerant
         });
 
-        // Liquid line (condenser → receiver → evaporators)
-        pipes.push({
-            id: 'PIPE-LIQ-MAIN',
-            type: 'liquid',
-            from: 'COND-01',
-            to: 'HPR-01',
-            sizeDN: this.calculatePipeSize(components.condensers[0].capacity, 'liquid'),
-            material: 'steel',
-            insulation: true,
-            color: 'green'
+        components.compressors.forEach((compressor) => {
+            pipes.push(pipe(`PIPE-DISCH-${compressor.tag}`, 'discharge', compressor.tag, condenserTag, compressor.capacity, false, 'red'));
         });
-
-        components.evaporators.forEach(evap => {
-            pipes.push({
-                id: `PIPE-LIQ-${evap.tag}`,
-                type: 'liquid',
-                from: 'HPR-01',
-                to: evap.tag,
-                sizeDN: this.calculatePipeSize(evap.capacity, 'liquid'),
-                material: 'steel',
-                insulation: true,
-                color: 'green'
-            });
+        if (condenserTag && receiverTag) {
+            pipes.push(pipe('PIPE-LIQ-MAIN', 'liquid', condenserTag, receiverTag, components.condensers[0].capacity, true, 'green'));
+        }
+        components.evaporators.forEach((evaporator) => {
+            if (receiverTag) pipes.push(pipe(`PIPE-LIQ-${evaporator.tag}`, 'liquid', receiverTag, evaporator.tag, evaporator.capacity, true, 'green'));
+            const targetCompressor = components.compressors[0]?.tag || null;
+            if (targetCompressor) pipes.push(pipe(`PIPE-SUC-${evaporator.tag}`, 'suction', evaporator.tag, targetCompressor, evaporator.capacity, true, 'blue'));
         });
-
-        // Suction lines (evaporators → compressor)
-        components.evaporators.forEach(evap => {
-            const targetComp = components.compressors[0].tag; // Simplified
-            pipes.push({
-                id: `PIPE-SUC-${evap.tag}`,
-                type: 'suction',
-                from: evap.tag,
-                to: targetComp,
-                sizeDN: this.calculatePipeSize(evap.capacity, 'suction'),
-                material: 'steel',
-                insulation: true,
-                color: 'blue'
-            });
-        });
-
         return pipes;
     }
 
@@ -284,7 +246,8 @@ class DesignGenerator {
      * Calculate pipe size based on capacity and line type
      */
     calculatePipeSize(capacity, lineType) {
-        // Simplified sizing (real system would use velocity/pressure drop calculations)
+        if (!Number.isFinite(Number(capacity)) || Number(capacity) <= 0) return null;
+        // Legacy nominal lookup is preliminary only; final DN requires the governed hydraulic calculation path.
         const sizingTable = {
             discharge: { 50: 'DN32', 100: 'DN50', 200: 'DN65', 500: 'DN80' },
             liquid: { 50: 'DN25', 100: 'DN32', 200: 'DN40', 500: 'DN50' },
@@ -304,28 +267,99 @@ class DesignGenerator {
     /**
      * Calculate thermodynamics for variant
      */
-    async calculateThermodynamics(components, requirements) {
-        try {
-            const evapTemp = requirements.evap_temp || -10;
-            const condTemp = requirements.cond_temp || 40;
+    async calculateThermodynamics(_components, requirements) {
+        const refrigerant = normalizeRefrigerant(requirements.refrigerant || 'R717');
+        const evapTempC = Number(requirements.evap_temp);
+        const condTempC = Number(requirements.cond_temp);
+        const loadKW = Number(requirements.cooling_capacity);
+        const provider = getProviderStatus();
 
-            const cycle = await CoolPropWrapper.calculateAmmoniaCycle(
-                evapTemp,
-                condTemp,
-                5,  // Superheat
-                3   // Subcool
-            );
-
+        if (!Number.isFinite(evapTempC) || !Number.isFinite(condTempC) || !Number.isFinite(loadKW) || loadKW <= 0) {
             return {
-                cop: cycle.performance.COP,
-                pressureRatio: cycle.performance.pressure_ratio,
-                coolingCapacityPerKg: cycle.performance.cooling_capacity_per_kg / 1000,  // kJ/kg
-                compressorWorkPerKg: cycle.performance.compressor_work_per_kg / 1000,
-                states: cycle.states
+                status: 'input-review-required',
+                refrigerant,
+                reviewRequired: true,
+                note: 'evap_temp, cond_temp and cooling_capacity must be explicit finite design inputs before a property-based cycle can be evaluated.'
+            };
+        }
+        if (provider.activeProvider?.providerId !== 'coolprop' || !provider.outboundCallsEnabled || provider.blockers.length) {
+            return {
+                status: 'validated-property-provider-required',
+                refrigerant,
+                reviewRequired: true,
+                note: 'No approved local CoolProp sidecar is active. Thermodynamic values are intentionally not substituted from another refrigerant or a fixed COP.'
+            };
+        }
+
+        try {
+            const client = new CoolPropSidecarClient();
+            if (refrigerant === 'R744') {
+                const highSidePressurePa = Number(requirements.highSidePressurePa);
+                const flashGasPressurePa = Number(requirements.flashGasPressurePa);
+                const gasCoolerOutletTempC = Number(requirements.gasCoolerOutletTempC);
+                if (!Number.isFinite(highSidePressurePa) || !Number.isFinite(flashGasPressurePa) || !Number.isFinite(gasCoolerOutletTempC)) {
+                    return {
+                        status: 'r744-operating-controls-required',
+                        refrigerant,
+                        reviewRequired: true,
+                        note: 'R744 transcritical booster calculation requires explicit highSidePressurePa, flashGasPressurePa and gasCoolerOutletTempC. No high-pressure control setpoint is invented.'
+                    };
+                }
+                const cycle = await client.calculateR744TranscriticalBoosterCycle({
+                    evapTempK: evapTempC + 273.15,
+                    gasCoolerOutletTempK: gasCoolerOutletTempC + 273.15,
+                    highSidePressurePa,
+                    flashGasPressurePa,
+                    superheatK: Number.isFinite(Number(requirements.superheatK)) ? Number(requirements.superheatK) : 5,
+                    lowStageIsentropicEfficiency: Number.isFinite(Number(requirements.lowStageIsentropicEfficiency)) ? Number(requirements.lowStageIsentropicEfficiency) : 0.75,
+                    highStageIsentropicEfficiency: Number.isFinite(Number(requirements.highStageIsentropicEfficiency)) ? Number(requirements.highStageIsentropicEfficiency) : 0.75,
+                    loadW: loadKW * 1000
+                });
+                return {
+                    status: 'coolprop-r744-transcritical-booster-review-required',
+                    refrigerant,
+                    cop: cycle.performanceSI.cop,
+                    pressureRatio: null,
+                    coolingCapacityPerKg: cycle.performanceSI.refrigeratingEffectJPerKg / 1000,
+                    compressorWorkPerKg: null,
+                    states: cycle.cycle,
+                    performanceSI: cycle.performanceSI,
+                    provenance: cycle.provenance,
+                    reviewRequired: true,
+                    note: 'Provider-based preliminary R744 transcritical booster cycle. The supplied pressure controls are not optimized and manufacturer-map review remains mandatory.'
+                };
+            }
+            const cycle = await client.calculateSimpleVaporCompressionCycle({
+                refrigerant,
+                evapTempK: evapTempC + 273.15,
+                condTempK: condTempC + 273.15,
+                superheatK: Number.isFinite(Number(requirements.superheatK)) ? Number(requirements.superheatK) : 5,
+                subcoolK: Number.isFinite(Number(requirements.subcoolK)) ? Number(requirements.subcoolK) : 3,
+                compressorIsentropicEfficiency: Number.isFinite(Number(requirements.compressorIsentropicEfficiency))
+                    ? Number(requirements.compressorIsentropicEfficiency)
+                    : 0.75,
+                loadW: loadKW * 1000
+            });
+            return {
+                status: 'coolprop-provider-result-review-required',
+                refrigerant,
+                cop: cycle.performanceSI.cop,
+                pressureRatio: cycle.performanceSI.pressureRatio,
+                coolingCapacityPerKg: cycle.performanceSI.refrigeratingEffectJPerKg / 1000,
+                compressorWorkPerKg: cycle.performanceSI.compressorSpecificWorkJPerKg / 1000,
+                states: cycle.cycle,
+                provenance: cycle.provenance,
+                reviewRequired: true,
+                note: 'Provider-based preliminary cycle. Manufacturer performance maps and equipment-envelope review remain mandatory.'
             };
         } catch (error) {
-            console.warn(`[DesignGen] Thermodynamic calculation failed: ${error.message}`);
-            return null;
+            console.warn(`[DesignGen] Property-based thermodynamic calculation blocked: ${error.message}`);
+            return {
+                status: 'provider-calculation-blocked',
+                refrigerant,
+                reviewRequired: true,
+                note: error.message
+            };
         }
     }
 

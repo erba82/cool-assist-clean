@@ -11,6 +11,7 @@
 | npm | همراه Node.js |
 | Git | برای دریافت نسخهٔ کنترل‌شدهٔ مخزن |
 | مرورگر | Chromium، Chrome یا Edge جدید |
+| Python | 3.12+، فقط در صورت فعال‌سازی sidecar محلی CoolProp |
 
 ابتدا مخزن را دریافت کنید، سپس در هر دو پوشهٔ `backend` و `frontend` وابستگی‌ها را دقیقاً از روی lockfile نصب نمایید. نصب `node_modules` از دستگاه دیگر توصیه نمی‌شود.
 
@@ -37,6 +38,27 @@ npm ci
 
 > هیچ کلید API، فایل `.env`، فایل پیوست کاربر یا خروجی runtime را commit نکنید. این موارد در `.gitignore` محافظت شده‌اند.
 
+## sidecar محلی اختیاری برای خواص CoolProp
+
+برنامه به‌صورت پیش‌فرض بدون provider اجرا می‌شود و هیچ درخواست شبکه‌ای برای خواص ترمودینامیکی نمی‌فرستد. برای محاسبات مقدماتی property-based هر هشت مبرد، ابتدا sidecar loopback را در یک ترمینال جدا اجرا کنید. این اسکریپت یک virtual environment محلی ایجاد می‌کند و `CoolProp==8.0.0` را با نسخهٔ pinned نصب می‌کند.
+
+```powershell
+# ترمینال اختیاری provider؛ از ریشهٔ پروژه
+powershell -NoProfile -ExecutionPolicy Bypass -File backend\thermophysical-sidecar\start-sidecar.ps1 -Port 5011 -ReferenceState IIR
+```
+
+سپس، فقط بعد از مشاهدهٔ health موفق sidecar، این متغیرها را در `backend/.env` قرار دهید و backend را restart کنید:
+
+```dotenv
+THERMOPHYSICAL_PROVIDER_MODE=coolprop-sidecar
+THERMOPHYSICAL_PROVIDER_URL=http://127.0.0.1:5011
+THERMOPHYSICAL_PROVIDER_ALLOW_OUTBOUND=true
+THERMOPHYSICAL_PROVIDER_REFERENCE_STATE=IIR
+THERMOPHYSICAL_PROVIDER_TIMEOUT_MS=3000
+```
+
+این مجوز صرفاً برای درخواست backend به loopback است؛ URL غیرمحلی توسط adapter رد می‌شود و sidecar اینترنت‌گردی نمی‌کند. برای R744 باید فشار high-side، فشار flash-gas و دمای خروجی gas cooler صریحاً وارد شوند؛ setpoint کنترل به‌طور خودکار ساخته نمی‌شود. جزئیات قرارداد در `backend/thermophysical-sidecar/README.md` موجود است.
+
 ## اجرای محلی
 
 دو ترمینال باز کنید. در ترمینال اول backend را اجرا کنید و در ترمینال دوم frontend را. backend به‌طور پیش‌فرض روی پورت `5000` و frontend روی پورت `3001` اجرا می‌شود؛ frontend درخواست‌های `/api` را به backend پراکسی می‌کند.
@@ -55,12 +77,15 @@ npm start
 
 ## تست و build پیش از تحویل
 
-تست‌های backend، ۱۳ قرارداد حاکمیتی و مهندسی را شامل می‌شوند: ورودی محاسبات، قراردادهای P&ID و پورت، P&ID تمام مبردها، CO₂، قابلیت‌سنجی مبرد، روتر AI، یادگیری کنترل‌شده، فایل‌های چندوجهی، MCP، قواعد ارتفاع آمونیاک، انرژی و ارکستراسیون طراحی.
+تست‌های backend اکنون قراردادهای حاکمیتی و مهندسی را شامل می‌شوند: ورودی محاسبات، قراردادهای P&ID و پورت، P&ID تمام مبردها، CO₂، capability و readiness چندمبردی، منع جایگزینی کاتالوگ بین‌مبردی، روتر AI، یادگیری کنترل‌شده، فایل‌های چندوجهی، MCP، قواعد ارتفاع آمونیاک، انرژی و ارکستراسیون طراحی.
 
 ```powershell
 # ترمینال 1: backend
 cd backend
 npm test
+
+# فقط وقتی sidecar محلی در حال اجرا و در backend/.env فعال است
+npm run test:coolprop-sidecar
 
 # ترمینال 2: frontend
 cd frontend
@@ -80,7 +105,9 @@ npm run test:e2e:strict
 | حوزه | وضعیت عملیاتی |
 |---|---|
 | مبردها | R717، R744، R290، R32، R404A، R410A، R134a و R22 با template معنایی جداگانه |
-| خواص مبرد / انتخاب نهایی | دادهٔ property معتبر سازنده یا ارائه‌دهندهٔ تأییدشده لازم است؛ برنامه مقدار جعلی تولید نمی‌کند |
+| خواص مبرد | sidecar محلی CoolProp برای هر ۸ مبرد با provenance، SI و review-required قابل‌فعال‌سازی است؛ مسیر پیش‌فرض خاموش است |
+| R744 | P&ID semantic booster و محاسبهٔ مقدماتی transcritical booster با فشارهای صریح پشتیبانی می‌شود؛ optimization و manufacturer-map هنوز گیت بازبینی دارند |
+| انتخاب نهایی تجهیزات | operating point، performance map سازنده، envelope، revision و تأیید مهندس لازم است؛ برنامه مقدار یا مدل جعلی تولید نمی‌کند |
 | یادگیری | feedback و findings به proposal بازبینی‌شونده تبدیل می‌شوند؛ هیچ قاعده یا skill به‌صورت خودکار فعال نمی‌شود |
 | MCP | اتصال ابتدا draft است و تا تأیید مدیر هیچ ارتباط شبکه‌ای برقرار نمی‌شود؛ localhost نیز مسدود است |
 | فایل‌ها | PDF، DOCX، XLSX، DXF، تصویر، متن و رسانه قابل تحلیل‌اند، اما خروجی مهندسی آن‌ها نیازمند بازبینی انسانی است |

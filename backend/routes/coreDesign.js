@@ -14,6 +14,9 @@ const router = express.Router();
 const DesignOrchestrator = require('../core/ai/DesignOrchestrator');
 const { capabilityFor, listCapabilities } = require('../core/engineering/RefrigerantCapabilityService');
 const { getProviderStatus, validatePropertyRequest } = require('../core/engineering/ThermophysicalProviderRegistry');
+const ThermophysicalParallelComparisonService = require('../core/engineering/ThermophysicalParallelComparisonService');
+const { CoolPropSidecarClient } = require('../core/engineering/CoolPropSidecarClient');
+const { readinessFor, listReadiness } = require('../core/engineering/MultiRefrigerantReadinessService');
 
 // Initialize orchestrator
 let orchestrator = null;
@@ -376,6 +379,19 @@ router.get('/refrigerant-capabilities/:code', (req, res) => {
 });
 
 /**
+ * GET /api/core/multi-refrigerant-readiness
+ * Read-only traceability matrix from profile through property and catalogue evidence.
+ */
+router.get('/multi-refrigerant-readiness', (_req, res) => {
+    res.json({ success: true, refrigerants: listReadiness() });
+});
+
+router.get('/multi-refrigerant-readiness/:code', (req, res) => {
+    const readiness = readinessFor(req.params.code);
+    res.status(readiness.supported ? 200 : 404).json({ success: readiness.supported, readiness });
+});
+
+/**
  * GET /api/core/thermophysical-provider/status
  * Read-only provider readiness. This endpoint never performs an outbound property call.
  */
@@ -390,6 +406,37 @@ router.get('/thermophysical-provider/status', (_req, res) => {
 router.post('/thermophysical-provider/validate-request', (req, res) => {
     const validation = validatePropertyRequest(req.body || {});
     res.status(validation.valid ? 200 : 400).json({ success: validation.valid, validation });
+});
+
+/**
+ * POST /api/core/thermophysical-provider/compare-cycle
+ * Executes an explicit, review-gated parallel comparison. It never promotes a result to final selection.
+ */
+router.post('/thermophysical-provider/compare-cycle', async (req, res) => {
+    try {
+        const service = new ThermophysicalParallelComparisonService();
+        const comparison = await service.compareSimpleVaporCompression(req.body || {});
+        res.json({ success: true, comparison });
+    } catch (error) {
+        const message = error.message || 'Thermophysical comparison failed.';
+        const configurationIssue = /not explicitly configured|disabled by policy|not callable|loopback URL/i.test(message);
+        res.status(configurationIssue ? 409 : 422).json({ success: false, error: message, reviewRequired: true });
+    }
+});
+
+/**
+ * POST /api/core/thermophysical-provider/r744-transcritical-booster
+ * Runs the dedicated preliminary R744 architecture only with explicit pressure controls.
+ */
+router.post('/thermophysical-provider/r744-transcritical-booster', async (req, res) => {
+    try {
+        const result = await new CoolPropSidecarClient().calculateR744TranscriticalBoosterCycle(req.body || {});
+        res.json({ success: true, result, reviewRequired: true, finalSelectionAllowed: false });
+    } catch (error) {
+        const message = error.message || 'R744 transcritical booster calculation failed.';
+        const configurationIssue = /not explicitly configured|disabled by policy|not callable|loopback URL/i.test(message);
+        res.status(configurationIssue ? 409 : 422).json({ success: false, error: message, reviewRequired: true });
+    }
 });
 
 /**

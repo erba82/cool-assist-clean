@@ -101,16 +101,22 @@ class CatalogueRepository {
 
     const refrigerants = declaredRefrigerants(exact);
     const sourceRefs = sourceReferences(exact);
+    const compatibilityDeclared = refrigerants.includes(requestedRefrigerant);
     return {
-      status: sourceRefs.length ? 'verified' : 'catalogued-without-source-reference',
+      status: compatibilityDeclared
+        ? (sourceRefs.length ? 'verified' : 'catalogued-without-source-reference')
+        : 'catalogued-compatibility-review-required',
       category,
       record: exact,
       catalogueModelId: readModelId(exact),
       model: readModelName(exact),
       manufacturer: exact.manufacturer || exact.brand || null,
       declaredRefrigerants: refrigerants,
-      compatibleWithSelectedRefrigerant: refrigerants.length === 0 || refrigerants.includes(requestedRefrigerant),
-      sourceRefs
+      compatibleWithSelectedRefrigerant: compatibilityDeclared,
+      sourceRefs,
+      reason: compatibilityDeclared
+        ? null
+        : 'The catalogue record has no explicit manufacturer declaration for the selected refrigerant. Keep the semantic equipment class, but require manufacturer compatibility evidence before selection or procurement.'
     };
   }
 }
@@ -120,5 +126,6 @@ module.exports = {
   COLLECTIONS,
   declaredRefrigerants,
   readModelId,
-  readModelName
+  readModelName,
+  sourceReferences
 };

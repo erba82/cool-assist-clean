@@ -1,0 +1,2 @@
+# CoolProp is MIT-licensed. Pin the tested sidecar runtime for reproducibility.
+CoolProp==8.0.0

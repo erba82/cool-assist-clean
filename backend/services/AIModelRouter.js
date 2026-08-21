@@ -9,6 +9,8 @@ const DEFAULTS = Object.freeze({
     nvidiaSuper: 'nvidia/nemotron-3-super-120b-a12b',
     nvidiaNanoOmni: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
     geminiModel: 'gemini-3.5-flash',
+    tokenRouterBaseUrl: 'https://api.tokenrouter.com/v1',
+    tokenRouterQwenModel: 'qwen3.8-max',
     deepSeekBaseUrl: 'https://api.deepseek.com',
     deepSeekModel: 'deepseek-v4-pro',
     localDeepSeekModel: 'deepseek-r1:1.5b',
@@ -20,6 +22,7 @@ const ENGINEERING_PURPOSES = new Set(['engineering-assistant', 'design-analysis'
 const MULTIMODAL_PURPOSES = new Set(['attachment-analysis', 'multimodal-analysis', 'image-analysis', 'video-analysis', 'audio-analysis', 'document-analysis']);
 const stripCodeFence = (value) => String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 const asText = (value, max = 240) => String(value || '').replace(/\u0000/g, '').trim().slice(0, max);
+const asFinite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
 
 function hasNonTextContent(messages = []) {
     return messages.some((message) => Array.isArray(message?.content) || Boolean(message?.attachment) || Boolean(message?.attachments));
@@ -36,7 +39,7 @@ function flattenMessages(messages = []) {
 }
 
 class AIModelRouter {
-    constructor({ fetchImpl = global.fetch, env = process.env, geminiService, ollamaService, now = () => Date.now() } = {}) {
+    constructor({ fetchImpl = global.fetch, env = process.env, geminiService, ollamaService, learningStore = null, now = () => Date.now() } = {}) {
         if (typeof fetchImpl !== 'function') throw new Error('AIModelRouter requires a fetch implementation.');
         this.fetch = fetchImpl;
         this.env = env;
@@ -44,6 +47,7 @@ class AIModelRouter {
         this.gemini = geminiService || new GeminiService({ env });
         this.ollama = ollamaService || new OllamaService({ env });
         this.maxFailures = Math.max(1, Number(env.AI_ROUTER_MAX_FAILURES) || DEFAULTS.maxFailures);
+        this.learningStore = learningStore;
         this.telemetry = new Map();
     }
 
@@ -53,6 +57,7 @@ class AIModelRouter {
             super: this.env.NVIDIA_MODEL_SUPER || this.env.NVIDIA_MODEL || DEFAULTS.nvidiaSuper,
             nanoOmni: this.env.NVIDIA_MODEL_NANO_OMNI || DEFAULTS.nvidiaNanoOmni,
             gemini: this.env.GEMINI_MODEL || DEFAULTS.geminiModel,
+            qwen: this.env.TOKENROUTER_QWEN_MODEL || DEFAULTS.tokenRouterQwenModel,
             deepseekRemote: this.env.DEEPSEEK_MODEL || DEFAULTS.deepSeekModel,
             deepseekLocal: this.env.OLLAMA_MODEL || DEFAULTS.localDeepSeekModel
         };
@@ -86,6 +91,7 @@ class AIModelRouter {
         const candidates = [];
         const nvidiaConfigured = Boolean(this.env.NVIDIA_API_KEY);
         const geminiConfigured = Boolean(this.env.GEMINI_API_KEY || this.env.GOOGLE_API_KEY) && Boolean(this.gemini?.available);
+        const qwenConfigured = Boolean(this.env.TOKENROUTER_API_KEY);
         const localEnabled = String(this.env.DEEPSEEK_LOCAL_ENABLED || 'true').toLowerCase() !== 'false';
         const localConfigured = localEnabled && Boolean(this.ollama);
         const remoteDeepSeekConfigured = Boolean(this.env.DEEPSEEK_API_KEY);
@@ -103,6 +109,8 @@ class AIModelRouter {
             }
         }
         if (geminiConfigured) candidates.push(this._candidate('gemini-flash', 'gemini', models.gemini, 'stable-multimodal-fallback'));
+        // TokenRouter model alias is configured locally and is used only for text until multimodal support is verified for this provider.
+        if (!requirements.multimodal && qwenConfigured) candidates.push(this._candidate('tokenrouter-qwen', 'qwen', models.qwen, 'text-reasoning-fallback'));
         if (!requirements.multimodal && localConfigured) candidates.push(this._candidate('deepseek-local', 'deepseek-local', models.deepseekLocal, 'private-loopback-fallback'));
         if (!requirements.multimodal && remoteDeepSeekConfigured) candidates.push(this._candidate('deepseek-remote', 'deepseek', models.deepseekRemote, 'remote-fallback'));
 
@@ -119,18 +127,39 @@ class AIModelRouter {
         const telemetry = Object.fromEntries([...this.telemetry.entries()].map(([id, value]) => [id, { ...value }]));
         return {
             strategy: 'capability-latency-provenance',
-            governedOrder: ['nvidia', 'gemini', 'deepseek-local', 'deepseek'],
+            governedOrder: ['nvidia', 'gemini', 'qwen', 'deepseek-local', 'deepseek'],
             nvidia: {
                 configured: Boolean(this.env.NVIDIA_API_KEY),
                 baseUrl: this.env.NVIDIA_API_BASE_URL || DEFAULTS.nvidiaBaseUrl,
                 models: { ultra: models.ultra, super: models.super, nanoOmni: models.nanoOmni }
             },
             gemini: { configured: Boolean(this.env.GEMINI_API_KEY || this.env.GOOGLE_API_KEY) && Boolean(this.gemini?.available), model: models.gemini },
+            qwen: { configured: Boolean(this.env.TOKENROUTER_API_KEY), baseUrl: this.env.TOKENROUTER_API_BASE_URL || DEFAULTS.tokenRouterBaseUrl, model: models.qwen, textOnlyUntilVerified: true },
             deepseekLocal: { configured: String(this.env.DEEPSEEK_LOCAL_ENABLED || 'true').toLowerCase() !== 'false', baseUrl: this.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434', model: models.deepseekLocal },
             deepseekRemote: { configured: Boolean(this.env.DEEPSEEK_API_KEY), baseUrl: this.env.DEEPSEEK_API_BASE_URL || DEFAULTS.deepSeekBaseUrl, model: models.deepseekRemote },
             defaultPlan: plan.candidates,
             telemetry
         };
+    }
+
+    _persistOutcome(candidate, outcome, success, purpose, reason = null) {
+        if (!this.learningStore || typeof this.learningStore.record !== 'function') return;
+        const event = {
+            kind: 'model-routing-outcome',
+            source: 'ai-model-router',
+            evidence: {
+                provider: candidate.provider,
+                model: candidate.model,
+                profile: candidate.profile,
+                purpose: asText(purpose, 80),
+                success: Boolean(success),
+                latencyMs: asFinite(outcome.elapsedMs),
+                consecutiveFailures: asFinite(outcome.telemetry?.consecutiveFailures),
+                failureCategory: success ? null : asText(reason, 120)
+            },
+            metadata: { policy: 'capability-latency-provenance', circuitBreaker: true }
+        };
+        Promise.resolve(this.learningStore.record(event)).catch((error) => console.warn('Automatic AI telemetry persistence failed:', error.message));
     }
 
     _recordOutcome(candidate, startedAt, success, reason = null) {
@@ -164,6 +193,7 @@ class AIModelRouter {
             try {
                 const result = await this._completeWith(candidate, { messages, temperature, maxTokens, requirements: plan.requirements });
                 const outcome = this._recordOutcome(candidate, startedAt, true);
+                this._persistOutcome(candidate, outcome, true, plan.requirements.purpose);
                 return {
                     success: true,
                     provider: candidate.provider,
@@ -176,6 +206,7 @@ class AIModelRouter {
                 };
             } catch (error) {
                 const outcome = this._recordOutcome(candidate, startedAt, false, error?.message || error);
+                this._persistOutcome(candidate, outcome, false, plan.requirements.purpose, error?.message || error);
                 attempts.push({ provider: candidate.provider, model: candidate.model, profile: candidate.profile, status: 'failed', latencyMs: outcome.elapsedMs, reason: asText(error?.message || error, 240) });
             }
         }
@@ -208,6 +239,7 @@ class AIModelRouter {
             return this._openAICompatible('nvidia', this.env.NVIDIA_API_KEY, this.env.NVIDIA_API_BASE_URL || DEFAULTS.nvidiaBaseUrl, candidate.model, request, { enableThinking: request.requirements.highStakes || request.requirements.engineering });
         }
         if (candidate.provider === 'gemini') return this._gemini(request, candidate.model);
+        if (candidate.provider === 'qwen') return this._openAICompatible('qwen', this.env.TOKENROUTER_API_KEY, this.env.TOKENROUTER_API_BASE_URL || DEFAULTS.tokenRouterBaseUrl, candidate.model, request);
         if (candidate.provider === 'deepseek-local') return this._localDeepSeek(request, candidate.model);
         if (candidate.provider === 'deepseek') return this._openAICompatible('deepseek', this.env.DEEPSEEK_API_KEY, this.env.DEEPSEEK_API_BASE_URL || DEFAULTS.deepSeekBaseUrl, candidate.model, request);
         throw new Error(`Unknown provider: ${candidate.provider}`);

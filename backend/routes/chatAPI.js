@@ -8,15 +8,19 @@ const router = express.Router();
 const DesignOrchestrator = require('../core/ai/DesignOrchestrator');
 const GeminiService = require('../services/GeminiService');
 const AIModelRouter = require('../services/AIModelRouter');
-const LearningReviewRegistry = require('../core/ai/LearningReviewRegistry');
+const AgentLearningStore = require('../core/ai/AgentLearningStore');
+
+// Automatic observational learning is persisted to the local MongoDB service.
+// It never auto-promotes engineering rules, equipment selection, safety settings or skills.
+const automaticLearningStore = new AgentLearningStore();
+void automaticLearningStore.initialize();
 
 // Create orchestrator instance
-const orchestrator = new DesignOrchestrator();
+const orchestrator = new DesignOrchestrator({ learningStore: automaticLearningStore });
 
 // Create Gemini service for general chat
 const geminiService = new GeminiService();
-const generalModelRouter = new AIModelRouter({ geminiService });
-const learningReviewRegistry = new LearningReviewRegistry();
+const generalModelRouter = new AIModelRouter({ geminiService, learningStore: automaticLearningStore });
 
 /**
  * POST /api/chat/message
@@ -170,13 +174,6 @@ router.post('/general', async (req, res) => {
             ]
         });
 
-        // Router telemetry can become a review proposal, never an automatic routing-policy,
-        // skill, calculation, standards, or equipment-selection change.
-        if (routed.success && String(process.env.AI_ROUTER_LEARNING_PROPOSALS || 'true').toLowerCase() !== 'false') {
-            const proposal = generalModelRouter.buildLearningProposal(routed);
-            if (proposal) learningReviewRegistry.record(proposal).catch((error) => console.warn('AI router learning observation was not recorded:', error.message));
-        }
-
         if (!routed.success) {
             const fallbackMessages = {
                 en: "I'm currently unable to connect to the configured AI providers. Please verify local Ollama or the provider credentials.",
@@ -207,7 +204,7 @@ router.post('/general', async (req, res) => {
  */
 router.get('/providers', (_req, res) => {
     try {
-        res.json({ success: true, router: generalModelRouter.status() });
+        res.json({ success: true, router: generalModelRouter.status(), automaticLearning: automaticLearningStore.status() });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

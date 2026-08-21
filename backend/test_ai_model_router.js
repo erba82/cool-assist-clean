@@ -53,6 +53,23 @@ const nvidiaEnv = {
     assert.strictEqual(gemini.provider, 'gemini');
     assert.strictEqual(gemini.model, 'gemini-3.5-flash');
 
+    const qwenFallback = new AIModelRouter({
+        env: { TOKENROUTER_API_KEY: 'tokenrouter-test', TOKENROUTER_API_BASE_URL: 'https://api.tokenrouter.com/v1', TOKENROUTER_QWEN_MODEL: 'qwen3.8-max', DEEPSEEK_LOCAL_ENABLED: 'false' },
+        geminiService: { available: false },
+        ollamaService: null,
+        fetchImpl: async (url, options) => {
+            assert.strictEqual(url, 'https://api.tokenrouter.com/v1/chat/completions');
+            assert.strictEqual(JSON.parse(options.body).model, 'qwen3.8-max');
+            return textResponse('qwen3.8-max', 'Qwen fallback');
+        }
+    });
+    const qwen = await qwenFallback.complete({ messages, purpose: 'general-chat' });
+    assert.strictEqual(qwen.success, true);
+    assert.strictEqual(qwen.provider, 'qwen');
+    assert.strictEqual(qwen.model, 'qwen3.8-max');
+    assert.strictEqual(qwen.profile, 'text-reasoning-fallback');
+    assert(qwenFallback.status().governedOrder.indexOf('qwen') > qwenFallback.status().governedOrder.indexOf('gemini'));
+
     const localFallback = new AIModelRouter({
         env: { DEEPSEEK_LOCAL_ENABLED: 'true', OLLAMA_MODEL: 'deepseek-r1:1.5b' },
         geminiService: { available: false },
@@ -87,7 +104,7 @@ const nvidiaEnv = {
     assert.strictEqual(proposal.evidence.model, nvidiaEnv.NVIDIA_MODEL_SUPER);
     assert.strictEqual(proposal.evidence.success, true);
 
-    console.log(JSON.stringify({ status: 'passed', checks: ['nvidia-super-engineering', 'nvidia-ultra-high-stakes', 'nvidia-nano-omni-multimodal', 'gemini-fallback', 'local-deepseek-fallback', 'circuit-breaker', 'structured-provenance', 'proposal-only-learning'] }, null, 2));
+    console.log(JSON.stringify({ status: 'passed', checks: ['nvidia-super-engineering', 'nvidia-ultra-high-stakes', 'nvidia-nano-omni-multimodal', 'gemini-fallback', 'qwen-tokenrouter-fallback', 'local-deepseek-fallback', 'circuit-breaker', 'structured-provenance', 'proposal-only-learning'] }, null, 2));
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;

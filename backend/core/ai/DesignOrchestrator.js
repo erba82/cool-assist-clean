@@ -29,7 +29,7 @@ const LearningGovernanceService = require('./LearningGovernanceService');
 const EnergyManagementService = require('../modules/EnergyManagementService');
 
 class DesignOrchestrator {
-    constructor() {
+    constructor({ learningStore = null } = {}) {
         this.engine = new RefrigerationEngine();
         this.parser = new InputParser();
         this.intentClassifier = new IntentClassifier();
@@ -37,7 +37,8 @@ class DesignOrchestrator {
         this.refrigerantRecommender = new RefrigerantRecommender();
         this.materialRecommender = new MaterialRecommender();
         this.gemini = new GeminiService();
-        this.modelRouter = new AIModelRouter({ geminiService: this.gemini });
+        this.learningStore = learningStore;
+        this.modelRouter = new AIModelRouter({ geminiService: this.gemini, learningStore });
         this.ollama = new OllamaService();
         this.topologyInterpreter = new RefrigerationTopologyInterpreter();
         this.learningGovernance = new LearningGovernanceService();
@@ -45,6 +46,24 @@ class DesignOrchestrator {
         this.conversationState = new Map();
 
         console.log('🎯 DesignOrchestrator v4.0 initialized with AI Captain');
+    }
+
+    async _persistSemanticObservation(project, semanticCycle) {
+        if (!this.learningStore || typeof this.learningStore.record !== 'function') return;
+        const evidence = {
+            refrigerant: project?.refrigerant || null,
+            cycleTemplate: semanticCycle?.template?.id || null,
+            compressorFamily: semanticCycle?.compressorFamily || null,
+            condenserType: semanticCycle?.condenserType || null,
+            feedMethod: semanticCycle?.feedMethod || null,
+            semanticValid: Boolean(semanticCycle?.validation?.valid),
+            engineeringReviewRequired: Boolean(semanticCycle?.validation?.engineeringReviewRequired)
+        };
+        try {
+            await this.learningStore.record({ kind: 'design-semantic-observation', source: 'design-orchestrator', evidence, metadata: { refrigerantSpecific: true, deterministicEngineRemainsAuthoritative: true } });
+        } catch (error) {
+            console.warn('Automatic design observation persistence failed:', error.message);
+        }
     }
 
     // 🚨 BUG FIX: Helper to fix the .reduce() error by ensuring arrays
@@ -118,6 +137,9 @@ class DesignOrchestrator {
             // Step 1.25: Preserve explicit process/cycle intent as a deterministic
             // semantic contract before any load-based equipment fallback runs.
             project.semanticCycle = this.topologyInterpreter.interpret(project);
+            // The database records observed semantic patterns automatically. The legacy
+            // proposal remains only for controlled engineering-rule or skill promotion.
+            await this._persistSemanticObservation(project, project.semanticCycle);
             project.learningProposal = this.learningGovernance.propose({ project, semanticCycle: project.semanticCycle });
 
             // Step 1.5: Capacity check

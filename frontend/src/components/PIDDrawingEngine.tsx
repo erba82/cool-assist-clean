@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   addEdge, Background, Connection, Controls, Edge, Handle, MarkerType, Node, NodeProps,
-  Position, ReactFlowProvider, useEdgesState, useNodesState
+  Panel, Position, ReactFlowProvider, useEdgesState, useNodesState, useReactFlow
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
@@ -96,6 +96,47 @@ const normalizeEdges = (edges: Edge[] = []) => edges.map((edge) => ({
   }
 }));
 
+const isSafetyOrAuxiliaryNode = (node: Node) => {
+  const descriptor = `${node.data?.tag || ''} ${node.data?.componentType || ''} ${node.data?.label || ''}`.toLowerCase();
+  return /(^|\s)safe-|gas_detector|ventilation_fan|emergency_shutdown|safety_control|pressure relief|relief_valve/.test(descriptor);
+};
+
+/**
+ * The complete topology remains available in the Overview preset. For the first
+ * viewport we focus on process equipment so tag labels stay readable on a normal
+ * screen; isolated safety/control nodes are never removed or hidden from the model.
+ */
+const PidViewportPresets: React.FC<{ nodes: Node[] }> = ({ nodes }) => {
+  const { fitView } = useReactFlow();
+  const processNodes = useMemo(() => nodes.filter((node) => !isSafetyOrAuxiliaryNode(node)), [nodes]);
+  const topologySignature = useMemo(() => nodes.map((node) => node.id).sort().join('|'), [nodes]);
+  const framedTopologySignature = useRef('');
+
+  const frameProcess = useCallback(() => {
+    const targetNodes = processNodes.length ? processNodes : nodes;
+    fitView({ nodes: targetNodes, padding: 0.18, minZoom: 0.46, maxZoom: 1.3, duration: 180 });
+  }, [fitView, nodes, processNodes]);
+
+  const frameOverview = useCallback(() => {
+    fitView({ nodes, padding: 0.1, minZoom: 0.3, maxZoom: 1.1, duration: 180 });
+  }, [fitView, nodes]);
+
+  useEffect(() => {
+    if (!topologySignature || framedTopologySignature.current === topologySignature) return undefined;
+    framedTopologySignature.current = topologySignature;
+    const frame = window.requestAnimationFrame(frameProcess);
+    return () => window.cancelAnimationFrame(frame);
+  }, [frameProcess, topologySignature]);
+
+  return <Panel position="top-left">
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(255,255,255,.96)', border: '1px solid #cbd5e1', borderRadius: 4, padding: '6px 8px', fontSize: 11 }}>
+      <strong style={{ color: '#0b2942' }}>Viewport</strong>
+      <button type="button" onClick={frameProcess} style={{ border: '1px solid #0f6cbd', borderRadius: 3, background: '#eff6ff', color: '#0f4c81', padding: '3px 6px', cursor: 'pointer' }}>Readable cycle</button>
+      <button type="button" onClick={frameOverview} style={{ border: '1px solid #64748b', borderRadius: 3, background: '#fff', color: '#334155', padding: '3px 6px', cursor: 'pointer' }}>Full topology</button>
+    </div>
+  </Panel>;
+};
+
 const PIDDrawingEngineInner: React.FC<PIDDrawingEngineProps> = ({ nodes: initialNodes, edges: initialEdges, onDraftChange }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(normalizeNodes(initialNodes));
   const [edges, setEdges, onEdgesChange] = useEdgesState(normalizeEdges(initialEdges));
@@ -145,10 +186,11 @@ const PIDDrawingEngineInner: React.FC<PIDDrawingEngineProps> = ({ nodes: initial
   return <div style={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', background: '#f8fafc', border: '1px solid #cbd5e1' }}>
     <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeDragStop={onNodeDragStop} fitView fitViewOptions={{ padding: 0.08, minZoom: 0.36, maxZoom: 1.1 }} minZoom={0.25} maxZoom={2} onlyRenderVisibleElements defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }} attributionPosition="bottom-right">
       <Background color="#cbd5e1" gap={20} size={1} />
+      <PidViewportPresets nodes={nodes} />
       <Controls showInteractive={false} />
     </ReactFlow>
-    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(255,255,255,.96)', padding: '8px 10px', borderRadius: 4, fontSize: 12, maxWidth: 310 }}>
-      <strong>Editable P&amp;ID preview</strong><br />{nodes.length} equipment · {summary.sourcePorts} declared drawing outlets · {summary.edges} lines<br /><span style={{ color: '#a16207' }}>Drag = layout preview; connect handles = review-required candidate.</span>
+    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(255,255,255,.96)', padding: '8px 10px', borderRadius: 4, fontSize: 12, maxWidth: 330 }}>
+      <strong>Editable P&amp;ID preview</strong><br />{nodes.length} equipment · {summary.sourcePorts} declared drawing outlets · {summary.edges} lines<br /><span style={{ color: '#0f4c81' }}>Readable cycle focuses process equipment; Full topology restores safeguards and auxiliaries.</span><br /><span style={{ color: '#a16207' }}>Drag = layout preview; connect handles = review-required candidate.</span>
     </div>
     {issues.length > 0 && <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 10, background: '#fffbeb', border: '1px solid #f59e0b', color: '#78350f', padding: '8px 10px', borderRadius: 4, fontSize: 12, maxWidth: 500 }}>{issues[0]}</div>}
   </div>;

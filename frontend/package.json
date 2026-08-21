@@ -6,7 +6,8 @@
   "scripts": {
     "start": "webpack serve --mode development --open",
     "build": "webpack --mode production",
-    "test": "npm run validate:catalogue && npm run validate:3d",
+    "test": "npm run validate:catalogue && npm run validate:3d && npm run test:governance",
+    "test:governance": "node scripts/testGovernedVisualization.cjs",
     "test:e2e:strict": "node e2e_dubai_r717_scenario.cjs",
     "validate:catalogue": "node scripts/validateCatalogueLibrary.cjs",
     "validate:3d": "tsc --outDir .render-audit --module commonjs --target ES2020 --moduleResolution node --esModuleInterop --resolveJsonModule --skipLibCheck scripts/validateCatalogue3DRender.ts && node .render-audit/scripts/validateCatalogue3DRender.js"

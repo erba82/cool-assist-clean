@@ -1293,7 +1293,9 @@ const UnifiedChatPage: React.FC = () => {
                     }
                 }
                 else if (responseType === 'question_response') {
-                    const questionText = res.data.message + '\n\n' + res.data.note;
+                    const questionText = [res.data.message, res.data.note]
+                        .filter((part: unknown): part is string => typeof part === 'string' && part.trim().length > 0)
+                        .join('\n\n');
                     const aiMsg = {
                         id: Date.now() + 1,
                         text: questionText,
@@ -1308,7 +1310,9 @@ const UnifiedChatPage: React.FC = () => {
                     }
                 }
                 else if (responseType === 'unknown') {
-                    const unknownText = res.data.message + '\n\n' + res.data.help;
+                    const unknownText = [res.data.message, res.data.help]
+                        .filter((part: unknown): part is string => typeof part === 'string' && part.trim().length > 0)
+                        .join('\n\n');
                     const aiMsg = {
                         id: Date.now() + 1,
                         text: unknownText,

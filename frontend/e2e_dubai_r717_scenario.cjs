@@ -7,6 +7,7 @@ const { chromium } = require('playwright');
 const scenario = {
   name: 'Industrial Cold Storage Dubai',
   prompt: 'Project: Industrial Cold Storage Dubai. Facility type: industrial cold storage warehouse with an IQF tunnel. Product: frozen meat. Location: Dubai, United Arab Emirates (AE). Refrigerant: R717 (Ammonia). Design cooling load: 500 kW. Evaporating temperature: -30°C. Condensing temperature: +35°C. Use two parallel industrial screw compressors, a roof-mounted evaporative condenser, a horizontal high-pressure receiver, pumped-recirculated ammonia liquid feed, an ammonia liquid recirculation pump, a low-pressure suction separator, an oil separator, a thermosiphon oil cooler, and a confirmed Danfoss ICF 25-4 valve station for the DN32 IQF liquid branch. Include an IQF tunnel 30 x 12 x 5 m at -35°C with its own evaporator branch and valve station. Generate the complete thermodynamic calculation book, manufacturer-backed equipment selection, location-aware procurement BOM, 2D P&ID, and 3D BIM layout.',
+  generalQuestion: 'تفاوت بین سیستم تبرید مستقیم و غیرمستقیم چیست؟',
 };
 
 // Resolve against this script, not the caller's working directory, so artifacts
@@ -147,6 +148,21 @@ function now() {
     await page.waitForTimeout(700);
     await take('07_compliance_tab.png');
     diagnostics.checks.complianceRendered = true;
+
+    // A real general-chat smoke test is intentionally performed in its own fresh
+    // session. It must use the visible mode toggle so the governed general router
+    // is tested rather than the deterministic design-state-machine fallback.
+    await page.goto('http://localhost:3001/chat', { waitUntil: 'networkidle', timeout: 60000 });
+    const modeToggle = page.getByText('Design & Calculations Mode', { exact: true });
+    await modeToggle.waitFor({ state: 'visible', timeout: 30000 });
+    await modeToggle.click();
+    const generalInput = page.getByPlaceholder('Ask questions or describe your project...');
+    await generalInput.fill(scenario.generalQuestion);
+    await generalInput.press('Enter');
+    await page.getByText('Calculating...', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+    await page.getByText('Calculating...', { exact: true }).waitFor({ state: 'hidden', timeout: 180000 });
+    await take('08_general_chat_response.png');
+    diagnostics.checks.generalChatCompleted = true;
 
     diagnostics.completedAt = now();
     diagnostics.url = page.url();

@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "metrics": {
+    "windowDays": 30,
+    "purpose": null,
+    "candidates": {
+      "nvidia|nvidia/nemotron-3-ultra-550b-a55b|escalated-reasoning": {
+        "provider": "nvidia",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "profile": "escalated-reasoning",
+        "attempts": 1,
+        "successes": 0,
+        "successRate": 0,
+        "averageLatencyMs": 1581,
+        "feedbackCount": 0,
+        "averageRating": null
+      },
+      "nvidia|nvidia/nemotron-3-super-120b-a12b|general-reasoning": {
+        "provider": "nvidia",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "profile": "general-reasoning",
+        "attempts": 6,
+        "successes": 5,
+        "successRate": 0.8333333333333334,
+        "averageLatencyMs": 24742,
+        "feedbackCount": 0,
+        "averageRating": null
+      },
+      "gemini|gemini-3.5-flash|stable-multimodal-fallback": {
+        "provider": "gemini",
+        "model": "gemini-3.5-flash",
+        "profile": "stable-multimodal-fallback",
+        "attempts": 1,
+        "successes": 1,
+        "successRate": 1,
+        "averageLatencyMs": 27753,
+        "feedbackCount": 0,
+        "averageRating": null
+      }
+    }
+  },
+  "policy": "Metrics may reorder eligible profiles within one provider only. Provider precedence and engineering governance are fixed."
+}

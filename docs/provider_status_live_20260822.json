@@ -1,0 +1,153 @@
+{
+  "success": true,
+  "router": {
+    "strategy": "capability-latency-provenance",
+    "governedOrder": [
+      "nvidia",
+      "gemini",
+      "qwen",
+      "deepseek-local",
+      "deepseek"
+    ],
+    "nvidia": {
+      "configured": true,
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "models": {
+        "ultra": "nvidia/nemotron-3-ultra-550b-a55b",
+        "super": "nvidia/nemotron-3-super-120b-a12b",
+        "nanoOmni": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+      }
+    },
+    "gemini": {
+      "configured": true,
+      "model": "gemini-3.5-flash"
+    },
+    "qwen": {
+      "configured": true,
+      "baseUrl": "https://api.tokenrouter.com/v1",
+      "model": "qwen/qwen3.8-max",
+      "textOnlyUntilVerified": true
+    },
+    "deepseekLocal": {
+      "configured": true,
+      "baseUrl": "http://127.0.0.1:11434",
+      "model": "deepseek-r1:1.5b"
+    },
+    "deepseekRemote": {
+      "configured": true,
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-v4-pro"
+    },
+    "defaultPlan": [
+      {
+        "id": "nvidia-super",
+        "provider": "nvidia",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "profile": "general-reasoning",
+        "adaptive": {
+          "eligible": false,
+          "score": null,
+          "attempts": 0,
+          "reason": "insufficient-samples"
+        },
+        "circuitOpen": false
+      },
+      {
+        "id": "nvidia-ultra",
+        "provider": "nvidia",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "profile": "escalated-reasoning",
+        "adaptive": {
+          "eligible": false,
+          "score": null,
+          "attempts": 0,
+          "reason": "insufficient-samples"
+        },
+        "circuitOpen": false
+      },
+      {
+        "id": "gemini-flash",
+        "provider": "gemini",
+        "model": "gemini-3.5-flash",
+        "profile": "stable-multimodal-fallback",
+        "adaptive": {
+          "eligible": false,
+          "score": null,
+          "attempts": 0,
+          "reason": "insufficient-samples"
+        },
+        "circuitOpen": false
+      },
+      {
+        "id": "tokenrouter-qwen",
+        "provider": "qwen",
+        "model": "qwen/qwen3.8-max",
+        "profile": "text-reasoning-fallback",
+        "adaptive": {
+          "eligible": false,
+          "score": null,
+          "attempts": 0,
+          "reason": "insufficient-samples"
+        },
+        "circuitOpen": false
+      },
+      {
+        "id": "deepseek-local",
+        "provider": "deepseek-local",
+        "model": "deepseek-r1:1.5b",
+        "profile": "private-loopback-fallback",
+        "adaptive": {
+          "eligible": false,
+          "score": null,
+          "attempts": 0,
+          "reason": "insufficient-samples"
+        },
+        "circuitOpen": false
+      },
+      {
+        "id": "deepseek-remote",
+        "provider": "deepseek",
+        "model": "deepseek-v4-pro",
+        "profile": "remote-fallback",
+        "adaptive": {
+          "eligible": false,
+          "score": null,
+          "attempts": 0,
+          "reason": "insufficient-samples"
+        },
+        "circuitOpen": false
+      }
+    ],
+    "telemetry": {
+      "nvidia-super": {
+        "attempts": 1,
+        "successes": 1,
+        "failures": 0,
+        "totalLatencyMs": 11937,
+        "averageLatencyMs": 11937,
+        "consecutiveFailures": 0,
+        "lastStatus": "success",
+        "lastFailure": null,
+        "updatedAt": "2026-08-21T23:32:26.254Z"
+      }
+    },
+    "adaptiveLearning": {
+      "enabled": true,
+      "windowDays": 30,
+      "minSamples": 3,
+      "refreshMs": 60000,
+      "profilesWithMetrics": 0,
+      "providerPrecedencePreserved": true
+    }
+  },
+  "automaticLearning": {
+    "state": "ready",
+    "database": "mongodb",
+    "collection": "agent_learning_events",
+    "automaticIngestion": true,
+    "automaticEngineeringChange": false,
+    "automaticSkillInstallation": false,
+    "promotionBlocked": true,
+    "lastError": null
+  }
+}

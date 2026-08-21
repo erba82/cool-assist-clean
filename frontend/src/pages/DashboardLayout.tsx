@@ -4,28 +4,22 @@
  * Date: 2025-04-27 19:45:00
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-    Box, AppBar, Toolbar, IconButton, Drawer, List, ListItemButton,
-    ListItemIcon, ListItemText, Divider, useTheme, useMediaQuery, Avatar, Menu, MenuItem,
-    Badge, Typography, Tooltip, CssBaseline, Fade
+    Box, IconButton, Drawer, List, ListItemButton,
+    ListItemIcon, ListItemText, useTheme, useMediaQuery,
+    Typography, Tooltip, CssBaseline
 } from '@mui/material';
 import {
-    Chat as ChatIcon, AcUnit as AcUnitIcon, Folder as FolderIcon,
-    Science as EngineeringCalculatorIcon, CompareArrows as UnitConverterIcon,
-    Menu as MenuIcon, Notifications as NotificationsIcon,
-    ExitToApp as LogoutIcon, AccountCircle as AccountCircleIcon,
-    Settings as SettingsIcon, ChevronLeft as ChevronLeftIcon,
+    Chat as ChatIcon, Folder as FolderIcon,
+    ChevronLeft as ChevronLeftIcon,
     ChevronRight as ChevronRightIcon,
     Brightness4 as Brightness4Icon, Brightness7 as Brightness7Icon,
-    AccountBalance as AccountBalanceIcon, Help as HelpIcon,
     Instagram as InstagramIcon, Telegram as TelegramIcon,
-    LinkedIn as LinkedInIcon, Schema as SchemaIcon,
-    ElectricalServices as ElectricalServicesIcon,
+    LinkedIn as LinkedInIcon,
     Dashboard as DashboardIcon,
 } from '@mui/icons-material';
-// Importing X (Twitter) icon
 import { SvgIcon } from '@mui/material';
 import { useThemeMode } from '../App';
 import { useLayout } from '../context/LayoutContext';
@@ -72,13 +66,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
     const [open, setOpen] = useState(true); // Desktop sidebar state
     const [mobileOpen, setMobileOpen] = useState<boolean>(false); // Mobile drawer state
     const [showSupportChat, setShowSupportChat] = useState<boolean>(false); // Support chat state
-    const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
     const [projectsExpanded, setProjectsExpanded] = useState<boolean>(true); // Projects submenu
     const [newProjectDialog, setNewProjectDialog] = useState<boolean>(false);
     const [newProjectName, setNewProjectName] = useState<string>('');
+    const [pendingProjectRoute, setPendingProjectRoute] = useState<string | null>(null);
+    // MUI Dialog is rendered in a portal; this short-lived guard prevents the
+    // initiating click from reopening the project dialog while the route swaps.
+    const dialogOpenBlockedRef = useRef(false);
 
     // Projects context
-    const { projects, recentProjects, createProject, deleteProject, selectProject, togglePin } = useProjects();
+    const { recentProjects, createProject, deleteProject, selectProject, togglePin } = useProjects();
 
     // Calculate current sidebar width
     const currentDrawerWidth = open ? drawerWidthExpanded : drawerWidthCollapsed;
@@ -90,6 +87,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
 
         console.log(`Dashboard sidebar state updated: width=${currentDrawerWidth}, isOpen=${open}`);
     }, [open, currentDrawerWidth, setMainDrawerWidth, setIsMainDrawerOpen]);
+
+    // Navigation must run after the dialog-closing render has committed. The prior
+    // implementation navigated in the same handler as the state update, leaving
+    // the portal dialog visible across the route reconciliation in real browsers.
+    useEffect(() => {
+        if (!pendingProjectRoute) return;
+        navigate(pendingProjectRoute);
+        setPendingProjectRoute(null);
+    }, [navigate, pendingProjectRoute]);
 
     // Handler functions
     const handleDrawerToggle = () => {
@@ -115,14 +121,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
         setShowSupportChat(!showSupportChat);
     };
 
-    // Handle new project creation
+    const openNewProjectDialog = () => {
+        if (dialogOpenBlockedRef.current) return;
+        setNewProjectName('');
+        setNewProjectDialog(true);
+    };
+
+    const closeNewProjectDialog = () => {
+        setNewProjectDialog(false);
+        setNewProjectName('');
+    };
+
+    // Handle new project creation. Project creation is synchronous in the context;
+    // the deferred route state guarantees the portal closes before the route swaps.
     const handleCreateProject = () => {
-        if (newProjectName.trim()) {
-            const project = createProject(newProjectName.trim());
-            setNewProjectName('');
-            setNewProjectDialog(false);
-            navigate(`/chat/${project.id}`);
-        }
+        const projectName = newProjectName.trim();
+        if (!projectName) return;
+
+        // Block only the current click task. Without this guard, the portalled
+        // dialog's initiating event can reopen the same state after navigation.
+        dialogOpenBlockedRef.current = true;
+        const project = createProject(projectName);
+        setNewProjectName('');
+        setNewProjectDialog(false);
+        setPendingProjectRoute(`/chat/${project.id}`);
+        if (isMobile) setMobileOpen(false);
+        window.setTimeout(() => {
+            dialogOpenBlockedRef.current = false;
+        }, 0);
     };
 
     // Handle project selection
@@ -146,47 +172,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
     // Open social links in new window
     const handleSocialClick = (url: string) => {
         window.open(url, '_blank');
-    };
-
-    // Animation variants for menu items
-    const menuItemVariants = {
-        initial: {
-            opacity: 0,
-            x: -20
-        },
-        animate: (custom: number) => ({
-            opacity: 1,
-            x: 0,
-            transition: {
-                delay: custom * 0.05,
-                duration: 0.3,
-                ease: "easeOut"
-            }
-        }),
-        hover: {
-            scale: 1.05,
-            backgroundColor: theme.palette.action.hover,
-            transition: { duration: 0.2 }
-        },
-        tap: {
-            scale: 0.95
-        },
-        exit: {
-            opacity: 0,
-            x: -20,
-            transition: { duration: 0.2 }
-        }
-    };
-
-    // Animation variants for icons in collapsed mode
-    const iconVariants = {
-        initial: { scale: 0.8, opacity: 0 },
-        animate: { scale: 1, opacity: 1, transition: { duration: 0.3 } },
-        hover: {
-            scale: 1.2,
-            color: theme.palette.primary.main,
-            transition: { duration: 0.2 }
-        }
     };
 
     // Text animation variants
@@ -313,7 +298,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
                             <List component="div" disablePadding sx={{ pl: 2 }}>
                                 {/* Add New Project Button */}
                                 <ListItemButton
-                                    onClick={() => setNewProjectDialog(true)}
+                                    onClick={openNewProjectDialog}
                                     sx={{ borderRadius: 2, minHeight: 36, mb: 0.5, py: 0.5, '&:hover': { backgroundColor: 'rgba(16, 185, 129, 0.08)' } }}
                                 >
                                     <ListItemIcon sx={{ minWidth: 28, color: '#10b981' }}>
@@ -387,7 +372,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
             <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
+                transition={{ delay: 0.5, duration: 0.3 }}
             >
                 <Box sx={{
                     p: 2,
@@ -501,9 +486,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
             display: 'flex',
             height: '100vh',
             overflow: 'hidden',
-            bgcolor: theme.palette.mode === 'dark' ? '#0a0e1a' : '#e5e7eb', // Darker background
-            gap: '12px', // Space between sidebar and content
-            p: '12px', // Padding around all
+            bgcolor: theme.palette.mode === 'dark' ? '#0a0e1a' : '#e5e7eb',
+            gap: '12px',
+            p: '12px',
         }}>
             <CssBaseline />
 
@@ -522,10 +507,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
                             duration: open ? theme.transitions.duration.enteringScreen : theme.transitions.duration.leavingScreen,
                         }),
                         overflowX: 'hidden',
-                        border: 'none', // Remove border
-                        borderRadius: 2, // Add rounded corners
+                        border: 'none',
+                        borderRadius: 2,
                         backgroundColor: theme.palette.background.paper,
-                        boxShadow: 2, // Add shadow
+                        boxShadow: 2,
                     },
                 }}
                 open={open}
@@ -539,7 +524,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
                 open={mobileOpen}
                 onClose={handleMobileDrawerToggle}
                 ModalProps={{
-                    keepMounted: true, // Better mobile performance
+                    keepMounted: true,
                 }}
                 sx={{
                     display: { xs: 'block', sm: 'none' },
@@ -597,7 +582,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
             {showSupportChat && <SupportChatBot onClose={() => setShowSupportChat(false)} />}
 
             {/* New Project Dialog */}
-            <Dialog open={newProjectDialog} onClose={() => setNewProjectDialog(false)} maxWidth="xs" fullWidth>
+            <Dialog open={newProjectDialog} onClose={closeNewProjectDialog} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ fontWeight: 600 }}>Create New Project</DialogTitle>
                 <DialogContent>
                     <TextField
@@ -606,13 +591,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, onLogout })
                         label="Project Name"
                         value={newProjectName}
                         onChange={(e) => setNewProjectName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleCreateProject()}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleCreateProject();
+                            }
+                        }}
                         sx={{ mt: 1 }}
                         placeholder="e.g., Industrial Cooling System"
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setNewProjectDialog(false)} sx={{ color: theme.palette.text.secondary }}>Cancel</Button>
+                    <Button onClick={closeNewProjectDialog} sx={{ color: theme.palette.text.secondary }}>Cancel</Button>
                     <Button
                         onClick={handleCreateProject}
                         variant="contained"

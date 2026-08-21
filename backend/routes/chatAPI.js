@@ -161,6 +161,11 @@ router.post('/general', async (req, res) => {
         const IntentClassifier = require('../core/ai/IntentClassifier');
         const classifier = new IntentClassifier();
         const language = classifier.detectLanguage(message);
+        const languageInstruction = language === 'fa'
+            ? 'پاسخ را فقط با فارسی معیار بنویس. از اختلاط نویسه‌ها یا واژه‌های آلمانی، عربی، عبری یا کره‌ای خودداری کن؛ مگر آن‌که نام فنیِ استاندارد انگلیسی لازم باشد. در پرسش‌های تبریدی، اصطلاحات مستقیم و غیرمستقیم را با چرخهٔ مبرد و سیال ثانویه توضیح بده، مثال ساختگی نده و از ادعای تأیید طراحی یا انطباق استاندارد خودداری کن.'
+            : language === 'ar'
+                ? 'Respond only in clear Modern Standard Arabic. Do not mix unrelated scripts. Keep refrigeration explanations conceptual, review-required, and free of fabricated design claims.'
+                : 'Respond in the user’s language. Keep refrigeration explanations conceptual, distinguish refrigerant circuits from secondary-fluid circuits, avoid fabricated examples, and do not claim design approval.';
 
         // General chat is read-only: it does not invoke design execution or mutate engineering rules.
         // One governed router owns all provider fallback, including the local DeepSeek endpoint.
@@ -169,7 +174,7 @@ router.post('/general', async (req, res) => {
             temperature: 0.3,
             maxTokens: 1200,
             messages: [
-                { role: 'system', content: 'Answer the user directly and professionally. Do not claim to have changed a project, created engineering data, standards compliance, prices or files. For requests that affect a design, explain that the user must use Design & Calculations Mode and confirm a reviewable proposal.' },
+                { role: 'system', content: `Answer the user directly and professionally. Do not claim to have changed a project, created engineering data, standards compliance, prices or files. For requests that affect a design, explain that the user must use Design & Calculations Mode and confirm a reviewable proposal. ${languageInstruction}` },
                 { role: 'user', content: String(message) }
             ]
         });

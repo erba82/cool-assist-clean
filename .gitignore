@@ -69,6 +69,8 @@ test_*.js
 test-*.js
 e2e_*.js
 e2e_*.cjs
+# Keep the committed regression guard for project-dialog route reconciliation.
+!frontend/e2e_project_creation_modal.cjs
 probe_*.js
 inspect_*.js
 cdp_*.js

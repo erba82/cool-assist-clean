@@ -17,6 +17,8 @@ const { getProviderStatus, validatePropertyRequest } = require('../core/engineer
 const ThermophysicalParallelComparisonService = require('../core/engineering/ThermophysicalParallelComparisonService');
 const { CoolPropSidecarClient } = require('../core/engineering/CoolPropSidecarClient');
 const { readinessFor, listReadiness } = require('../core/engineering/MultiRefrigerantReadinessService');
+const { disciplineFor, listDisciplines } = require('../core/engineering/DisciplineCapabilityRegistry');
+const { evaluateEngineeringSystem } = require('../core/engineering/EngineeringReviewGate');
 
 // Initialize orchestrator
 let orchestrator = null;
@@ -437,6 +439,44 @@ router.post('/thermophysical-provider/r744-transcritical-booster', async (req, r
         const configurationIssue = /not explicitly configured|disabled by policy|not callable|loopback URL/i.test(message);
         res.status(configurationIssue ? 409 : 422).json({ success: false, error: message, reviewRequired: true });
     }
+});
+
+/**
+ * GET /api/core/disciplines
+ * Read-only product truth for engineering-discipline readiness.
+ */
+router.get('/disciplines', (req, res) => {
+    res.json({
+        success: true,
+        disciplines: listDisciplines(),
+        note: 'Only refrigeration currently has a governed-beta execution path. HVAC and Electrical are planned and intentionally blocked.'
+    });
+});
+
+/**
+ * GET /api/core/disciplines/:discipline
+ * Read-only capability and blocker record for a single discipline.
+ */
+router.get('/disciplines/:discipline', (req, res) => {
+    const discipline = disciplineFor(req.params.discipline);
+    if (!discipline) {
+        return res.status(404).json({ success: false, error: 'Unknown engineering discipline.' });
+    }
+    return res.json({ success: true, discipline });
+});
+
+/**
+ * POST /api/core/review-gates/evaluate
+ * Evaluates canonical engineering evidence without mutation, provider calls or approvals.
+ */
+router.post('/review-gates/evaluate', (req, res) => {
+    const evaluation = evaluateEngineeringSystem(req.body || {});
+    const unknownDiscipline = !evaluation.discipline;
+    return res.status(unknownDiscipline ? 422 : 200).json({
+        success: !unknownDiscipline,
+        evaluation,
+        reviewRequired: true
+    });
 });
 
 /**

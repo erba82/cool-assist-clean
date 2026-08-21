@@ -21,7 +21,9 @@ assert.strictEqual(r290.endToEndReadiness.propertyCalculation, 'validated-proper
 
 const r717Compressor = repository.resolve('compressor', { model: 'XRV163/165', manufacturer: 'Howden' }, 'R717');
 assert.strictEqual(r717Compressor.compatibleWithSelectedRefrigerant, true);
-assert.strictEqual(r717Compressor.status, 'verified');
+assert.strictEqual(r717Compressor.catalogueStatus, 'source-backed-catalogue-record');
+assert.strictEqual(r717Compressor.status, 'manufacturer-evidence-required');
+assert.strictEqual(r717Compressor.manufacturerEvidence.finalSelectionAllowed, false);
 
 const r290Compressor = repository.resolve('compressor', { model: 'XRV163/165', manufacturer: 'Howden' }, 'R290');
 assert.strictEqual(r290Compressor.status, 'unmapped');
@@ -31,7 +33,7 @@ console.log(JSON.stringify({
   status: 'passed',
   checks: [
     'eight-refrigerant-readiness-matrix',
-    'r717-source-backed-compressor-candidate',
+    'r717-source-backed-compressor-remains-manufacturer-evidence-gated',
     'r290-semantic-cycle-with-property-gate',
     'cross-refrigerant-catalogue-substitution-blocked'
   ],

@@ -1,6 +1,7 @@
 'use strict';
 
 const { normalizeRefrigerant } = require('../data/RefrigerantProfiles');
+const { assessCatalogueEvidence } = require('./ManufacturerEvidenceContract');
 
 const compressorCatalogue = require('../../../frontend/src/catalogue/catalogueCompressorModels.json');
 const condenserCatalogue = require('../../../frontend/src/catalogue/condensers_catalog.json');
@@ -102,10 +103,20 @@ class CatalogueRepository {
     const refrigerants = declaredRefrigerants(exact);
     const sourceRefs = sourceReferences(exact);
     const compatibilityDeclared = refrigerants.includes(requestedRefrigerant);
+    const catalogueStatus = compatibilityDeclared
+      ? (sourceRefs.length ? 'source-backed-catalogue-record' : 'catalogued-without-source-reference')
+      : 'catalogued-compatibility-review-required';
+    const manufacturerEvidence = assessCatalogueEvidence(exact, {
+      category,
+      selectedRefrigerant: requestedRefrigerant
+    });
     return {
-      status: compatibilityDeclared
-        ? (sourceRefs.length ? 'verified' : 'catalogued-without-source-reference')
-        : 'catalogued-compatibility-review-required',
+      // The legacy catalogue record may be source-backed, yet it cannot become a
+      // verified candidate until its explicit compatibility, revision, envelope,
+      // performance-reference and connection-evidence fields are complete.
+      status: manufacturerEvidence.candidateStatus,
+      catalogueStatus,
+      manufacturerEvidence,
       category,
       record: exact,
       catalogueModelId: readModelId(exact),
@@ -114,9 +125,9 @@ class CatalogueRepository {
       declaredRefrigerants: refrigerants,
       compatibleWithSelectedRefrigerant: compatibilityDeclared,
       sourceRefs,
-      reason: compatibilityDeclared
+      reason: manufacturerEvidence.validation.valid
         ? null
-        : 'The catalogue record has no explicit manufacturer declaration for the selected refrigerant. Keep the semantic equipment class, but require manufacturer compatibility evidence before selection or procurement.'
+        : manufacturerEvidence.validation.issues.join(' ')
     };
   }
 }

@@ -17,6 +17,9 @@ const { getProviderStatus, validatePropertyRequest } = require('../core/engineer
 const ThermophysicalParallelComparisonService = require('../core/engineering/ThermophysicalParallelComparisonService');
 const { CoolPropSidecarClient } = require('../core/engineering/CoolPropSidecarClient');
 const { SidecarHealthGovernor } = require('../core/engineering/SidecarHealthGovernor');
+const { validateManufacturerEvidence } = require('../core/engineering/ManufacturerEvidenceContract');
+const { validateGoldenCase } = require('../core/pilot/GoldenCaseRegistry');
+const { evaluatePilotReadiness } = require('../core/pilot/PilotReadinessEvaluator');
 const { readinessFor, listReadiness } = require('../core/engineering/MultiRefrigerantReadinessService');
 const { disciplineFor, listDisciplines } = require('../core/engineering/DisciplineCapabilityRegistry');
 const { evaluateEngineeringSystem } = require('../core/engineering/EngineeringReviewGate');
@@ -416,6 +419,55 @@ router.get('/thermophysical-provider/status', (_req, res) => {
 router.get('/thermophysical-provider/runtime-status', async (_req, res) => {
     const runtime = await sidecarHealthGovernor.checkNow();
     res.json({ success: runtime.health.status === 'healthy', runtime, reviewRequired: true, finalSelectionAllowed: false });
+});
+
+/**
+ * POST /api/core/manufacturer-evidence/validate
+ * Validates a submitted evidence record without storing it or promoting a selection.
+ */
+router.post('/manufacturer-evidence/validate', (req, res) => {
+    const validation = validateManufacturerEvidence(req.body?.evidence || req.body || {}, {
+        selectedRefrigerant: req.body?.selectedRefrigerant || null
+    });
+    res.status(validation.valid ? 200 : 422).json({
+        success: validation.valid,
+        validation,
+        reviewRequired: true,
+        finalSelectionAllowed: false
+    });
+});
+
+/**
+ * POST /api/core/pilot/golden-cases/validate
+ * Validates a controlled golden-case record without persisting unapproved evidence.
+ */
+router.post('/pilot/golden-cases/validate', (req, res) => {
+    const validation = validateGoldenCase(req.body || {});
+    res.status(validation.valid ? 200 : 422).json({
+        success: validation.valid,
+        validation,
+        reviewRequired: true,
+        finalSelectionAllowed: false
+    });
+});
+
+/**
+ * POST /api/core/pilot/readiness/evaluate
+ * Evaluates G0-G4 against caller-supplied evidence and the current local provider runtime.
+ * The health observation is taken by the backend; callers cannot override it.
+ */
+router.post('/pilot/readiness/evaluate', async (req, res) => {
+    const runtime = await sidecarHealthGovernor.checkNow();
+    const evaluation = evaluatePilotReadiness({
+        ...(req.body || {}),
+        providerRuntime: runtime
+    });
+    res.status(evaluation.status === 'blocked' ? 422 : 200).json({
+        success: evaluation.status !== 'blocked',
+        evaluation,
+        reviewRequired: true,
+        finalSelectionAllowed: false
+    });
 });
 
 /**

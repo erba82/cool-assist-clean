@@ -13,6 +13,7 @@ const express = require('express');
 const router = express.Router();
 const DesignOrchestrator = require('../core/ai/DesignOrchestrator');
 const { capabilityFor, listCapabilities } = require('../core/engineering/RefrigerantCapabilityService');
+const { getProviderStatus, validatePropertyRequest } = require('../core/engineering/ThermophysicalProviderRegistry');
 
 // Initialize orchestrator
 let orchestrator = null;
@@ -372,6 +373,23 @@ router.get('/refrigerant-capabilities', (_req, res) => {
 router.get('/refrigerant-capabilities/:code', (req, res) => {
     const capability = capabilityFor(req.params.code);
     res.status(capability.supported ? 200 : 404).json({ success: capability.supported, capability });
+});
+
+/**
+ * GET /api/core/thermophysical-provider/status
+ * Read-only provider readiness. This endpoint never performs an outbound property call.
+ */
+router.get('/thermophysical-provider/status', (_req, res) => {
+    res.json({ success: true, provider: getProviderStatus() });
+});
+
+/**
+ * POST /api/core/thermophysical-provider/validate-request
+ * Validate the canonical SI property-request contract without querying a provider.
+ */
+router.post('/thermophysical-provider/validate-request', (req, res) => {
+    const validation = validatePropertyRequest(req.body || {});
+    res.status(validation.valid ? 200 : 400).json({ success: validation.valid, validation });
 });
 
 /**

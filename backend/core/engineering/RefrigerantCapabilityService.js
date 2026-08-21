@@ -3,6 +3,7 @@
 const propertyData = require('../data/refrigerants.json');
 const { PROFILES, normalizeRefrigerant } = require('../data/RefrigerantProfiles');
 const { resolveCycleTemplate } = require('../data/CycleTemplateRegistry');
+const { getProviderStatus } = require('./ThermophysicalProviderRegistry');
 
 const asCompressorFamily = (value) => /scroll/i.test(String(value || '')) ? 'scroll' : /recip|piston/i.test(String(value || '')) ? 'reciprocating' : /screw/i.test(String(value || '')) ? 'screw' : 'unknown';
 
@@ -16,7 +17,10 @@ function capabilityFor(refrigerant) {
     const template = resolveCycleTemplate({ profile, compressorFamily, condenserType, feedMethod });
     const sourceProperties = propertyData[code];
     const hasInternalPropertyTable = Boolean(sourceProperties?.properties && Object.keys(sourceProperties.properties).length);
-    const propertyStatus = hasInternalPropertyTable ? 'internal-table-review-required' : 'validated-property-provider-required';
+    const provider = getProviderStatus();
+    const propertyStatus = provider.status === 'not-configured'
+        ? (hasInternalPropertyTable ? 'internal-table-review-required' : 'validated-property-provider-required')
+        : provider.status;
 
     return {
         code,
@@ -40,10 +44,13 @@ function capabilityFor(refrigerant) {
         calculationReadiness: {
             propertyStatus,
             hasInternalPropertyTable,
+            thermophysicalProvider: provider,
             manufacturerMapStatus: 'manufacturer-performance-map-required',
-            note: hasInternalPropertyTable
-                ? 'Internal property tables may support preliminary checks only; source revision, applicability range and performance-map validation remain required.'
-                : 'No internal property table is treated as sufficient for calculation. Attach an approved thermophysical-property source before final equipment selection.'
+            note: provider.status !== 'not-configured'
+                ? 'A provider is configured as a review-gated candidate only. Validate provider version, source revision, applicability envelope and manufacturer performance map before final equipment selection.'
+                : hasInternalPropertyTable
+                    ? 'Internal property tables may support preliminary checks only; source revision, applicability range and performance-map validation remain required.'
+                    : 'No internal property table is treated as sufficient for calculation. Attach an approved thermophysical-property source before final equipment selection.'
         },
         equipmentReadiness: {
             catalogueStatus: 'catalogue-match-required',

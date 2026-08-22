@@ -24,12 +24,22 @@ class AmmoniaDesignWizardService {
         // Initialize Ollama as fallback
         this.ollamaService = new OllamaService();
         
-        // NEW: Initialize AI Service Router for intelligent model selection
-        this.aiServiceRouter = new AIServiceRouter();
-        
+        // Legacy local-model helpers are intentionally lazy. They are used only
+        // by the legacy ammonia-wizard endpoint, not by the governed chat router.
+        this.aiServiceRouter = null;
+        this.aiEngine = null;
         this.db = EquipmentDatabase;
-        this.aiEngine = new AIFlowDiagramEngine(); // AI-Powered P&ID Engine
         this.requestCache = new Map(); // Simple in-memory cache for determinism
+    }
+
+    _getLegacyAiRouter() {
+        if (!this.aiServiceRouter) this.aiServiceRouter = new AIServiceRouter();
+        return this.aiServiceRouter;
+    }
+
+    _getLegacyAiFlowEngine() {
+        if (!this.aiEngine) this.aiEngine = new AIFlowDiagramEngine();
+        return this.aiEngine;
     }
 
     // =====================================================================
@@ -105,7 +115,7 @@ class AmmoniaDesignWizardService {
                 // Ultimate fallback
                 console.warn('⚠️ Using legacy P&ID fallback...');
                 try {
-                    diagram = await this.aiEngine.generateIntelligentPID(proposals.best, loads, specs);
+                    diagram = await this._getLegacyAiFlowEngine().generateIntelligentPID(proposals.best, loads, specs);
                 } catch {
                     diagram = this.generatePID(proposals.best, loads, specs);
                 }
@@ -516,7 +526,7 @@ User Request:
 
         try {
             // NEW: Use AI Service Router with parsing task type for intelligent model selection
-            const result = await this.aiServiceRouter.chat(instruction, 'parsing');
+            const result = await this._getLegacyAiRouter().chat(instruction, 'parsing');
             
             if (!result.success) {
                 console.error('❌ Ollama extraction failed:', result.error);

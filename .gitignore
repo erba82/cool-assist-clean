@@ -65,12 +65,16 @@ cdp_runtime.log
 # ==========================================
 # Standalone test files
 test_*.js
-# Keep the committed deterministic regression test for the MOC digital-thread gate.
+# Keep committed deterministic regression tests for governed engineering behavior.
 !backend/core/test_change_impact_moc_gate.js
+!backend/core/test_conversational_intake_nvidia_regression.js
+!frontend/e2e_paris_5000t_intake.cjs
 *_test.js
 test-*.js
 e2e_*.js
 e2e_*.cjs
+# Keep committed browser regression scenarios despite the broad e2e ignore rules.
+!frontend/e2e_paris_5000t_intake.cjs
 # Keep the committed regression guard for project-dialog route reconciliation.
 !frontend/e2e_project_creation_modal.cjs
 probe_*.js

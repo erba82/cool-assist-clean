@@ -819,17 +819,29 @@ const RecommendationsCard = ({ data, onConfirm, onModify }: { data: any, onConfi
     const materials = data.materials || {};
     const standards = data.standards || {};
     const summary = data.projectSummary || {};
+    const intakeProvenance = data.aiProvenance || null;
 
     return (
         <Box sx={{ maxWidth: '100%' }}>
             <Card sx={{ bgcolor: '#e8f5e9', mb: 2, border: '2px solid #4caf50' }}>
                 <CardContent>
-                    <Box display="flex" alignItems="center" gap={1} mb={2}>
-                        <VerifiedIcon color="success" />
-                        <Typography variant="h6" color="success.main">
-                            Smart Recommendations
-                        </Typography>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} mb={2} flexWrap="wrap">
+                        <Box display="flex" alignItems="center" gap={1}>
+                            <VerifiedIcon color="success" />
+                            <Typography variant="h6" color="success.main">
+                                Smart Recommendations
+                            </Typography>
+                        </Box>
+                        {intakeProvenance?.provider && <Chip
+                            label={`AI intake: ${intakeProvenance.provider} · ${intakeProvenance.model || 'configured model'}`}
+                            size="small"
+                            color={intakeProvenance.provider === 'nvidia' ? 'success' : 'warning'}
+                            variant="outlined"
+                        />}
                     </Box>
+                    {intakeProvenance?.provider && <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                        Provider provenance is shown for intake only; calculations, equipment selection and final issue remain review-gated deterministic workflows.
+                    </Typography>}
 
                     {/* Project Summary */}
                     <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -1177,9 +1189,10 @@ const UnifiedChatPage: React.FC = () => {
                 ? '/api/chat/general'
                 : '/api/chat/message';
 
+            const chatSessionId = currentProject?.id ? `project-${currentProject.id}` : 'anonymous-chat';
             const res = await axios.post(endpoint, {
                 message: msg,
-                sessionId: 'user-session-1'
+                sessionId: chatSessionId
             });
 
             if (res.data && res.data.success) {

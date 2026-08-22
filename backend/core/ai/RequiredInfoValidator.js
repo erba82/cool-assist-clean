@@ -175,7 +175,7 @@ class RequiredInfoValidator {
         for (const [field, config] of Object.entries(this.requiredFields)) {
             const value = this._getFieldValue(parsedInput, field);
 
-            if (value !== null && value !== undefined) {
+            if (this._hasValue(value)) {
                 filled.push({ field, value, config });
             } else if (config.required) {
                 missing.push({ field, config, priority: config.priority });
@@ -191,7 +191,7 @@ class RequiredInfoValidator {
 
         return {
             isComplete: missing.length === 0,
-            completenessScore: filled.length / Object.keys(this.requiredFields).length,
+            completenessScore: filled.length / Object.values(this.requiredFields).filter((config) => config.required).length,
             missing,
             filled,
             optional,
@@ -200,15 +200,24 @@ class RequiredInfoValidator {
         };
     }
 
+    _hasValue(value) {
+        if (value === null || value === undefined) return false;
+        if (typeof value === 'string') return value.trim().length > 0;
+        if (Array.isArray(value)) return value.length > 0;
+        if (typeof value === 'object') return Object.keys(value).length > 0;
+        return true;
+    }
+
     _getFieldValue(input, field) {
-        // Map field names to parsed input structure
+        // Map field names to explicit parsed input. Empty arrays and default values
+        // do not satisfy a required engineering intake field.
         const fieldMappings = {
             location: () => input.location || input.project?.location || input.entities?.locations,
             projectName: () => input.projectName || input.project?.name,
             applicationType: () => input.applicationType || input.entities?.applicationType,
-            dimensions: () => input.dimensions || input.entities?.dimensions || input.rooms,
-            temperature: () => input.temperature || input.entities?.temperatures?.[0],
-            productType: () => input.productType || input.entities?.products,
+            dimensions: () => input.dimensions || input.entities?.dimensions || (Array.isArray(input.rooms) && input.rooms.length ? input.rooms : null),
+            temperature: () => input.temperature ?? input.operatingConditions?.storageTemperatureC ?? input.entities?.temperatures?.[0] ?? (Array.isArray(input.rooms) && input.rooms.length ? input.rooms[0]?.temperature : null),
+            productType: () => input.productType || input.product?.type || input.entities?.products,
             refrigerantType: () => input.refrigerant || input.refrigerantType,
             wallMaterial: () => input.wallMaterial || input.panelThickness
         };

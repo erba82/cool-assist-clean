@@ -185,6 +185,9 @@ class IntentClassifier {
             temperatures: this._extractTemperatures(message),
             locations: this._extractLocations(message),
             products: this._extractProducts(message),
+            refrigerant: this._extractRefrigerant(message),
+            roomCount: this._extractRoomCount(message),
+            coolingLoadPerRoomKW: this._extractCoolingLoadPerRoomKW(message),
             projectType: this._extractProjectType(message),
             applicationType: this._extractApplicationType(message)
         };
@@ -251,7 +254,7 @@ class IntentClassifier {
             'dubai': 'UAE', 'دبی': 'UAE', 'abu dhabi': 'UAE', 'uae': 'UAE',
             'riyadh': 'Saudi Arabia', 'ریاض': 'Saudi Arabia', 'jeddah': 'Saudi Arabia',
             'doha': 'Qatar', 'qatar': 'Qatar', 'kuwait': 'Kuwait', 'bahrain': 'Bahrain',
-            'berlin': 'Germany', 'munich': 'Germany', 'germany': 'Germany',
+            'berlin': 'Germany', 'munich': 'Germany', 'paris': 'France', 'france': 'France', 'germany': 'Germany',
             'london': 'UK', 'manchester': 'UK', 'uk': 'UK', 'england': 'UK',
             'new york': 'USA', 'los angeles': 'USA', 'usa': 'USA', 'america': 'USA',
             'shanghai': 'China', 'beijing': 'China', 'china': 'China',
@@ -262,7 +265,7 @@ class IntentClassifier {
         // Common location patterns
         const locationPatterns = [
             /(?:in|at|location|city|country|محل|شهر|کشور)[:\s]+([A-Za-z\u0600-\u06FF]+(?:\s+[A-Za-z\u0600-\u06FF]+)?)/i,
-            /(Tehran|Dubai|Riyadh|London|Berlin|New York|Shanghai|Tokyo|Sydney|تهران|دبی|ریاض|مشهد|اصفهان|تبریز|شیراز|ایران)/i
+            /(Tehran|Dubai|Riyadh|London|Berlin|Paris|New York|Shanghai|Tokyo|Sydney|تهران|دبی|ریاض|مشهد|اصفهان|تبریز|شیراز|ایران)/i
         ];
 
         for (const pattern of locationPatterns) {
@@ -301,6 +304,36 @@ class IntentClassifier {
         return found.length > 0 ? found : null;
     }
 
+    _extractRefrigerant(message) {
+        const normalized = String(message || '').toLowerCase();
+        const profiles = {
+            R717: ['r717', 'r-717', 'ammonia', 'nh3', 'آمونیاک'],
+            R744: ['r744', 'r-744', 'co2', 'carbon dioxide', 'دی اکسید کربن'],
+            R290: ['r290', 'r-290', 'propane', 'پروپان'],
+            R32: ['r32', 'r-32'],
+            R404A: ['r404a', 'r-404a', 'r404'],
+            R410A: ['r410a', 'r-410a'],
+            R134a: ['r134a', 'r-134a'],
+            R22: ['r22', 'r-22']
+        };
+        for (const [code, terms] of Object.entries(profiles)) {
+            if (terms.some((term) => normalized.includes(term))) return code;
+        }
+        return null;
+    }
+
+    _extractRoomCount(message) {
+        const match = String(message || '').match(/(\d+)\s*(?:rooms?|cold\s*rooms?|storage\s*rooms?|اتاق|سالن)/i);
+        const value = match ? Number(match[1]) : null;
+        return Number.isInteger(value) && value > 0 ? value : null;
+    }
+
+    _extractCoolingLoadPerRoomKW(message) {
+        const match = String(message || '').match(/(\d+(?:\.\d+)?)\s*(?:kW|kw|kilowatts?)\s*(?:per\s*(?:room|cold\s*room)|\/\s*(?:room|cold\s*room))/i);
+        const value = match ? Number(match[1]) : null;
+        return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
     _extractProjectType(message) {
         for (const [type, langs] of Object.entries(this.projectTypeKeywords)) {
             for (const keywords of Object.values(langs)) {
@@ -333,6 +366,21 @@ class IntentClassifier {
     classify(message, conversationContext = {}) {
         const language = this.detectLanguage(message);
         const entities = this.extractEntities(message);
+
+        // A room-count response may be numeric only, so it must be recognized
+        // before generic keyword detection when the conversation requested it.
+        if (conversationContext.awaitingRoomCount) {
+            const numericRoomCount = String(message || '').trim().match(/^(\d+)$/);
+            if (numericRoomCount) {
+                return {
+                    intent: 'CLARIFICATION',
+                    confidence: 0.95,
+                    language,
+                    entities: { ...entities, roomCount: Number(numericRoomCount[1]) },
+                    providedInfo: ['roomCount']
+                };
+            }
+        }
 
         // Check for confirmation/rejection FIRST if awaiting
         if (conversationContext.awaitingConfirmation) {
@@ -380,8 +428,8 @@ class IntentClassifier {
         if (conversationContext.awaitingInfo) {
             // If message has entities, it's providing info
             const hasEntities = entities.dimensions || entities.temperatures ||
-                entities.locations || entities.products ||
-                entities.applicationType;
+                entities.locations || entities.products || entities.refrigerant ||
+                entities.roomCount || entities.coolingLoadPerRoomKW || entities.applicationType;
 
             if (hasEntities) {
                 return {

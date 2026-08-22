@@ -21,6 +21,22 @@ const HIGH_STAKES_PURPOSES = new Set(['project-intake', 'engineering-review', 'l
 const ENGINEERING_PURPOSES = new Set(['engineering-assistant', 'design-analysis', 'topology-interpretation', 'pid-analysis', 'file-analysis', 'technical-analysis']);
 const MULTIMODAL_PURPOSES = new Set(['attachment-analysis', 'multimodal-analysis', 'image-analysis', 'video-analysis', 'audio-analysis', 'document-analysis']);
 const stripCodeFence = (value) => String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+const parseStructuredObject = (value) => {
+    const cleaned = stripCodeFence(value);
+    const candidates = [cleaned];
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) candidates.push(cleaned.slice(firstBrace, lastBrace + 1));
+    for (const candidate of candidates) {
+        try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        } catch (_) {
+            // The next candidate may remove reasoning text or a markdown wrapper.
+        }
+    }
+    throw new Error('Structured response was not a JSON object.');
+};
 const asText = (value, max = 240) => String(value || '').replace(/\u0000/g, '').trim().slice(0, max);
 const asFinite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
 const candidateKey = (candidate) => `${candidate.provider}|${candidate.model}|${candidate.profile}`;
@@ -271,18 +287,21 @@ class AIModelRouter {
             temperature: 0,
             maxTokens: 1800,
             messages: [
-                { role: 'system', content: 'Extract only explicit refrigeration design facts from the user request. Return a single JSON object with name, location, refrigerant, product, rooms, requirements, designIntent, capacity, specifiedCoolingLoadKW and operatingConditions. Use null or empty values when unknown. Do not invent engineering data, equipment models, dimensions, standards compliance or safety settings.' },
+                { role: 'system', content: 'Extract only explicit refrigeration design facts from the user request. Return exactly one valid JSON object and no prose, code fence, reasoning text or commentary. Use these keys only: name, location, refrigerant, product, rooms, requirements, designIntent, capacity, specifiedCoolingLoadKW, operatingConditions. Use null or empty values when unknown. Do not invent engineering data, equipment models, dimensions, standards compliance or safety settings.' },
                 { role: 'user', content: String(message || '') }
             ]
         });
         if (!response.success) return null;
+        const provenance = { provider: response.provider, model: response.model, profile: response.profile, purpose: response.purpose, routing: response.routing, reviewRequired: true };
         try {
-            const project = JSON.parse(stripCodeFence(response.text));
-            if (!project || typeof project !== 'object' || Array.isArray(project)) throw new Error('Structured response was not an object.');
-            project.aiProvenance = { provider: response.provider, model: response.model, profile: response.profile, purpose: response.purpose, routing: response.routing, reviewRequired: true };
+            const project = parseStructuredObject(response.text);
+            project.aiProvenance = provenance;
             return project;
         } catch (error) {
-            return null;
+            // Deterministic intake remains authoritative for explicit facts. Keep
+            // secret-safe routing provenance visible rather than hiding a valid
+            // provider call behind an unusable structured payload.
+            return { aiProvenance: provenance, structuredParseError: asText(error.message, 160) };
         }
     }
 

@@ -48,6 +48,42 @@ class DesignOrchestrator {
         console.log('🎯 DesignOrchestrator v4.0 initialized with AI Captain');
     }
 
+    async _parseIntakeWithProvenance(userMessage) {
+        const deterministic = await this.parser.parse(userMessage);
+        const aiProject = await this._parseWithAI(userMessage);
+        if (aiProject?.aiProvenance?.provider) {
+            console.log(`🤖 Design intake provider: ${aiProject.aiProvenance.provider} · ${aiProject.aiProvenance.model || 'configured model'} · ${aiProject.aiProvenance.profile || 'default profile'}`);
+        } else {
+            console.warn('⚠️ Design intake AI extraction returned no structured provenance; deterministic extraction remains active and missing fields will be requested.');
+        }
+        const aiLocation = aiProject && typeof aiProject.location === 'object' ? aiProject.location : null;
+        const explicitLocation = deterministic.location || aiLocation || null;
+        const explicitProduct = deterministic.product || (typeof aiProject?.product === 'string' ? { type: aiProject.product } : aiProject?.product) || null;
+        const explicitRoomCount = deterministic.roomCount || Number(aiProject?.roomCount) || null;
+        const explicitCapacityTons = deterministic.storageCapacityTons || Number(aiProject?.storageCapacityTons) || null;
+        const explicitDimensions = deterministic.dimensions || aiProject?.dimensions || null;
+        const explicitTemperature = deterministic.temperature ?? aiProject?.temperature ?? null;
+        const explicitApplicationType = aiProject?.applicationType || deterministic.applicationType || null;
+        const aiOperatingConditions = aiProject?.operatingConditions && typeof aiProject.operatingConditions === 'object' ? aiProject.operatingConditions : {};
+
+        return {
+            ...deterministic,
+            name: deterministic.name !== 'New Project' ? deterministic.name : (aiProject?.name || deterministic.name),
+            location: explicitLocation,
+            product: explicitProduct,
+            roomCount: Number.isInteger(explicitRoomCount) && explicitRoomCount > 0 ? explicitRoomCount : null,
+            storageCapacityTons: Number.isFinite(explicitCapacityTons) && explicitCapacityTons > 0 ? explicitCapacityTons : null,
+            coolingLoadPerRoomKW: Number.isFinite(Number(deterministic.coolingLoadPerRoomKW ?? aiProject?.coolingLoadPerRoomKW)) ? Number(deterministic.coolingLoadPerRoomKW ?? aiProject?.coolingLoadPerRoomKW) : null,
+            dimensions: explicitDimensions,
+            temperature: Number.isFinite(Number(explicitTemperature)) ? Number(explicitTemperature) : null,
+            applicationType: explicitApplicationType,
+            refrigerant: deterministic.refrigerant || aiProject?.refrigerant || null,
+            specifiedCoolingLoadKW: deterministic.specifiedCoolingLoadKW || Number(aiProject?.specifiedCoolingLoadKW) || null,
+            operatingConditions: { ...aiOperatingConditions, ...(deterministic.operatingConditions || {}) },
+            aiProvenance: aiProject?.aiProvenance || null
+        };
+    }
+
     async _persistSemanticObservation(project, semanticCycle) {
         if (!this.learningStore || typeof this.learningStore.record !== 'function') return;
         const evidence = {
@@ -115,16 +151,23 @@ class DesignOrchestrator {
             if (skipParsing && preParsedData) {
                 project = {
                     name: preParsedData.name || preParsedData.projectName || 'New Project',
-                    location: preParsedData.location || { city: 'Dubai', country: 'UAE' },
-                    refrigerant: preParsedData.refrigerant || 'R717',
-                    product: preParsedData.product || { type: 'chicken' },
-                    rooms: preParsedData.rooms || [],
+                    location: preParsedData.location || null,
+                    refrigerant: preParsedData.refrigerant || null,
+                    product: preParsedData.product || null,
+                    rooms: Array.isArray(preParsedData.rooms) ? preParsedData.rooms : [],
+                    roomCount: Number.isInteger(preParsedData.roomCount) ? preParsedData.roomCount : null,
+                    storageCapacityTons: Number.isFinite(Number(preParsedData.storageCapacityTons)) ? Number(preParsedData.storageCapacityTons) : null,
+                    coolingLoadPerRoomKW: Number.isFinite(Number(preParsedData.coolingLoadPerRoomKW)) ? Number(preParsedData.coolingLoadPerRoomKW) : null,
+                    dimensions: preParsedData.dimensions || null,
+                    temperature: Number.isFinite(Number(preParsedData.temperature)) ? Number(preParsedData.temperature) : null,
+                    applicationType: preParsedData.applicationType || null,
                     requirements: preParsedData.requirements || [],
                     designIntent: preParsedData.designIntent || {},
-                    capacity: Number(preParsedData.capacity) || Number(preParsedData.specifiedCoolingLoadKW) || null,
+                    capacity: Number(preParsedData.specifiedCoolingLoadKW) || null,
                     specifiedCoolingLoadKW: Number(preParsedData.specifiedCoolingLoadKW) || null,
                     operatingConditions: preParsedData.operatingConditions || {},
                     wallMaterial: preParsedData.wallMaterial,
+                    aiProvenance: preParsedData.aiProvenance || null,
                     parsedAt: new Date().toISOString()
                 };
             } else {
@@ -264,8 +307,8 @@ class DesignOrchestrator {
     async handleMessage(userMessage, sessionId = 'default') {
         const startTime = Date.now();
         try {
-            let conversation = this.conversationState.get(sessionId) || { history: [], parsedInfo: {}, awaitingInfo: false, awaitingConfirmation: false };
-            const classification = this.intentClassifier.classify(userMessage, { awaitingInfo: conversation.awaitingInfo, awaitingConfirmation: conversation.awaitingConfirmation });
+            let conversation = this.conversationState.get(sessionId) || { history: [], parsedInfo: {}, awaitingInfo: false, awaitingRoomCount: false, awaitingConfirmation: false };
+            const classification = this.intentClassifier.classify(userMessage, { awaitingInfo: conversation.awaitingInfo, awaitingRoomCount: conversation.awaitingRoomCount, awaitingConfirmation: conversation.awaitingConfirmation });
             const entities = classification.entities || {};
             let response;
 
@@ -296,22 +339,116 @@ class DesignOrchestrator {
     async _handleClarification(userMessage, entities, conversation, classification) {
         const fullInput = conversation.history.map(h => h.userMessage).join(' ') + ' ' + userMessage;
         const parsed = await this.parser.parse(fullInput);
-        conversation.parsedInfo = { ...conversation.parsedInfo, ...parsed, entities: { ...conversation.parsedInfo.entities, ...entities } };
-        
-        if (entities.dimensions) conversation.parsedInfo.dimensions = entities.dimensions;
-        if (entities.temperatures && entities.temperatures.length > 0) conversation.parsedInfo.temperature = entities.temperatures[0];
-        if (entities.locations) conversation.parsedInfo.location = entities.locations;
+        conversation.parsedInfo = {
+            ...conversation.parsedInfo,
+            ...parsed,
+            entities: { ...conversation.parsedInfo.entities, ...entities },
+            location: parsed.location || conversation.parsedInfo.location || null,
+            product: parsed.product || conversation.parsedInfo.product || null,
+            refrigerant: parsed.refrigerant || entities.refrigerant || conversation.parsedInfo.refrigerant || null,
+            roomCount: entities.roomCount || parsed.roomCount || conversation.parsedInfo.roomCount || null,
+            coolingLoadPerRoomKW: entities.coolingLoadPerRoomKW || parsed.coolingLoadPerRoomKW || conversation.parsedInfo.coolingLoadPerRoomKW || null,
+            dimensions: entities.dimensions || parsed.dimensions || conversation.parsedInfo.dimensions || null,
+            temperature: entities.temperatures?.[0] ?? parsed.temperature ?? conversation.parsedInfo.temperature ?? null,
+            applicationType: entities.applicationType || parsed.applicationType || conversation.parsedInfo.applicationType || null,
+            aiProvenance: conversation.parsedInfo.aiProvenance || null
+        };
+        if (conversation.parsedInfo.roomCount) conversation.awaitingRoomCount = false;
+        if (entities.locations) conversation.parsedInfo.location = { city: entities.locations, country: null };
 
         const validation = this.infoValidator.validate(conversation.parsedInfo);
         if (validation.isComplete) return await this._generateRecommendations(conversation, classification);
-        else return this._askMissingInfo(validation, classification.language, conversation);
+        return this._askMissingInfo(validation, classification.language, conversation);
+    }
+
+    _canonicalRefrigerantCode(value) {
+        const normalized = String(value || '').trim().toUpperCase().replace(/\s+/g, '').replace(/^R-/, 'R');
+        const supported = new Set(['R717', 'R744', 'R290', 'R32', 'R404A', 'R410A', 'R134A', 'R22']);
+        if (!supported.has(normalized)) return null;
+        return normalized === 'R134A' ? 'R134a' : normalized;
+    }
+
+    _materializeExplicitRooms(info) {
+        const existingRooms = Array.isArray(info?.rooms) ? info.rooms.filter(Boolean) : [];
+        const declaredPerRoomLoad = Number(info?.coolingLoadPerRoomKW);
+        const hasDeclaredPerRoomLoad = Number.isFinite(declaredPerRoomLoad) && declaredPerRoomLoad > 0;
+        if (existingRooms.length) {
+            return existingRooms.map((room) => {
+                const roomLoad = Number(room.specifiedCoolingLoadKW);
+                const hasRoomLoad = Number.isFinite(roomLoad) && roomLoad > 0;
+                return {
+                    ...room,
+                    specifiedCoolingLoadKW: hasRoomLoad ? roomLoad : (hasDeclaredPerRoomLoad ? declaredPerRoomLoad : null),
+                    designLoadBasis: hasRoomLoad ? (room.designLoadBasis || 'user-specified-room-design-load') : (hasDeclaredPerRoomLoad ? 'user-specified-per-room-design-load' : null)
+                };
+            });
+        }
+        const dimensions = info?.dimensions;
+        const length = Number(dimensions?.length);
+        const width = Number(dimensions?.width);
+        const height = Number(dimensions?.height);
+        const temperature = Number(info?.temperature);
+        if (![length, width, height, temperature].every(Number.isFinite) || length <= 0 || width <= 0 || height <= 0) return [];
+        const requestedCount = Number(info?.roomCount);
+        const count = Number.isInteger(requestedCount) && requestedCount > 0 ? requestedCount : 1;
+        return Array.from({ length: count }, (_, index) => ({
+            id: `intake-room-${index + 1}`,
+            name: `User-defined Room ${index + 1}`,
+            type: info.applicationType || 'cold_storage_frozen',
+            length,
+            width,
+            height,
+            temperature,
+            specifiedCoolingLoadKW: Number.isFinite(Number(info.coolingLoadPerRoomKW)) && Number(info.coolingLoadPerRoomKW) > 0 ? Number(info.coolingLoadPerRoomKW) : null,
+            designLoadBasis: Number.isFinite(Number(info.coolingLoadPerRoomKW)) && Number(info.coolingLoadPerRoomKW) > 0 ? 'user-specified-per-room-design-load' : null,
+            source: 'user-explicit-intake'
+        }));
+    }
+
+    _askPerRoomDesignLoad(conversation, language) {
+        conversation.awaitingConfirmation = false;
+        conversation.awaitingInfo = true;
+        const prompts = {
+            fa: 'برای اجرای محاسبات، بار برودتی طراحی هر اتاق را بر حسب kW وارد کنید. ظرفیت ذخیره‌سازی (تن) جایگزین بار برودتی نیست.',
+            en: 'To run calculations, provide the design cooling load for each room in kW. Storage capacity in tonnes is not a substitute for cooling load.',
+            ar: 'لتنفيذ الحسابات، أدخل حمل التبريد التصميمي لكل غرفة بوحدة kW. سعة التخزين بالطن ليست بديلاً عن حمل التبريد.'
+        };
+        return {
+            success: true,
+            type: 'info_request',
+            message: prompts[language] || prompts.en,
+            completeness: 100,
+            filled: [],
+            missing: [{ field: 'coolingLoadPerRoomKW' }],
+            questions: [{
+                field: 'coolingLoadPerRoomKW',
+                text: prompts[language] || prompts.en,
+                placeholder: 'e.g., 150 kW per room',
+                required: true
+            }]
+        };
     }
 
     async _handleConfirmation(conversation, classification) {
         if (!conversation.parsedInfo || !conversation.recommendedRefrigerant) {
             return { success: false, type: 'error', message: 'No recommendations to confirm.', language: classification.language };
         }
-        conversation.parsedInfo.refrigerant = conversation.recommendedRefrigerant.name || conversation.recommendedRefrigerant.id;
+        const declaredPerRoomLoad = Number(conversation.parsedInfo.coolingLoadPerRoomKW);
+        if (!Number.isFinite(declaredPerRoomLoad) || declaredPerRoomLoad <= 0) {
+            return this._askPerRoomDesignLoad(conversation, classification.language);
+        }
+        const rooms = this._materializeExplicitRooms(conversation.parsedInfo);
+        if (!rooms.length) {
+            return { success: false, type: 'error', message: 'Explicit room length, width, height and temperature are required before calculation.', language: classification.language };
+        }
+        conversation.parsedInfo = { ...conversation.parsedInfo, rooms };
+        // The calculation engine accepts canonical refrigerant codes (for example
+        // R717), never a display label such as Ammonia (NH₃) or a dashed R-717 alias.
+        const refrigerant = this._canonicalRefrigerantCode(conversation.recommendedRefrigerant.id || conversation.recommendedRefrigerant.name);
+        if (!refrigerant) {
+            return { success: false, type: 'error', message: 'The recommended refrigerant does not map to a supported canonical code.', language: classification.language };
+        }
+        conversation.parsedInfo.refrigerant = refrigerant;
         conversation.parsedInfo.wallMaterial = conversation.recommendedMaterials;
         return await this.processRequest('', true, conversation.parsedInfo);
     }
@@ -326,19 +463,31 @@ class DesignOrchestrator {
     }
 
     async _handleDesignRequest(userMessage, entities, classification, conversation) {
-        const parsed = await this.parser.parse(userMessage);
-        conversation.parsedInfo = { ...conversation.parsedInfo, ...parsed, entities: { ...conversation.parsedInfo.entities, ...entities } };
-        
+        const parsed = await this._parseIntakeWithProvenance(userMessage);
+        conversation.parsedInfo = {
+            ...conversation.parsedInfo,
+            ...parsed,
+            entities: { ...conversation.parsedInfo.entities, ...entities },
+            refrigerant: parsed.refrigerant || entities.refrigerant || conversation.parsedInfo.refrigerant || null,
+            roomCount: entities.roomCount || parsed.roomCount || conversation.parsedInfo.roomCount || null,
+            coolingLoadPerRoomKW: entities.coolingLoadPerRoomKW || parsed.coolingLoadPerRoomKW || conversation.parsedInfo.coolingLoadPerRoomKW || null,
+            dimensions: entities.dimensions || parsed.dimensions || conversation.parsedInfo.dimensions || null,
+            temperature: entities.temperatures?.[0] ?? parsed.temperature ?? conversation.parsedInfo.temperature ?? null,
+            applicationType: entities.applicationType || parsed.applicationType || conversation.parsedInfo.applicationType || null
+        };
+
         const totalCapacity = this._getCapacityFromParsed(conversation.parsedInfo);
-        if (totalCapacity > 500 && !conversation._roomCountAsked) {
+        if (totalCapacity > 500 && !conversation.parsedInfo.roomCount) {
             conversation._roomCountAsked = true;
+            conversation.awaitingRoomCount = true;
             conversation._pendingCapacity = totalCapacity;
-            return { success: true, type: 'room_count_question', message: 'Large capacity detected. How many rooms?', awaitingRoomCount: true };
+            const question = this.infoValidator.generateRoomCountQuestion(totalCapacity, classification.language);
+            return { success: true, type: 'room_count_question', message: question?.text || 'Large capacity detected. How many rooms?', question, awaitingRoomCount: true, totalCapacity };
         }
 
         const validation = this.infoValidator.validate(conversation.parsedInfo);
         if (validation.isComplete) return await this._generateRecommendations(conversation, classification);
-        else return this._askMissingInfo(validation, classification.language, conversation);
+        return this._askMissingInfo(validation, classification.language, conversation);
     }
 
     async _generateRecommendations(conversation, classification) {
@@ -347,10 +496,14 @@ class DesignOrchestrator {
         let estimatedLoad = Number.isFinite(specifiedLoad) && specifiedLoad > 0
             ? specifiedLoad
             : (info.dimensions ? (info.dimensions.length || 10) * (info.dimensions.width || 10) * (info.dimensions.height || 3) * 2 : 100);
-        const explicitEvaporatingTemperature = Number(info.operatingConditions?.evaporatingTemperatureC);
+        const rawEvaporatingTemperature = info.operatingConditions?.evaporatingTemperatureC;
+        const explicitEvaporatingTemperature = rawEvaporatingTemperature === null || rawEvaporatingTemperature === undefined
+            ? null
+            : Number(rawEvaporatingTemperature);
+        const explicitStorageTemperature = Number(info.temperature);
         const temperature = Number.isFinite(explicitEvaporatingTemperature)
             ? explicitEvaporatingTemperature
-            : (info.temperature || -20);
+            : (Number.isFinite(explicitStorageTemperature) ? explicitStorageTemperature : null);
         const location = info.location || 'International';
 
         const matRec = this.materialRecommender.recommend({ temperature, location, roomDimensions: info.dimensions, applicationType: info.applicationType });
@@ -372,19 +525,29 @@ class DesignOrchestrator {
         return {
             success: true, type: 'recommendations', message: 'Recommendations ready. Type "confirm" to proceed.',
             projectSummary: { location: standards.country, temperature: `${temperature}°C`, estimatedLoad: `${estimatedLoad} kW` },
-            refrigerant: refRec, materials: matRec, standards: standards, awaitingConfirmation: true
+            refrigerant: refRec, materials: matRec, standards: standards,
+            aiProvenance: info.aiProvenance || null,
+            awaitingConfirmation: true
         };
     }
 
     _askMissingInfo(validation, language, conversation) {
         conversation.awaitingInfo = true;
-        return { success: true, type: 'info_request', message: 'I need more information.', missing: validation.missing };
+        return {
+            success: true,
+            type: 'info_request',
+            message: 'I need more information.',
+            completeness: Math.round(Math.max(0, Math.min(1, validation.completenessScore || 0)) * 100),
+            filled: validation.filled.map((item) => ({ field: item.field, value: item.value })),
+            missing: validation.missing,
+            questions: validation.missing.map((item) => this.infoValidator.generateQuestion(item.field, language))
+        };
     }
 
     _handleUnknown(lang) { return { success: true, type: 'unknown', message: 'I did not understand.', language: lang }; }
     async _parseWithAI(msg) { return this.modelRouter.structuredProject(msg); }
-    _getTotalCapacity(project) { return project.capacity || 0; }
-    _getCapacityFromParsed(info) { return info.capacity || 0; }
+    _getTotalCapacity(project) { return Number(project.storageCapacityTons) || 0; }
+    _getCapacityFromParsed(info) { return Number(info.storageCapacityTons) || 0; }
     _splitCapacityIntoRooms(total, count, project) {
         const rooms = []; const capPerRoom = Math.ceil(total / count);
         for(let i=0; i<count; i++) rooms.push({ name: `Room ${i+1}`, capacity: capPerRoom, temperature: -18 });

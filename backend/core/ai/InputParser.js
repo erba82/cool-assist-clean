@@ -73,13 +73,18 @@ class InputParser {
             rooms: this._extractRooms(userInput),
             requirements: this._extractRequirements(userInput),
             designIntent: this._extractDesignIntent(userInput),
+            storageCapacityTons: this._extractStorageCapacityTons(userInput),
+            roomCount: this._extractRoomCount(userInput),
+            coolingLoadPerRoomKW: this._extractCoolingLoadPerRoomKW(userInput),
+            dimensions: this._extractDimensions(userInput),
+            temperature: this._extractTemperature(userInput),
             specifiedCoolingLoadKW: this._extractCoolingLoadKW(userInput),
             operatingConditions: this._extractOperatingConditions(userInput),
             parsedAt: new Date().toISOString()
         };
 
-        // Validate and set defaults
-        project.rooms = project.rooms.length > 0 ? project.rooms : this._getDefaultRoom();
+        // Preserve only explicit room data. Missing dimensions must be collected
+        // by the conversation gate instead of being silently replaced by a mock room.
         if (Number.isFinite(project.specifiedCoolingLoadKW) && project.specifiedCoolingLoadKW > 0) {
             project.capacity = project.specifiedCoolingLoadKW;
             if (project.rooms.length === 1) {
@@ -122,20 +127,20 @@ class InputParser {
         }
 
         // Check for English city names
-        const cities = ['Tehran', 'Ardabil', 'Tabriz', 'Mashhad', 'Dubai', 'Berlin'];
+        const cities = ['Tehran', 'Ardabil', 'Tabriz', 'Mashhad', 'Dubai', 'Berlin', 'Paris'];
         for (const city of cities) {
             if (input.toLowerCase().includes(city.toLowerCase())) {
                 return { city: city, country: this._getCountry(city) };
             }
         }
 
-        return { city: 'Tehran', country: 'Iran' };  // Default
+        return null;
     }
 
     _getCountry(city) {
         const cityCountry = {
             'Tehran': 'Iran', 'Ardabil': 'Iran', 'Dubai': 'UAE',
-            'Berlin': 'Germany', 'New York': 'USA'
+            'Berlin': 'Germany', 'Paris': 'France', 'New York': 'USA'
         };
         return cityCountry[city] || 'Iran';
     }
@@ -159,7 +164,7 @@ class InputParser {
                 }
             }
         }
-        return { type: 'chicken' };  // Default
+        return null;
     }
 
     _extractCompactAreaRooms(input) {
@@ -219,48 +224,30 @@ class InputParser {
             globeValves: /globe\s+valves?/.test(text),
             expansionValves: /expansion\s+valves?/.test(text)
         };
-    }    _extractRooms(input) {
+    }
+
+    _extractRooms(input) {
         const compactAreaRooms = this._extractCompactAreaRooms(input);
         if (compactAreaRooms.length) return compactAreaRooms;
         const rooms = [];
+        const explicitRoomCount = this._extractRoomCount(input);
+        const explicitDimensions = this._extractDimensions(input);
+        const explicitTemperature = this._extractTemperature(input);
 
-        // ============================================================
-        // PRIORITY: Check for CAPACITY-BASED INPUT FIRST!
-        // Pattern: "1500 ton", "cold storage 1500 ton -18c", etc.
-        // This MUST be checked BEFORE other patterns!
-        // ============================================================
-        const capacityMatch = input.match(/(\d+)\s*(?:ton|tons|tonne|tonnes|تن)/i);
-        if (capacityMatch) {
-            const capacityTons = parseInt(capacityMatch[1]);
-            if (capacityTons > 0) {
-                // Volume = capacity × 5.56 m³ (300 kg/m³ density, 60% utilization)
-                const volumeNeeded = capacityTons * 5.56;
-                const height = capacityTons > 500 ? 9 : capacityTons > 100 ? 7 : 5;
-                const floorArea = volumeNeeded / height;
-                const side = Math.sqrt(floorArea);
-                const length = Math.ceil(side * 1.2);
-                const width = Math.ceil(side / 1.2);
-
-                // Extract temperature if available
-                const tempMatch = input.match(/(-?\d+)\s*(?:°|degree|c|درجه)/i);
-                const temperature = tempMatch ? parseInt(tempMatch[1]) : -18;
-
-                console.log(`📦 CAPACITY DETECTED: ${capacityTons} tons → ${length}×${width}×${height}m = ${length * width * height}m³`);
-
+        // When the user explicitly supplies a count and a repeated room envelope,
+        // create one semantic room per stated room. No dimensions are synthesized.
+        if (Number.isInteger(explicitRoomCount) && explicitRoomCount > 0 && explicitDimensions) {
+            for (let index = 0; index < explicitRoomCount; index += 1) {
                 rooms.push({
-                    name: `Cold Storage (${capacityTons} ton)`,
+                    name: `Cold Storage Room ${index + 1}`,
                     type: 'storage',
-                    length: length,
-                    width: width,
-                    height: height,
-                    temperature: temperature,
-                    capacity: capacityTons,
-                    dailyThroughput: Math.round(capacityTons * 0.05 * 1000)
+                    length: explicitDimensions.length,
+                    width: explicitDimensions.width,
+                    height: explicitDimensions.height,
+                    temperature: explicitTemperature
                 });
-
-                // Return immediately - capacity-based input takes priority!
-                return rooms;
             }
+            return rooms;
         }
 
         // Enhanced English patterns for room extraction with counts
@@ -364,51 +351,6 @@ class InputParser {
             }
         }
 
-        // ============================================================
-        // CAPACITY-BASED INPUT (e.g., "1500 ton", "2000 تن")
-        // Calculate room dimensions from storage tonnage
-        // ============================================================
-        if (rooms.length === 0) {
-            const capacityPatterns = [
-                /(\d+)\s*(?:ton|tons|tonne|tonnes|تن)/gi,
-                /(?:cold\s*)?storage\s*(\d+)\s*(?:ton|tons)/gi
-            ];
-
-            for (const pattern of capacityPatterns) {
-                const match = pattern.exec(input);
-                if (match) {
-                    const capacityTons = parseInt(match[1]);
-                    if (capacityTons > 0) {
-                        // Volume needed = capacity × 5.56 m³ (300 kg/m³ density, 60% utilization)
-                        const volumeNeeded = capacityTons * 5.56;
-                        const height = capacityTons > 500 ? 9 : capacityTons > 100 ? 7 : 5;
-                        const floorArea = volumeNeeded / height;
-                        const side = Math.sqrt(floorArea);
-                        const length = Math.ceil(side * 1.2);
-                        const width = Math.ceil(side / 1.2);
-
-                        // Extract temperature if available
-                        const tempMatch = input.match(/(-?\d+)\s*(?:°|degree|درجه|c)/i);
-                        const temperature = tempMatch ? parseInt(tempMatch[1]) : -18;
-
-                        console.log(`📦 Capacity: ${capacityTons} tons → ${length}×${width}×${height}m`);
-
-                        rooms.push({
-                            name: `Cold Storage (${capacityTons} ton)`,
-                            type: 'storage',
-                            length: length,
-                            width: width,
-                            height: height,
-                            temperature: temperature,
-                            capacity: capacityTons,
-                            dailyThroughput: Math.round(capacityTons * 0.05 * 1000)
-                        });
-                        break;
-                    }
-                }
-            }
-        }
-
         return rooms;
     }
 
@@ -462,17 +404,12 @@ class InputParser {
     }
 
     _extractDimensions(text) {
-        // Updated regex to support: 'and a height of', 'x', 'height'
-        const match = text.match(/(\d+(?:\.\d+)?)\s*[×x\*]\s*(\d+(?:\.\d+)?)\s*(?:m|meters?|متر)?(?:(?:\s*[×x\*]|(?:\s+(?:and|with|,|a)?\s+(?:a\s+)?height(?:\s+of)?\s*)|\s+h\s+|(?:\s*[و]\s*(?:ارتفاع\s*)?))\s*(\d+(?:\.\d+)?)\s*(?:m|meters?|متر)?)?/i);
-
-        if (match) {
-            return {
-                length: parseFloat(match[1]),
-                width: parseFloat(match[2]),
-                height: match[3] ? parseFloat(match[3]) : 4
-            };
-        }
-        return null;
+        // Only accept an explicit three-dimensional envelope. A default height
+        // would be an untraceable engineering assumption in the design path.
+        const match = String(text || '').match(/(\d+(?:\.\d+)?)\s*(?:m|meters?|متر)?\s*[×x\*]\s*(\d+(?:\.\d+)?)\s*(?:m|meters?|متر)?\s*(?:[×x\*]|(?:and\s+)?(?:a\s+)?height\s*(?:of)?|ارتفاع)\s*(\d+(?:\.\d+)?)\s*(?:m|meters?|متر)?/i);
+        if (!match) return null;
+        const dimensions = { length: Number(match[1]), width: Number(match[2]), height: Number(match[3]) };
+        return Object.values(dimensions).every((value) => Number.isFinite(value) && value > 0) ? dimensions : null;
     }
 
     _extractTemperature(text) {
@@ -541,6 +478,32 @@ class InputParser {
             height: 6,
             temperature: -18
         }];
+    }
+
+    _extractStorageCapacityTons(input) {
+        const match = String(input || '').match(/(\d+(?:\.\d+)?)\s*(?:ton|tons|tonne|tonnes|تن)\b/i);
+        const value = match ? Number(match[1]) : null;
+        return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    _extractRoomCount(input) {
+        const match = String(input || '').match(/(\d+)\s*(?:rooms?|cold\s*rooms?|storage\s*rooms?|اتاق|سالن)/i);
+        const value = match ? Number(match[1]) : null;
+        return Number.isInteger(value) && value > 0 ? value : null;
+    }
+
+    _extractCoolingLoadPerRoomKW(input) {
+        const text = String(input || '');
+        const patterns = [
+            /(?:design\s*)?(?:cooling\s*)?load\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:kW|kw|kilowatts?)\s*(?:per\s*(?:room|cold\s*room)|\/\s*(?:room|cold\s*room))/i,
+            /(\d+(?:\.\d+)?)\s*(?:kW|kw|kilowatts?)\s*(?:per\s*(?:room|cold\s*room)|\/\s*(?:room|cold\s*room))/i
+        ];
+        for (const pattern of patterns) {
+            const match = text.match(pattern);
+            const value = match ? Number(match[1]) : null;
+            if (Number.isFinite(value) && value > 0) return value;
+        }
+        return null;
     }
 
     _extractCoolingLoadKW(input) {

@@ -45,8 +45,9 @@ const InformationGatheringPanel: React.FC<InformationGatheringPanelProps> = ({
         }
     };
 
-    // Don't show if completeness is 100%
-    if (completeness >= 100) return null;
+    // A conversational intake can be complete while a calculation gate still
+    // requires an explicit engineering input (for example kW per room).
+    if (completeness >= 100 && (!missingFields || missingFields.length === 0)) return null;
 
     return (
         <Box sx={{ mb: 2 }}>

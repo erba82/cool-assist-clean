@@ -410,37 +410,38 @@ class RefrigerationEngine extends EventEmitter {
     _generateEquipmentList(calculations) {
         const equipment = [];
 
-        // Add evaporators
+        // Candidate records must remain visible even when a manufacturer map is
+        // absent. Hiding them encourages the UI to invent a selected item.
         if (calculations.evaporators) {
             calculations.evaporators.forEach((e, i) => {
-                if (e.model) {
-                    equipment.push({
-                        category: 'Evaporator',
-                        tag: `EVAP-${String(i + 1).padStart(2, '0')}`,
-                        ...e
-                    });
-                }
+                equipment.push({
+                    category: 'Evaporator',
+                    tag: e.tag || `EVAP-${String(i + 1).padStart(2, '0')}`,
+                    selectionStatus: e.selectionStatus || 'review-required',
+                    finalSelectionAllowed: Boolean(e.finalSelectionAllowed),
+                    ...e
+                });
             });
         }
 
-        // Add compressors
         if (calculations.compressors) {
             calculations.compressors.forEach((c, i) => {
-                if (c.model) {
-                    equipment.push({
-                        category: 'Compressor',
-                        tag: `COMP-${String(i + 1).padStart(2, '0')}`,
-                        ...c
-                    });
-                }
+                equipment.push({
+                    category: 'Compressor',
+                    tag: c.tag || `COMP-${String(i + 1).padStart(2, '0')}`,
+                    selectionStatus: c.selectionStatus || 'review-required',
+                    finalSelectionAllowed: Boolean(c.finalSelectionAllowed),
+                    ...c
+                });
             });
         }
 
-        // Add condensers
-        if (calculations.condensers && calculations.condensers.model) {
+        if (calculations.condensers) {
             equipment.push({
                 category: 'Condenser',
-                tag: 'COND-01',
+                tag: calculations.condensers.tag || 'COND-01',
+                selectionStatus: calculations.condensers.selectionStatus || 'review-required',
+                finalSelectionAllowed: Boolean(calculations.condensers.finalSelectionAllowed),
                 ...calculations.condensers
             });
         }
@@ -452,13 +453,11 @@ class RefrigerationEngine extends EventEmitter {
         const loads = results.calculations.loads || [];
         const totalLoad = loads.reduce((sum, l) => sum + (l.total || 0), 0);
 
-        // Calculate total equipment cost
         const equipmentList = results.equipmentList || [];
-        const totalCost = equipmentList.reduce((sum, eq) => {
-            // Equipment may have price, cost, or priceUSD field
-            const cost = eq.price || eq.cost || eq.priceUSD || 0;
-            return sum + (typeof cost === 'number' ? cost : parseFloat(cost) || 0);
-        }, 0);
+        const quotationRows = equipmentList.map((item) => item?.procurement?.priceStatus || item?.pricingStatus || 'supplier-quotation-required');
+        const costStatus = quotationRows.every((status) => status === 'verified-quotation')
+            ? 'verified-quotation'
+            : 'supplier-quotation-required';
 
         return {
             totalCoolingLoad: totalLoad,
@@ -467,8 +466,9 @@ class RefrigerationEngine extends EventEmitter {
             temperatureLevels: Object.keys(results.calculations.temperatureLevels || {}),
             equipmentCount: equipmentList.length,
             refrigerant: results.project.refrigerant,
-            totalCost: Math.round(totalCost),
-            currency: 'USD'
+            totalCost: null,
+            currency: null,
+            costStatus
         };
     }
 

@@ -24,6 +24,8 @@ build/
 dist/
 output/
 backups/
+.engineering-backups/
+.audit-backups/
 e2e-artifacts/
 BACKUP_REGRESSION_RECOVERY_*/
 
@@ -68,6 +70,8 @@ test_*.js
 # Keep committed deterministic regression tests for governed engineering behavior.
 !backend/core/test_change_impact_moc_gate.js
 !backend/core/test_conversational_intake_nvidia_regression.js
+!backend/core/test_governed_equipment_selection.js
+!backend/core/test_design_basis_component_workflow.js
 !frontend/e2e_paris_5000t_intake.cjs
 *_test.js
 test-*.js

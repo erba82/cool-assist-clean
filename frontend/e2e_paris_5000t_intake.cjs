@@ -11,9 +11,10 @@ const scenario = {
 const outputDir = path.resolve(__dirname, 'e2e-artifacts');
 const resultPath = path.join(outputDir, 'paris_5000t_intake_e2e_result.json');
 const firstScreenshot = path.join(outputDir, '10_paris_intake_missing_dimensions.png');
-const secondScreenshot = path.join(outputDir, '11_paris_nvidia_recommendation.png');
-const thirdScreenshot = path.join(outputDir, '12_paris_per_room_load_required.png');
-const fourthScreenshot = path.join(outputDir, '13_paris_design_generated.png');
+const secondScreenshot = path.join(outputDir, '11_paris_design_basis_proposal.png');
+const thirdScreenshot = path.join(outputDir, '12_paris_design_basis_confirmed.png');
+const fourthScreenshot = path.join(outputDir, '13_paris_calculation_book.png');
+const fifthScreenshot = path.join(outputDir, '14_paris_calculation_book_print_media.png');
 
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -55,41 +56,57 @@ fs.mkdirSync(outputDir, { recursive: true });
     await intakeAnswer.fill(scenario.dimensions);
     await page.getByRole('button', { name: 'Submit', exact: true }).last().click();
 
-    await page.getByText('Smart Recommendations', { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
+    await page.getByText('Design Basis — approval required', { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
     await page.getByText(/AI intake: nvidia · nvidia\/nemotron-3-(?:ultra-550b-a55b|super-120b-a12b)/i).waitFor({ state: 'visible', timeout: 30000 });
-    await page.getByText('-18°C', { exact: true }).waitFor({ state: 'visible', timeout: 30000 });
-    await page.getByText('France', { exact: true }).waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByText(/Paris/i).first().waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByText('assumption-proposed', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByText(/manufacturerSelection: manufacturer-performance-map-required/i).waitFor({ state: 'visible', timeout: 30000 });
     result.checks.nvidiaProvenanceVisible = true;
-    result.checks.negativeTemperatureVisible = true;
-    result.checks.parisLocationVisible = true;
+    result.checks.designBasisProposalVisible = true;
+    result.checks.manufacturerSelectionGated = true;
     await page.screenshot({ path: secondScreenshot, fullPage: false });
 
-    const initialConfirm = page.locator('button').filter({ hasText: /Confirm\s*&\s*Calculate/i }).last();
-    await initialConfirm.click();
-    await page.getByText(/provide the design cooling load for each room in kW/i).waitFor({ state: 'visible', timeout: 30000 });
-    result.checks.zeroLoadDesignBlocked = true;
+    const confirmBasis = page.getByRole('button', { name: 'Confirm Design Basis & Calculate', exact: true }).last();
+    await confirmBasis.click();
+    await page.getByText(/Design Complete!/i).waitFor({ state: 'visible', timeout: 180000 });
+    result.checks.designGeneratedAfterDesignBasisConfirmation = true;
     await page.screenshot({ path: thirdScreenshot, fullPage: false });
 
-    const loadAnswer = page.getByPlaceholder('Type your answers here...').last();
-    await loadAnswer.fill('150 kW per room');
-    await page.getByRole('button', { name: 'Submit', exact: true }).last().click();
-    const confirmedRecommendation = page.getByText('Smart Recommendations', { exact: true }).last();
-    await confirmedRecommendation.waitFor({ state: 'visible', timeout: 60000 });
-    const finalConfirm = page.locator('button').filter({ hasText: /Confirm\s*&\s*Calculate/i }).last();
-    await finalConfirm.click();
     const calculationTab = page.getByRole('tab', { name: 'Calculation Book', exact: true });
-    await calculationTab.waitFor({ state: 'visible', timeout: 180000 });
+    await calculationTab.waitFor({ state: 'visible', timeout: 60000 });
     await calculationTab.click();
-    await page.waitForTimeout(1200);
-    await page.getByText(/1800\s*kW/i).first().waitFor({ state: 'visible', timeout: 60000 });
-    result.checks.designGeneratedAfterDeclaredPerRoomLoad = true;
-    result.checks.totalDeclaredDesignLoadVisible = true;
+    await page.getByText('Engineering Calculation Book', { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
+    await page.getByText('user-confirmed', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByText(/input[s-]required|manufacturer.*map.*required/i).first().waitFor({ state: 'visible', timeout: 30000 });
+    result.checks.calculationBookShowsConfirmedDesignBasis = true;
+    result.checks.calculationBookKeepsMaplessSelectionGated = true;
     await page.screenshot({ path: fourthScreenshot, fullPage: false });
+
+    await page.evaluate(() => { window.print = () => undefined; });
+    await page.getByRole('button', { name: 'Print / Save PDF', exact: true }).click();
+    await page.waitForTimeout(120);
+    await page.emulateMedia({ media: 'print' });
+    const printContract = await page.evaluate(() => {
+      const book = document.querySelector('.calculation-book-print-root');
+      const noPrint = document.querySelector('.calculation-book-print-root .no-print');
+      return {
+        bodyClass: document.body.classList.contains('print-calculation-book'),
+        bookVisibility: book ? getComputedStyle(book).visibility : null,
+        noPrintDisplay: noPrint ? getComputedStyle(noPrint).display : null,
+        pageTitleVisible: Boolean(document.body.innerText.includes('Cool-Assist — Engineering Calculation Book'))
+      };
+    });
+    if (!printContract.bodyClass || printContract.bookVisibility !== 'visible' || printContract.noPrintDisplay !== 'none' || !printContract.pageTitleVisible) {
+      throw new Error(`Calculation Book print contract failed: ${JSON.stringify(printContract)}`);
+    }
+    result.checks.printMediaShowsStandaloneCalculationBook = true;
+    await page.screenshot({ path: fifthScreenshot, fullPage: false });
+    await page.emulateMedia({ media: 'screen' });
 
     result.completedAt = new Date().toISOString();
     result.url = page.url();
     result.visibleText = (await page.locator('body').innerText()).slice(0, 50000);
-    result.screenshots = [firstScreenshot, secondScreenshot, thirdScreenshot, fourthScreenshot];
+    result.screenshots = [firstScreenshot, secondScreenshot, thirdScreenshot, fourthScreenshot, fifthScreenshot];
     fs.writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
     console.log(JSON.stringify({ status: 'passed', checks: result.checks, screenshots: result.screenshots }, null, 2));
   } catch (error) {

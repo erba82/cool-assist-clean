@@ -42,7 +42,7 @@ const ProcurementBOMPanel: React.FC<Props> = ({ procurement, onTierChange }) => 
       {['premium', 'standard', 'budget'].map(tier => <Button key={tier} size="small" variant={tier === procurement.selectedTier ? 'contained' : 'outlined'} onClick={() => onTierChange?.(tier)} disabled={!onTierChange}>{tierLabel[tier]}</Button>)}
     </Box>
     <Alert severity="warning" sx={{ mb: 1.25 }}>
-      Public reference prices are not landed costs. Freight, duties, taxes, stock, commercial terms and final technical approval remain supplier-quotation and engineering-review items.
+      The active tier is a comparison filter, not a selected equipment train. Public reference prices are not landed costs. Freight, duties, taxes, stock, commercial terms and final technical approval remain supplier-quotation and engineering-review items.
     </Alert>
     <Table size="small">
       <TableHead><TableRow>
@@ -52,7 +52,7 @@ const ProcurementBOMPanel: React.FC<Props> = ({ procurement, onTierChange }) => 
         const offer = row?.offersByTier?.[tier];
         const selected = tier === procurement.selectedTier;
         return <TableRow key={`${row.equipmentId || rowIndex}-${tier}`} sx={selected ? { backgroundColor: 'rgba(15, 61, 94, 0.08)' } : undefined}>
-          <TableCell>{row.tag || row.equipmentId || '—'}{selected ? <Typography component="span" variant="caption" sx={{ ml: .5, fontWeight: 700 }}>(selected)</Typography> : null}</TableCell>
+          <TableCell>{row.tag || row.equipmentId || '—'}{selected ? <Typography component="span" variant="caption" sx={{ ml: .5, fontWeight: 700 }}>(active tier preview; not an engineering selection)</Typography> : null}</TableCell>
           <TableCell>{tierLabel[tier]}</TableCell>
           <TableCell>{offer?.brand ? `${offer.brand}${offer.model ? ` · ${offer.model}` : ''}` : 'No sourced offer'}</TableCell>
           <TableCell>{amount(offer?.basePrice)}</TableCell>

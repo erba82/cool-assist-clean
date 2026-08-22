@@ -24,9 +24,9 @@ const AdvancedPIDGenerator = require('./services/generative/AdvancedPIDGenerator
     const unresolved = layout.edges.filter((edge) => edge.dn === null);
     assert(unresolved.length > 0, 'Unverified main-line DN values must remain unresolved rather than defaulting.');
     const unresolvedLabels = unresolved.map((edge) => ({ label: edge.label, sizingStatus: edge.data.sizingStatus }));
-    assert(unresolved.every((edge) => /DN REVIEW/.test(edge.label) && edge.data.sizingStatus === 'review-required'), JSON.stringify(unresolvedLabels));
-    assert(!layout.edges.some((edge) => /DNnull|DNundefined/.test(edge.label)));
-    console.log(JSON.stringify({ status: 'passed', checks: ['confirmed-icf-dn-compatible', 'unverified-dn-review-required', 'no-dnnull-labels', 'r717-pumped-topology'] }, null, 2));
+    assert(unresolved.every((edge) => /^L-\d{3}\b/.test(edge.label) && /DN pending hydraulic sizing/.test(edge.label) && edge.data.sizingStatus === 'hydraulic-sizing-required'), JSON.stringify(unresolvedLabels));
+    assert(!layout.edges.some((edge) => /DNnull|DNundefined|DN REVIEW/.test(edge.label)));
+    console.log(JSON.stringify({ status: 'passed', checks: ['confirmed-icf-dn-compatible', 'unverified-dn-is-hydraulic-sizing-required', 'line-id-and-no-dnnull-labels', 'r717-pumped-topology'] }, null, 2));
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;

@@ -58,10 +58,14 @@ const AIModelRouter = require('../services/AIModelRouter');
     assert.strictEqual(first.questions[0].required, true);
 
     const second = await orchestrator.handleMessage('each room is 60m x 40m x 9m', 'intake-regression');
-    assert.strictEqual(second.type, 'recommendations');
+    assert.strictEqual(second.type, 'design_basis_proposal');
     assert.strictEqual(second.awaitingConfirmation, true);
     assert.strictEqual(second.projectSummary.temperature, '-18°C');
     assert.strictEqual(second.aiProvenance.provider, 'nvidia');
+    assert.strictEqual(second.designBasis.status, 'approval-required');
+    assert.strictEqual(second.designBasis.parsedFacts.declaredCoolingLoadKW, null);
+    assert.strictEqual(second.designBasis.calculationInputs.climate.summerDB, 33);
+    assert.strictEqual(second.designBasis.gates.manufacturerSelection, 'manufacturer-performance-map-required');
 
     const state = orchestrator.conversationState.get('intake-regression');
     assert.strictEqual(state.parsedInfo.roomCount, 12);
@@ -69,14 +73,16 @@ const AIModelRouter = require('../services/AIModelRouter');
     assert.deepStrictEqual(state.parsedInfo.location, { city: 'Paris', country: 'France' });
     assert.deepStrictEqual(state.parsedInfo.product, { type: 'beef' });
     assert.strictEqual(state.parsedInfo.temperature, -18);
+    assert.strictEqual(state.designBasisProposal.status, 'approval-required');
 
-    const loadRequired = await orchestrator.handleMessage('confirm', 'intake-regression');
-    assert.strictEqual(loadRequired.type, 'info_request');
-    assert.strictEqual(loadRequired.questions[0].field, 'coolingLoadPerRoomKW');
-
-    const afterLoad = await orchestrator.handleMessage('150 kW per room', 'intake-regression');
-    assert.strictEqual(afterLoad.type, 'recommendations');
-    assert.strictEqual(afterLoad.aiProvenance.provider, 'nvidia');
+    const amendmentRequest = await orchestrator.handleMessage('change design basis assumptions', 'intake-regression');
+    assert.strictEqual(amendmentRequest.type, 'info_request');
+    assert.strictEqual(amendmentRequest.questions[0].field, 'designBasisAmendment');
+    const amendedBasis = await orchestrator.handleMessage('summer dry bulb 31 C; insulation 175 mm', 'intake-regression');
+    assert.strictEqual(amendedBasis.type, 'design_basis_proposal');
+    assert.strictEqual(amendedBasis.designBasis.calculationInputs.climate.summerDB, 31);
+    assert.strictEqual(amendedBasis.designBasis.calculationInputs.room.insulation.thickness, 175);
+    assert.strictEqual(amendedBasis.designBasis.assumptions.find((item) => item.id === 'climate-summer-db').status, 'user-amended');
 
     let confirmedPayload = null;
     orchestrator.processRequest = async (_message, skipParsing, payload) => {
@@ -87,9 +93,13 @@ const AIModelRouter = require('../services/AIModelRouter');
     assert.strictEqual(confirmation.success, true);
     assert.strictEqual(confirmedPayload.skipParsing, true);
     assert.strictEqual(confirmedPayload.payload.refrigerant, 'R717');
-    assert.strictEqual(confirmedPayload.payload.coolingLoadPerRoomKW, 150);
+    assert.strictEqual(confirmedPayload.payload.coolingLoadPerRoomKW, null);
     assert.strictEqual(confirmedPayload.payload.rooms.length, 12);
-    assert(confirmedPayload.payload.rooms.every((room) => room.specifiedCoolingLoadKW === 150));
+    assert(confirmedPayload.payload.rooms.every((room) => room.specifiedCoolingLoadKW === null));
+    assert(confirmedPayload.payload.rooms.every((room) => room.insulation.type === 'polyurethane_40'));
+    assert.strictEqual(confirmedPayload.payload.climate.summerDB, 31);
+    assert.strictEqual(confirmedPayload.payload.designBasis.status, 'user-confirmed');
+    assert.strictEqual(confirmedPayload.payload.plantLayout.status, 'layout-input-required');
 
     console.log(JSON.stringify({
         status: 'passed',
@@ -100,9 +110,10 @@ const AIModelRouter = require('../services/AIModelRouter');
             'nvidia-remains-first-for-project-intake',
             'large-project-with-declared-room-count-asks-only-for-missing-dimensions',
             'negative-storage-temperature-is-not-coerced-from-null-to-zero',
-            'dimension-follow-up-produces-reviewable-recommendations-with-nvidia-provenance',
-            'confirm-blocks-zero-load-design-until-user-declares-per-room-load',
-            'declared-per-room-load-is-propagated-to-all-user-defined-rooms',
+            'dimension-follow-up-produces-auditable-design-basis-with-nvidia-provenance',
+            'confirmation-propagates-explicit-component-inputs-without-fabricated-kw-load',
+            'manufacturer-selection-and-layout-remain-gated',
+            'user-amendment-updates-only-explicit-design-basis-fields-with-traceability',
             'confirm-sends-canonical-r717-code-not-display-label'
         ]
     }, null, 2));

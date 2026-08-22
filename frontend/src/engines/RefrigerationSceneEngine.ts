@@ -222,13 +222,13 @@ const resolveJointType = (edge: any, source: any, target: any, refrigerant: stri
   return 'brazed';
 };
 
-const nodeWorldPosition = (node: any, index: number, family?: string): Vec3 => {
+const nodeWorldPosition = (node: any, index: number, _family?: string): Vec3 => {
   const x = Number(node?.position?.x ?? node?.data?.x ?? index * 120);
   const z = Number(node?.position?.y ?? node?.data?.y ?? 0);
-  const mounting = words(node?.data?.mounting, node?.data?.location, node?.data?.area, node?.data?.roomId, node?.data?.zoneId);
   const rawElevation = Number(node?.data?.elevation ?? node?.data?.mountingElevation ?? node?.elevation);
-  const roof = family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR' || /roof|outdoor|terrace/.test(mounting);
-  const y = Number.isFinite(rawElevation) && rawElevation > 0 ? rawElevation : roof ? 7.30 : 0;
+  // P&ID reading order and mounting labels are not certified elevations. A
+  // missing value remains at the graphic datum and is surfaced as input-required.
+  const y = Number.isFinite(rawElevation) ? rawElevation : 0;
   return [x * SCALE, y, z * SCALE];
 };
 
@@ -321,73 +321,81 @@ const equipmentText = (item: SceneEquipment) => words(
 );
 
 /**
- * Applies renderer-only relative elevation relationships for ammonia equipment.
- * These hints are deliberately not construction set-out values, code compliance
- * assertions, or a substitute for NPSH, pressure-drop and structural checks.
+ * Validates declared ammonia elevations without moving any equipment. A P&ID is
+ * not an elevation drawing and a renderer must never manufacture NPSH head,
+ * thermosiphon head or architectural set-out values to make a picture look right.
  */
 export const applyAmmoniaElevationHints = (equipment: SceneEquipment[], refrigerant: string, topologyEdges: any[] = []): ElevationHint[] => {
   if (!/717|ammonia|nh3/i.test(refrigerant)) return [];
 
   const hints: ElevationHint[] = [];
   const compressors = equipment.filter((item) => /compressor|screw|recip|piston/.test(equipmentText(item)));
-  // A thermosiphon receiver and an oil cooler are separate physical elements.
-  // Do not let a combined label make a receiver its own elevation reference.
   const oilCoolers = equipment.filter((item) => /oil.?cooler/.test(equipmentText(item)) && !/thermosiphon/.test(equipmentText(item)));
   const lpSeparators = equipment.filter((item) => /lp.?separator|low.?pressure.*separator|pump.?separator|surge.?drum/.test(equipmentText(item)));
   const pumps = equipment.filter((item) => /pump|circulator/.test(equipmentText(item)) && !/pump.?separator/.test(equipmentText(item)));
   const thermosiphons = equipment.filter((item) => /thermosiphon/.test(equipmentText(item)));
   const condensers = equipment.filter((item) => /condenser/.test(equipmentText(item)));
   const hpReceivers = equipment.filter((item) => /receiver/.test(equipmentText(item)) && !/thermosiphon/.test(equipmentText(item)));
+  const hasDeclaredElevation = (item: SceneEquipment) => Number.isFinite(item.position[1]) && item.params.details?.elevationStatus !== 'layout-input-required';
 
   const review = (item: SceneEquipment, relationship: string, source: string, referenceUrl: string) => {
     item.params.elevationReviewRequired = true;
     item.params.elevationHint = relationship;
     hints.push({ equipmentId: item.id, equipmentTag: item.params.tag, relationship, status: 'review-required', source, referenceUrl });
   };
+  const layoutRequired = (items: SceneEquipment[], relationship: string) => items.forEach((item) => review(item, relationship, 'Cool-Assist governed elevation contract', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir'));
 
-  // Frick 070.900-E specifies more than 6 ft (1.8 m) static head above the oil-cooler centreline.
-  // The extra 0.05 m is only to make the strict preview relationship visually unambiguous.
-  if (oilCoolers.length) {
-    const coolerCentreline = Math.max(...oilCoolers.map((item) => item.position[1]));
-    thermosiphons.forEach((item) => {
-      const nextY = Math.max(item.position[1], coolerCentreline + 1.85);
-      translateEquipment(item, [item.position[0], nextY, item.position[2]]);
-      review(item, 'Thermosiphon liquid source is shown >1.8 m above the separately tagged oil-cooler centreline; verify required head from actual piping loss and oil-cooler data.', 'Johnson Controls/Frick Form 070.900-E, Thermosyphon Oil Cooling', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
-    });
-  } else {
-    thermosiphons.forEach((item) => review(item, 'No separately tagged oil cooler exists in the P&ID; the >1.8 m thermosiphon-head relationship was not evaluated.', 'Johnson Controls/Frick Form 070.900-E, Thermosyphon Oil Cooling', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content'));
+  if ([...compressors, ...lpSeparators, ...pumps, ...thermosiphons, ...oilCoolers, ...condensers, ...hpReceivers].some((item) => !hasDeclaredElevation(item))) {
+    layoutRequired([...lpSeparators, ...pumps, ...thermosiphons, ...oilCoolers], 'Layout input required: declared equipment/nozzle elevations, pump NPSHr and suction-line loss are required. Preview geometry was not altered.');
+    return hints;
   }
 
-  const highestSuctionReference = compressors.length ? Math.max(...compressors.map((item) => item.position[1])) : null;
-  lpSeparators.forEach((item) => {
-    if (highestSuctionReference !== null) translateEquipment(item, [item.position[0], Math.max(item.position[1], highestSuctionReference + 0.60), item.position[2]]);
-    review(item, 'LP separator is displayed above compressor suction elevation as a gravity/NPSH review relationship; verify nozzles, NPSHa and approved layout.', 'Conceptual pump-recirculation layout relationship; no numerical set-out value is asserted', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir');
+  const maxCompressorY = compressors.length ? Math.max(...compressors.map((item) => item.position[1])) : null;
+  lpSeparators.forEach((item) => review(item,
+    maxCompressorY !== null && item.position[1] > maxCompressorY
+      ? 'Declared LP separator elevation is above the compressor datum; validate actual suction nozzle elevations, gravity path and NPSHa.'
+      : 'Declared LP separator elevation is not above the compressor datum; revise layout before engineering issue.',
+    'Pump-recirculation gravity/NPSH relationship', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir'));
+
+  const minSeparatorY = lpSeparators.length ? Math.min(...lpSeparators.map((item) => item.position[1])) : null;
+  pumps.forEach((item) => {
+    const declaredNpshr = Number(item.params.details?.npshRequiredM ?? item.params.details?.npshrM);
+    const declaredSuctionLoss = Number(item.params.details?.suctionLineLossPa ?? item.params.details?.suctionLineLossKPa);
+    const elevationOk = minSeparatorY !== null && item.position[1] < minSeparatorY;
+    const npshInputsPresent = Number.isFinite(declaredNpshr) && declaredNpshr > 0 && Number.isFinite(declaredSuctionLoss) && declaredSuctionLoss >= 0;
+    review(item,
+      elevationOk
+        ? (npshInputsPresent
+          ? 'Declared pump centreline is below the LP separator datum. NPSHr and suction-line loss are supplied; calculate NPSHa with actual liquid state, vapour pressure, density, nozzle levels and all losses before issue.'
+          : 'Declared pump centreline is below the LP separator datum, but vendor NPSHr and suction-line loss are absent; NPSH screening remains input-required.')
+        : 'Declared pump centreline is not below the LP separator datum; revise layout and calculate NPSHa/NPSHr.',
+      'Sabroe PSH Pump Vessel functional guidance', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir');
   });
 
-  if (lpSeparators.length) {
-    const separatorBottomProxy = Math.min(...lpSeparators.map((item) => item.position[1]));
-    pumps.forEach((item) => {
-      translateEquipment(item, [item.position[0], Math.min(item.position[1], separatorBottomProxy - 0.60), item.position[2]]);
-      review(item, 'Refrigerant pump is displayed below the LP separator as a gravity/NPSH review relationship; verify NPSHa, NPSHr and actual vessel nozzles.', 'Sabroe PSH Pump Vessel functional guidance; no numerical set-out value is asserted', 'https://www.sabroe.com/products-and-solutions/vessels-and-heat-exchangers/psh_ir');
-    });
-  }
+  thermosiphons.forEach((item) => {
+    if (!oilCoolers.length) {
+      review(item, 'No separately tagged oil cooler exists; thermosiphon static-head validation is input-required.', 'Johnson Controls/Frick Form 070.900-E', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
+      return;
+    }
+    const coolerY = Math.max(...oilCoolers.map((cooler) => cooler.position[1]));
+    const actualHead = item.position[1] - coolerY;
+    review(item,
+      actualHead > 1.8
+        ? `Declared thermosiphon source is ${actualHead.toFixed(2)} m above oil-cooler datum; calculate required head from loop pressure loss before issue.`
+        : `Declared thermosiphon head is ${actualHead.toFixed(2)} m; validate against loop pressure loss. Do not treat the preview as compliant.`,
+      'Johnson Controls/Frick Form 070.900-E', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
+  });
 
-  if (condensers.length && hpReceivers.length) {
-    const condenserY = Math.min(...condensers.map((item) => item.position[1]));
-    const receiverY = Math.max(...hpReceivers.map((item) => item.position[1]));
-    const hasPidPath = (from: SceneEquipment[], to: SceneEquipment[], via: SceneEquipment) =>
-      from.some((source) => topologyEdges.some((edge) => String(edge?.source) === source.id && String(edge?.target) === via.id)) &&
-      to.some((target) => topologyEdges.some((edge) => String(edge?.source) === via.id && String(edge?.target) === target.id));
-    thermosiphons.forEach((item) => {
-      const sourceHeadY = oilCoolers.length ? Math.max(...oilCoolers.map((cooler) => cooler.position[1])) + 1.85 : item.position[1];
-      const lowerBound = Math.max(receiverY + 0.50, sourceHeadY);
-      const upperBound = condenserY - 0.50;
-      if (lowerBound <= upperBound) translateEquipment(item, [item.position[0], Math.max(lowerBound, Math.min(item.position[1], upperBound)), item.position[2]]);
-      const pathState = hasPidPath(condensers, hpReceivers, item) ? 'P&ID path detected' : 'P&ID path not fully detected';
-      const conflictState = lowerBound > upperBound ? 'The preview could not satisfy every relative relationship simultaneously.' : 'Relative preview interval applied.';
-      review(item, `Thermosiphon is evaluated between condenser outlet and HP-receiver inlet (${pathState}). ${conflictState} Verify actual flow path, allowable pressure drop and required liquid head.`, 'Johnson Controls/Frick Form 070.900-E topology-aware preview hint', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
-    });
-  }
+  const edgeExists = (from: SceneEquipment[], to: SceneEquipment[]) => from.some((source) => to.some((target) => topologyEdges.some((edge) => String(edge?.source) === source.id && String(edge?.target) === target.id)));
+  thermosiphons.forEach((item) => {
+    const hasReceiverSupply = edgeExists(hpReceivers, [item]);
+    const hasDowncomer = edgeExists([item], oilCoolers);
+    const hasTwoPhaseReturn = edgeExists(oilCoolers, [item]);
+    const topology = hasReceiverSupply && hasDowncomer && hasTwoPhaseReturn
+      ? 'Receiver supply plus closed thermosiphon oil-cooler loop are represented in the P&ID.'
+      : 'Thermosiphon supply/return topology is incomplete in the P&ID.';
+    review(item, `${topology} Declared source-to-oil-cooler elevation is screened separately; required circulation head must be calculated from actual loop losses.`, 'Johnson Controls/Frick Form 070.900-E', 'https://docs.johnsoncontrols.com/industrialrefrigeration/api/khub/documents/BH19x4fUCKPFuKaJnbr16A/content');
+  });
 
   return hints;
 };
@@ -571,7 +579,7 @@ export const buildSceneGraph = (data: any): SceneGraph => {
       kind: String(node.data?.componentType || node.type || 'equipment'),
       position,
       rotation,
-      params: { proId: family, tag: String(node.data?.tag || node.id || `EQ-${index + 1}`), label: String(node.data?.label || node.data?.componentType || family), componentType: String(node.data?.componentType || node.type || 'equipment'), roomId, zone: zoneFor(family, roomId), mounting: (family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR') ? 'roof' : /platform|skid/i.test(words(node?.data?.mounting, node?.data?.location)) ? 'platform' : 'floor', connectionType: explicitJoint, manufacturer: procurementOverride?.selectedBrand || synchronizedEquipmentRecord?.manufacturer || node.data?.manufacturer || node.data?.details?.manufacturer, model: procurementOverride?.selectedModel || synchronizedEquipmentRecord?.model || node.data?.model || node.data?.details?.model, catalogueModelId: node.data?.details?.catalogueModelId || null, details: { ...(node.data?.details || {}), procurementTier: procurementOverride?.selectedTier || null, procurementRenderUpdateStatus: procurementOverride?.renderUpdateStatus || null, procurementEngineeringCompatibility: procurementOverride?.engineeringCompatibility || null } },
+      params: { proId: family, tag: String(node.data?.tag || node.id || `EQ-${index + 1}`), label: String(node.data?.label || node.data?.componentType || family), componentType: String(node.data?.componentType || node.type || 'equipment'), roomId, zone: zoneFor(family, roomId), mounting: (family === 'BIM_CONDENSER_EVAP' || family === 'BIM_CONDENSER_AIR') ? 'roof' : /platform|skid/i.test(words(node?.data?.mounting, node?.data?.location)) ? 'platform' : 'floor', connectionType: explicitJoint, manufacturer: procurementOverride?.selectedBrand || synchronizedEquipmentRecord?.manufacturer || node.data?.manufacturer || node.data?.details?.manufacturer, model: procurementOverride?.selectedModel || synchronizedEquipmentRecord?.model || node.data?.model || node.data?.details?.model, catalogueModelId: node.data?.details?.catalogueModelId || null, details: { ...(node.data?.details || {}), elevationStatus: node.data?.elevationStatus || node.data?.details?.elevationStatus || 'layout-input-required', procurementTier: procurementOverride?.selectedTier || null, procurementRenderUpdateStatus: procurementOverride?.renderUpdateStatus || null, procurementEngineeringCompatibility: procurementOverride?.engineeringCompatibility || null } },
       ports: portsFor(family, position, rotation),
     };
     equipment.push(item);

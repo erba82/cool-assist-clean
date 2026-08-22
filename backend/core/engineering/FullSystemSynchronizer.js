@@ -64,20 +64,24 @@ class FullSystemSynchronizer {
           : { status: 'not-applicable', category: null, record: null, sourceRefs: [] };
         const id = safeId(selection.id || selection.tag, `${category}-${index + 1}`);
         const tag = safeId(selection.tag, id);
-        const model = catalogue.model || selection.model || selection.type || null;
+        const evidenceBackedCandidate = catalogue.status === 'verified' && Boolean(catalogue.manufacturer) && Boolean(catalogue.model);
+        const selectionStatus = selection.selectionStatus || (evidenceBackedCandidate ? 'verified-candidate' : 'manufacturer-map-required');
+        const approvedQuantity = selectionStatus === 'verified-selection' && Number.isFinite(Number(selection.quantity)) && Number(selection.quantity) > 0
+          ? Number(selection.quantity) : null;
         const record = {
           id,
           tag,
           category,
           refrigerant,
           profileId: profile.id,
-          manufacturer: catalogue.manufacturer || selection.manufacturer || selection.brand || null,
-          model,
-          catalogueModelId: catalogue.catalogueModelId || null,
+          manufacturer: evidenceBackedCandidate ? catalogue.manufacturer : null,
+          model: evidenceBackedCandidate ? catalogue.model : null,
+          catalogueModelId: evidenceBackedCandidate ? catalogue.catalogueModelId : null,
           catalogueStatus: catalogue.status,
           catalogueSourceRefs: catalogue.sourceRefs || [],
+          selectionStatus,
           operatingPoint: this._operatingPoint(selection),
-          quantity: Number(selection.quantity || selection.count || selection.totalUnits || 1),
+          quantity: approvedQuantity,
           render: {
             instanceId: id,
             requestedFamily: selection.bimFamily || null,
@@ -142,7 +146,7 @@ class FullSystemSynchronizer {
 
   _operatingPoint(selection) {
     return [
-      'evaporatingTemp', 'condensingTemp', 'designLoad', 'capacityPerUnit', 'heatRejection', 'massFlowRate', 'suctionPressure', 'dischargePressure'
+      'evaporatingTemp', 'condensingTemp', 'thermodynamicCoolingDutyKw', 'thermodynamicCompressorPowerKw', 'heatRejection', 'massFlowRate', 'suctionPressure', 'dischargePressure'
     ].reduce((result, key) => {
       if (selection?.[key] !== undefined && selection?.[key] !== null) result[key] = selection[key];
       return result;
@@ -209,6 +213,7 @@ class FullSystemSynchronizer {
         tag: item.tag,
         catalogueModelId: item.catalogueModelId,
         catalogueStatus: item.catalogueStatus,
+        selectionStatus: item.selectionStatus,
         mounting: item.render.mounting,
         applicationZone: item.render.applicationZone
       })),
@@ -230,7 +235,9 @@ class FullSystemSynchronizer {
         requireLongRadiusElbows: true,
         useRoofMountingForAirCooledCondensers: profile.heatRejection?.type === 'air_cooled_condenser'
       },
-      readiness: pid.source === 'generated' && pid.disconnectedEdges.length === 0 ? 'topology-ready' : 'requires-pid-connectivity-review'
+      readiness: pid.source === 'generated' && pid.disconnectedEdges.length === 0 && equipment.every(item => item.selectionStatus === 'verified-selection')
+        ? 'topology-and-selection-ready'
+        : 'review-required'
     };
   }
 

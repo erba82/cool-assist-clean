@@ -19,8 +19,8 @@ function operatingPointOf(selection) {
   const fields = [
     'evaporatingTemp',
     'condensingTemp',
-    'designLoad',
-    'capacityPerUnit',
+    'thermodynamicCoolingDutyKw',
+    'thermodynamicCompressorPowerKw',
     'heatRejection',
     'massFlowRate',
     'suctionPressure',
@@ -129,7 +129,7 @@ class BomGenerator {
       total: null,
       totals: {
         lineCount: rows.length,
-        requestedQuantity: rows.reduce((sum, row) => sum + row.quantity, 0),
+        requestedQuantity: rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.quantity)) ? Number(row.quantity) : 0), 0),
         pricedLineCount: 0,
         currency: null,
         total: null,
@@ -165,13 +165,20 @@ class BomGenerator {
     const catalogue = catalogueCategory
       ? this.catalogueRepository.resolve(catalogueCategory, item, refrigerant)
       : { status: 'not-applicable', category: null, record: null, reason: 'No catalogue family is registered for this generated construction item.' };
-    const quantity = Math.max(1, numberOrZero(item.quantity || item.count || item.totalUnits || item.operatingUnits || 1));
-    const model = catalogue.model || stringOrNull(item.model) || stringOrNull(item.type) || 'Engineering detail required';
-    const manufacturer = catalogue.manufacturer || stringOrNull(item.manufacturer) || stringOrNull(item.brand);
+    const evidenceBackedCandidate = catalogue.status === 'verified' && Boolean(catalogue.manufacturer) && Boolean(catalogue.model);
+    const selectionStatus = item.selectionStatus || (evidenceBackedCandidate ? 'verified-candidate' : 'manufacturer-map-required');
+    const quantity = selectionStatus === 'verified-selection' && Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0
+      ? Number(item.quantity) : null;
+    const model = evidenceBackedCandidate ? catalogue.model : null;
+    const manufacturer = evidenceBackedCandidate ? catalogue.manufacturer : null;
     const nominalDiameter = stringOrNull(item.dn || item.size || item.nominalDiameter || item.nominalDiameterMm);
     const zone = stringOrNull(item.applicationZone || item.zone || item.roomName || item.temperatureLevel || item.service) || 'machine room';
-    const descriptionTokens = [categoryForSelection(category), manufacturer, model, nominalDiameter ? `DN / size ${nominalDiameter}` : null]
-      .filter(Boolean);
+    const descriptionTokens = [
+      categoryForSelection(category),
+      evidenceBackedCandidate ? manufacturer : 'manufacturer model/performance map required',
+      evidenceBackedCandidate ? model : null,
+      nominalDiameter ? `DN / size ${nominalDiameter}` : null
+    ].filter(Boolean);
 
     return {
       row,
@@ -186,6 +193,7 @@ class BomGenerator {
       applicationZone: zone,
       nominalDiameter,
       connectionType: stringOrNull(item.connectionType || item.jointType || item.connection),
+      selectionStatus,
       operatingPoint: operatingPointOf(item),
       catalogue: {
         status: catalogue.status,
@@ -202,7 +210,10 @@ class BomGenerator {
         unitPrice: null,
         totalPrice: null,
         currency: null,
-        priceStatus: 'supplier-quotation-required'
+        priceStatus: 'supplier-quotation-required',
+        selectionGate: selectionStatus === 'verified-selection'
+          ? 'selection-verified'
+          : 'engineering-review-and-manufacturer-map-required'
       }
     };
   }

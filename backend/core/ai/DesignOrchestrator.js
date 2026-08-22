@@ -64,6 +64,10 @@ class DesignOrchestrator {
         const explicitDimensions = deterministic.dimensions || aiProject?.dimensions || null;
         const explicitTemperature = deterministic.temperature ?? aiProject?.temperature ?? null;
         const explicitApplicationType = aiProject?.applicationType || deterministic.applicationType || null;
+        const rawCoolingLoadPerRoomKW = [deterministic.coolingLoadPerRoomKW, aiProject?.coolingLoadPerRoomKW]
+            .find((value) => Number.isFinite(Number(value)) && Number(value) > 0);
+        const rawSpecifiedCoolingLoadKW = [deterministic.specifiedCoolingLoadKW, aiProject?.specifiedCoolingLoadKW]
+            .find((value) => Number.isFinite(Number(value)) && Number(value) > 0);
         const aiOperatingConditions = aiProject?.operatingConditions && typeof aiProject.operatingConditions === 'object' ? aiProject.operatingConditions : {};
 
         return {
@@ -73,12 +77,12 @@ class DesignOrchestrator {
             product: explicitProduct,
             roomCount: Number.isInteger(explicitRoomCount) && explicitRoomCount > 0 ? explicitRoomCount : null,
             storageCapacityTons: Number.isFinite(explicitCapacityTons) && explicitCapacityTons > 0 ? explicitCapacityTons : null,
-            coolingLoadPerRoomKW: Number.isFinite(Number(deterministic.coolingLoadPerRoomKW ?? aiProject?.coolingLoadPerRoomKW)) ? Number(deterministic.coolingLoadPerRoomKW ?? aiProject?.coolingLoadPerRoomKW) : null,
+            coolingLoadPerRoomKW: Number.isFinite(Number(rawCoolingLoadPerRoomKW)) && Number(rawCoolingLoadPerRoomKW) > 0 ? Number(rawCoolingLoadPerRoomKW) : null,
             dimensions: explicitDimensions,
             temperature: Number.isFinite(Number(explicitTemperature)) ? Number(explicitTemperature) : null,
             applicationType: explicitApplicationType,
             refrigerant: deterministic.refrigerant || aiProject?.refrigerant || null,
-            specifiedCoolingLoadKW: deterministic.specifiedCoolingLoadKW || Number(aiProject?.specifiedCoolingLoadKW) || null,
+            specifiedCoolingLoadKW: Number.isFinite(Number(rawSpecifiedCoolingLoadKW)) && Number(rawSpecifiedCoolingLoadKW) > 0 ? Number(rawSpecifiedCoolingLoadKW) : null,
             operatingConditions: { ...aiOperatingConditions, ...(deterministic.operatingConditions || {}) },
             aiProvenance: aiProject?.aiProvenance || null
         };
@@ -166,6 +170,9 @@ class DesignOrchestrator {
                     capacity: Number(preParsedData.specifiedCoolingLoadKW) || null,
                     specifiedCoolingLoadKW: Number(preParsedData.specifiedCoolingLoadKW) || null,
                     operatingConditions: preParsedData.operatingConditions || {},
+                    climate: preParsedData.climate || null,
+                    plantLayout: preParsedData.plantLayout || null,
+                    designBasis: preParsedData.designBasis || null,
                     wallMaterial: preParsedData.wallMaterial,
                     aiProvenance: preParsedData.aiProvenance || null,
                     parsedAt: new Date().toISOString()
@@ -252,7 +259,8 @@ class DesignOrchestrator {
     _generateResponse(results, energyAnalysis, standards, project, regionalData, energyStrategies) {
         return {
             success: true,
-            project: { name: project.name, location: project.location, refrigerant: project.refrigerant, roomCount: project.rooms?.length || 0 },
+            project: { name: project.name, location: project.location, refrigerant: project.refrigerant, roomCount: project.rooms?.length || 0, designBasisStatus: project.designBasis?.status || 'not-provided' },
+            designBasis: project.designBasis || null,
             semanticCycle: project.semanticCycle || null,
             learningProposal: project.learningProposal || null,
             summary: results.summary,
@@ -337,6 +345,21 @@ class DesignOrchestrator {
     async _handleQuestion(msg, cls) { return { success: true, type: 'question_response', message: 'I can help with calculations.', language: cls.language }; }
     
     async _handleClarification(userMessage, entities, conversation, classification) {
+        if (conversation.awaitingDesignBasisAmendment && conversation.designBasisProposal) {
+            conversation.designBasisProposal = this._applyDesignBasisAmendment(conversation.designBasisProposal, userMessage);
+            conversation.awaitingDesignBasisAmendment = false;
+            conversation.awaitingInfo = false;
+            conversation.awaitingConfirmation = true;
+            return {
+                success: true,
+                type: 'design_basis_proposal',
+                message: 'Design Basis revised. Review the marked user amendments and confirm to run the preliminary component-load calculation.',
+                designBasis: conversation.designBasisProposal,
+                refrigerant: { recommended: conversation.recommendedRefrigerant || null },
+                aiProvenance: conversation.parsedInfo.aiProvenance || null,
+                awaitingConfirmation: true
+            };
+        }
         const fullInput = conversation.history.map(h => h.userMessage).join(' ') + ' ' + userMessage;
         const parsed = await this.parser.parse(fullInput);
         conversation.parsedInfo = {
@@ -431,25 +454,39 @@ class DesignOrchestrator {
 
     async _handleConfirmation(conversation, classification) {
         if (!conversation.parsedInfo || !conversation.recommendedRefrigerant) {
-            return { success: false, type: 'error', message: 'No recommendations to confirm.', language: classification.language };
+            return { success: false, type: 'error', message: 'No Design Basis proposal is available to confirm.', language: classification.language };
         }
-        const declaredPerRoomLoad = Number(conversation.parsedInfo.coolingLoadPerRoomKW);
-        if (!Number.isFinite(declaredPerRoomLoad) || declaredPerRoomLoad <= 0) {
-            return this._askPerRoomDesignLoad(conversation, classification.language);
+        const basis = conversation.designBasisProposal;
+        if (!basis || basis.status !== 'approval-required') {
+            return { success: false, type: 'error', message: 'Design Basis approval is required before calculation.', language: classification.language };
         }
-        const rooms = this._materializeExplicitRooms(conversation.parsedInfo);
+        const rooms = this._materializeDesignBasisRooms(conversation.parsedInfo, basis);
         if (!rooms.length) {
-            return { success: false, type: 'error', message: 'Explicit room length, width, height and temperature are required before calculation.', language: classification.language };
+            return { success: false, type: 'error', message: 'Explicit room length, width, height and temperature are required before the approved Design Basis can be calculated.', language: classification.language };
         }
-        conversation.parsedInfo = { ...conversation.parsedInfo, rooms };
         // The calculation engine accepts canonical refrigerant codes (for example
         // R717), never a display label such as Ammonia (NH₃) or a dashed R-717 alias.
         const refrigerant = this._canonicalRefrigerantCode(conversation.recommendedRefrigerant.id || conversation.recommendedRefrigerant.name);
         if (!refrigerant) {
             return { success: false, type: 'error', message: 'The recommended refrigerant does not map to a supported canonical code.', language: classification.language };
         }
-        conversation.parsedInfo.refrigerant = refrigerant;
-        conversation.parsedInfo.wallMaterial = conversation.recommendedMaterials;
+        const approvedBasis = {
+            ...basis,
+            status: 'user-confirmed',
+            approvedAt: new Date().toISOString(),
+            assumptions: basis.assumptions.map((assumption) => ({ ...assumption, status: 'user-confirmed' }))
+        };
+        conversation.parsedInfo = {
+            ...conversation.parsedInfo,
+            rooms,
+            refrigerant,
+            wallMaterial: conversation.recommendedMaterials,
+            climate: approvedBasis.calculationInputs.climate,
+            operatingConditions: { ...conversation.parsedInfo.operatingConditions, ...approvedBasis.calculationInputs.operatingConditions },
+            plantLayout: approvedBasis.calculationInputs.plantLayout,
+            designBasis: approvedBasis
+        };
+        conversation.designBasisProposal = approvedBasis;
         return await this.processRequest('', true, conversation.parsedInfo);
     }
 
@@ -458,6 +495,20 @@ class DesignOrchestrator {
         if (entities.refrigerant) {
             conversation.parsedInfo.refrigerant = entities.refrigerant;
             return this._generateRecommendations(conversation, classification);
+        }
+        if (conversation.designBasisProposal) {
+            conversation.awaitingDesignBasisAmendment = true;
+            conversation.awaitingInfo = true;
+            conversation.awaitingConfirmation = false;
+            return {
+                success: true,
+                type: 'info_request',
+                message: 'Describe the Design Basis change. State the parameter and unit; for example: "summer dry bulb 32 C; door openings 12 per day; insulation 175 mm".',
+                completeness: 100,
+                filled: [{ field: 'designBasis', value: 'proposal available' }],
+                missing: [{ field: 'designBasisAmendment' }],
+                questions: [{ field: 'designBasisAmendment', text: 'Which Design Basis parameters should change? Include values and units.', required: true, placeholder: 'e.g., summer dry bulb 32 C; door openings 12 per day; insulation 175 mm' }]
+            };
         }
         return { success: true, type: 'refrigerant_selection', message: 'Select refrigerant:', awaitingRefrigerantSelection: true };
     }
@@ -490,42 +541,171 @@ class DesignOrchestrator {
         return this._askMissingInfo(validation, classification.language, conversation);
     }
 
+    _designBasisAssumption(id, label, value, unit, source, affects, requiredForFinalSelection = true) {
+        return { id, label, value, unit, source, affects, status: 'assumption-proposed', editable: true, requiredForFinalSelection };
+    }
+
+    _proposedInsulationThicknessMm(temperatureC) {
+        if (temperatureC <= -35) return 200;
+        if (temperatureC <= -25) return 175;
+        if (temperatureC <= -18) return 150;
+        if (temperatureC <= -10) return 120;
+        return 100;
+    }
+
+    _applyDesignBasisAmendment(basis, userMessage) {
+        const amended = JSON.parse(JSON.stringify(basis));
+        const message = String(userMessage || '');
+        const numberAfter = (...patterns) => {
+            for (const pattern of patterns) {
+                const match = message.match(pattern);
+                if (match && Number.isFinite(Number(match[1]))) return Number(match[1]);
+            }
+            return null;
+        };
+        const markAmended = (id, value) => {
+            const assumption = amended.assumptions?.find((item) => item.id === id);
+            if (assumption) {
+                assumption.value = value;
+                assumption.status = 'user-amended';
+                assumption.source = `User amendment: ${message}`;
+            }
+        };
+        const dryBulb = numberAfter(/(?:summer\s*(?:dry\s*bulb|db)|ambient\s*(?:dry\s*bulb)?|دمای\s*خشک)\s*(?:=|:|to)?\s*(-?\d+(?:\.\d+)?)/i);
+        if (dryBulb !== null) { amended.calculationInputs.climate.summerDB = dryBulb; markAmended('climate-summer-db', dryBulb); }
+        const wetBulb = numberAfter(/(?:summer\s*(?:wet\s*bulb|wb)|دمای\s*تر)\s*(?:=|:|to)?\s*(-?\d+(?:\.\d+)?)/i);
+        if (wetBulb !== null) { amended.calculationInputs.climate.summerWB = wetBulb; markAmended('climate-summer-wb', wetBulb); }
+        const ground = numberAfter(/(?:ground\s*(?:temperature)?|دمای\s*زمین)\s*(?:=|:|to)?\s*(-?\d+(?:\.\d+)?)/i);
+        if (ground !== null) { amended.calculationInputs.climate.groundTemperatureC = ground; markAmended('ground-temperature', ground); }
+        const insulation = numberAfter(/(?:insulation|panel|عایق|پنل)\s*(?:=|:|to)?\s*(\d+(?:\.\d+)?)\s*(?:mm|میلی)/i);
+        if (insulation !== null) { amended.calculationInputs.room.insulation.thickness = insulation; markAmended('insulation', amended.calculationInputs.room.insulation); }
+        const floorFactor = numberAfter(/(?:floor\s*(?:u[-\s]?factor|factor)|ضریب\s*کف)\s*(?:=|:|to)?\s*(\d+(?:\.\d+)?)/i);
+        if (floorFactor !== null && floorFactor > 0) { amended.calculationInputs.room.floorUFactor = floorFactor; markAmended('floor-u-factor', floorFactor); }
+        const openings = numberAfter(/(?:door\s*openings?|openings?\s*per\s*day|دفعات\s*باز\s*شدن)\s*(?:=|:|to)?\s*(\d+(?:\.\d+)?)/i);
+        if (openings !== null && openings >= 0) { amended.calculationInputs.room.door.openingsPerDay = openings; markAmended('door-operation', { ...amended.calculationInputs.room.door, protectionFactor: amended.calculationInputs.room.doorProtection }); }
+        const openDuration = numberAfter(/(?:open\s*duration|door\s*duration|مدت\s*باز\s*بودن)\s*(?:=|:|to)?\s*(\d+(?:\.\d+)?)/i);
+        if (openDuration !== null && openDuration >= 0) { amended.calculationInputs.room.door.openDuration = openDuration; markAmended('door-operation', { ...amended.calculationInputs.room.door, protectionFactor: amended.calculationInputs.room.doorProtection }); }
+        const protection = numberAfter(/(?:door\s*protection|protection\s*factor|ضریب\s*حفاظت)\s*(?:=|:|to)?\s*(0?(?:\.\d+)?|1(?:\.0+)?)/i);
+        if (protection !== null && protection > 0 && protection <= 1) { amended.calculationInputs.room.doorProtection = protection; markAmended('door-operation', { ...amended.calculationInputs.room.door, protectionFactor: protection }); }
+        const evaporating = numberAfter(/(?:evaporating\s*(?:temperature|temp)?|te\b|دمای\s*تبخیر)\s*(?:=|:|to)?\s*(-?\d+(?:\.\d+)?)/i);
+        if (evaporating !== null) { amended.calculationInputs.operatingConditions.evaporatingTemperatureC = evaporating; markAmended('cycle-setpoints', { ...amended.assumptions.find((item) => item.id === 'cycle-setpoints')?.value, evaporatingTemperatureC: evaporating }); }
+        const condensing = numberAfter(/(?:condensing\s*(?:temperature|temp)?|tc\b|دمای\s*تقطیر)\s*(?:=|:|to)?\s*(-?\d+(?:\.\d+)?)/i);
+        if (condensing !== null) { amended.calculationInputs.operatingConditions.condensingTemperatureC = condensing; markAmended('cycle-setpoints', { ...amended.assumptions.find((item) => item.id === 'cycle-setpoints')?.value, condensingTemperatureC: condensing }); }
+        amended.status = 'approval-required';
+        amended.amendedAt = new Date().toISOString();
+        amended.amendmentSource = message;
+        return amended;
+    }
+
+    async _buildDesignBasisProposal(info, language) {
+        const regionalData = await GlobalDataFetcher.fetchRegionalData(info.location);
+        const roomTemperatureC = Number(info.temperature);
+        const regionalClimate = regionalData?.climate || {};
+        const summerDesign = regionalClimate.summerDesign || {};
+        const ambientDryBulbC = Number.isFinite(Number(summerDesign.temp)) ? Number(summerDesign.temp) : null;
+        const ambientWetBulbC = Number.isFinite(Number(summerDesign.wetBulb)) ? Number(summerDesign.wetBulb) : null;
+        const groundTemperatureC = Number.isFinite(Number(regionalClimate.avgTemp)) ? Number(regionalClimate.avgTemp) : null;
+        const insulationThicknessMm = this._proposedInsulationThicknessMm(roomTemperatureC);
+        const evaporatingTemperatureC = Number.isFinite(roomTemperatureC) ? roomTemperatureC - 8 : null;
+        const condensingTemperatureC = ambientWetBulbC !== null ? ambientWetBulbC + 10 : null;
+        const locationSource = regionalData?.dataSource ? `GlobalRegionalData (${regionalData.dataSource}; location key: ${regionalData.location || 'unknown'})` : 'location data unavailable';
+        const productType = info.product?.type || info.productType || null;
+        const roomInputs = {
+            insulation: { type: 'polyurethane_40', thickness: insulationThicknessMm },
+            floorUFactor: 1,
+            door: { width: 2.5, height: 3, openingsPerDay: 20, openDuration: 2 },
+            doorProtection: 0.15,
+            occupancy: 2,
+            occupancyHours: 8,
+            lightingPower: 10,
+            lightingHours: 12,
+            equipmentPower: 2,
+            equipmentHours: 8,
+            product: { type: productType, dailyThroughput: 0, entryTemp: roomTemperatureC }
+        };
+        const assumptions = [
+            this._designBasisAssumption('climate-summer-db', 'Outdoor summer dry-bulb', ambientDryBulbC, '°C', locationSource, ['transmission', 'infiltration']),
+            this._designBasisAssumption('climate-summer-wb', 'Outdoor summer wet-bulb', ambientWetBulbC, '°C', locationSource, ['condensing-setpoint']),
+            this._designBasisAssumption('ground-temperature', 'Ground boundary temperature', groundTemperatureC, '°C', `${locationSource}; proposed as annual-average proxy`, ['floor-transmission']),
+            this._designBasisAssumption('insulation', 'Wall and ceiling insulation', roomInputs.insulation, 'material / mm', 'Cool-Assist material library; thickness is a proposed design assumption', ['transmission']),
+            this._designBasisAssumption('floor-u-factor', 'Floor U-factor multiplier relative to wall U-value', roomInputs.floorUFactor, 'ratio', 'Proposed pending construction detail', ['floor-transmission']),
+            this._designBasisAssumption('door-operation', 'Door operating profile per room', { ...roomInputs.door, protectionFactor: roomInputs.doorProtection }, 'm / events/day / min / factor', 'Proposed operational profile; strip-curtain factor is an assumption', ['infiltration']),
+            this._designBasisAssumption('internal-gains', 'Internal gains per room', { occupancy: roomInputs.occupancy, occupancyHours: roomInputs.occupancyHours, lightingPower: roomInputs.lightingPower, lightingHours: roomInputs.lightingHours, equipmentPower: roomInputs.equipmentPower, equipmentHours: roomInputs.equipmentHours }, 'people / h/day / W·m⁻² / kW', 'Proposed operational profile', ['internal-load']),
+            this._designBasisAssumption('product-throughput', 'Product process basis', roomInputs.product, 'kg/day / °C', 'Proposed frozen-storage basis: no daily product pull-down; change for receiving, freezing, blast or IQF duty', ['product-load']),
+            this._designBasisAssumption('cycle-setpoints', 'Preliminary cycle setpoints', { evaporatingTemperatureC, condensingTemperatureC, evaporatorTDK: 8, evaporativeCondenserApproachK: 10 }, '°C / K', 'Proposed for confirmation; not a manufacturer selection point', ['thermophysical-cycle']),
+            this._designBasisAssumption('redundancy-control', 'Redundancy and control policy', { policy: 'N+1 pending owner confirmation', control: 'capacity-staging-and-VFD-pending-map' }, 'policy', 'Owner/design review required', ['equipment-train', 'energy']),
+            this._designBasisAssumption('layout-npsh', 'BIM elevation and pump NPSH data', { datum: null, equipmentElevations: null, pumpNPSHr: null, suctionLineLoss: null }, 'm / m liquid / Pa', 'User/supplier input required; no automatic elevation placement is permitted', ['BIM-layout', 'pump-hydraulics'])
+        ];
+        return {
+            schemaVersion: '1.0.0',
+            id: `design-basis-${Date.now()}`,
+            status: 'approval-required',
+            proposalMode: 'component-load-calculation',
+            language,
+            parsedFacts: { location: info.location || null, product: productType, applicationType: info.applicationType || null, roomCount: info.roomCount || null, roomDimensions: info.dimensions || null, storageTemperatureC: Number.isFinite(roomTemperatureC) ? roomTemperatureC : null, requestedRefrigerant: info.refrigerant || null, declaredCoolingLoadKW: Number.isFinite(Number(info.coolingLoadPerRoomKW)) && Number(info.coolingLoadPerRoomKW) > 0 ? Number(info.coolingLoadPerRoomKW) : null },
+            assumptions,
+            calculationInputs: {
+                climate: { summerDB: ambientDryBulbC, summerWB: ambientWetBulbC, groundTemperatureC },
+                room: roomInputs,
+                operatingConditions: { evaporatingTemperatureC, condensingTemperatureC },
+                plantLayout: { datumElevationM: null, equipment: {}, pumpHydraulics: { npshRequiredM: null, suctionLineLossPa: null }, status: 'layout-input-required' }
+            },
+            gates: { calculation: 'user-confirmation-required', manufacturerSelection: 'manufacturer-performance-map-required', pipingSizing: 'hydraulic-input-required', BIMLayout: 'declared-elevation-and-NPSH-required' },
+            statement: 'The proposed inputs are transparent, editable assumptions. Confirmation authorises a preliminary component-load calculation only; it does not approve procurement, final equipment selection, pipe DN or BIM elevations.'
+        };
+    }
+
+    _materializeDesignBasisRooms(info, basis) {
+        const rooms = this._materializeExplicitRooms(info);
+        const roomInputs = basis?.calculationInputs?.room;
+        if (!roomInputs) return [];
+        return rooms.map((room) => ({
+            ...room,
+            insulation: roomInputs.insulation,
+            floorUFactor: roomInputs.floorUFactor,
+            door: roomInputs.door,
+            doorProtection: roomInputs.doorProtection,
+            occupancy: roomInputs.occupancy,
+            occupancyHours: roomInputs.occupancyHours,
+            lightingPower: roomInputs.lightingPower,
+            lightingHours: roomInputs.lightingHours,
+            equipmentPower: roomInputs.equipmentPower,
+            equipmentHours: roomInputs.equipmentHours,
+            product: { ...roomInputs.product, type: room.product?.type || roomInputs.product.type || info.product?.type || info.productType || null },
+            designLoadBasis: room.designLoadBasis || 'approved-design-basis-component-calculation'
+        }));
+    }
+
     async _generateRecommendations(conversation, classification) {
         const info = conversation.parsedInfo;
-        const specifiedLoad = Number(info.specifiedCoolingLoadKW ?? info.capacity);
-        let estimatedLoad = Number.isFinite(specifiedLoad) && specifiedLoad > 0
-            ? specifiedLoad
-            : (info.dimensions ? (info.dimensions.length || 10) * (info.dimensions.width || 10) * (info.dimensions.height || 3) * 2 : 100);
         const rawEvaporatingTemperature = info.operatingConditions?.evaporatingTemperatureC;
-        const explicitEvaporatingTemperature = rawEvaporatingTemperature === null || rawEvaporatingTemperature === undefined
-            ? null
-            : Number(rawEvaporatingTemperature);
+        const explicitEvaporatingTemperature = rawEvaporatingTemperature === null || rawEvaporatingTemperature === undefined ? null : Number(rawEvaporatingTemperature);
         const explicitStorageTemperature = Number(info.temperature);
-        const temperature = Number.isFinite(explicitEvaporatingTemperature)
-            ? explicitEvaporatingTemperature
-            : (Number.isFinite(explicitStorageTemperature) ? explicitStorageTemperature : null);
+        const temperature = Number.isFinite(explicitEvaporatingTemperature) ? explicitEvaporatingTemperature : (Number.isFinite(explicitStorageTemperature) ? explicitStorageTemperature : null);
         const location = info.location || 'International';
-
-        const matRec = this.materialRecommender.recommend({ temperature, location, roomDimensions: info.dimensions, applicationType: info.applicationType });
         const standards = getStandardsForLocation(location);
-
+        const matRec = this.materialRecommender.recommend({ temperature, location, roomDimensions: info.dimensions, applicationType: info.applicationType });
         let refRec;
         if (info.refrigerant || classification.entities?.refrigerant) {
             const req = info.refrigerant || classification.entities?.refrigerant;
-            refRec = { recommended: { id: req, name: req, gwp: 0, safety: 'A1', userRequested: true }, alternatives: [] };
+            refRec = { recommended: { id: req, name: req, userRequested: true }, alternatives: [] };
         } else {
-            refRec = this.refrigerantRecommender.recommend({ coolingLoad: estimatedLoad, temperature, location, applicationType: info.applicationType });
+            refRec = this.refrigerantRecommender.recommend({ coolingLoad: null, temperature, location, applicationType: info.applicationType });
         }
-
         conversation.recommendedRefrigerant = refRec.recommended;
         conversation.recommendedMaterials = matRec;
+        conversation.designBasisProposal = await this._buildDesignBasisProposal(info, classification.language);
         conversation.awaitingConfirmation = true;
         conversation.awaitingInfo = false;
-
         return {
-            success: true, type: 'recommendations', message: 'Recommendations ready. Type "confirm" to proceed.',
-            projectSummary: { location: standards.country, temperature: `${temperature}°C`, estimatedLoad: `${estimatedLoad} kW` },
-            refrigerant: refRec, materials: matRec, standards: standards,
+            success: true,
+            type: 'design_basis_proposal',
+            message: 'Design Basis proposed. Review or change assumptions, then type "confirm" to calculate.',
+            projectSummary: { location: standards.country, temperature: `${temperature}°C`, declaredCoolingLoad: info.coolingLoadPerRoomKW || null },
+            refrigerant: refRec,
+            materials: matRec,
+            standards,
+            designBasis: conversation.designBasisProposal,
             aiProvenance: info.aiProvenance || null,
             awaitingConfirmation: true
         };

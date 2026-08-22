@@ -955,6 +955,45 @@ const RecommendationsCard = ({ data, onConfirm, onModify }: { data: any, onConfi
     );
 };
 
+const DesignBasisCard = ({ data, onConfirm, onRequestChanges }: { data: any, onConfirm: () => void, onRequestChanges: () => void }) => {
+    const basis = data?.designBasis;
+    if (!basis) return null;
+    const assumptions = Array.isArray(basis.assumptions) ? basis.assumptions : [];
+    const facts = basis.parsedFacts || {};
+    const displayValue = (value: any) => {
+        if (value === null || value === undefined || value === '') return 'Input required';
+        return typeof value === 'object' ? JSON.stringify(value) : String(value);
+    };
+    return (
+        <Card sx={{ bgcolor: '#eef6fb', mb: 2, border: '2px solid #1f6d9a' }}>
+            <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} mb={1.5} flexWrap="wrap">
+                    <Box display="flex" alignItems="center" gap={1}><SettingsIcon color="primary" /><Typography variant="h6" color="primary.dark">Design Basis — approval required</Typography></Box>
+                    <Chip label={basis.status || 'approval-required'} color="warning" size="small" />
+                </Box>
+                {data?.aiProvenance?.provider && <Chip label={`AI intake: ${data.aiProvenance.provider} · ${data.aiProvenance.model || 'configured model'}`} size="small" color={data.aiProvenance.provider === 'nvidia' ? 'success' : 'warning'} variant="outlined" sx={{ mb: 1 }} />}
+                <Alert severity="info" sx={{ mb: 2 }}>{basis.statement || 'Review assumptions before calculation.'}</Alert>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>Parsed project facts</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 1, mb: 2 }}>
+                    {Object.entries(facts).map(([key, value]) => <Paper key={key} variant="outlined" sx={{ p: 1 }}><Typography variant="caption" color="text.secondary">{key}</Typography><Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{displayValue(value)}</Typography></Paper>)}
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>Proposed assumptions — all editable before final issue</Typography>
+                <Box sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid #d6e5f0', bgcolor: '#fff' }}>
+                    <Table size="small"><TableHead><TableRow><TableCell>Parameter</TableCell><TableCell>Value</TableCell><TableCell>Source / rationale</TableCell><TableCell>Status</TableCell></TableRow></TableHead><TableBody>
+                        {assumptions.map((assumption: any) => <TableRow key={assumption.id}><TableCell>{assumption.label || assumption.id}</TableCell><TableCell sx={{ maxWidth: 210, overflowWrap: 'anywhere' }}>{displayValue(assumption.value)}</TableCell><TableCell sx={{ maxWidth: 260, overflowWrap: 'anywhere' }}>{assumption.source || 'Input required'}</TableCell><TableCell><Chip label={assumption.status || 'review-required'} size="small" color={assumption.status === 'user-confirmed' ? 'success' : 'warning'} /></TableCell></TableRow>)}
+                    </TableBody></Table>
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 2, mb: 0.75 }}>Controlled gates</Typography>
+                <Box display="flex" flexWrap="wrap" gap={0.75}>{Object.entries(basis.gates || {}).map(([key, value]) => <Chip key={key} size="small" variant="outlined" color="warning" label={`${key}: ${value}`} />)}</Box>
+                <Box display="flex" gap={1.25} mt={2} flexWrap="wrap">
+                    <Button variant="contained" color="success" onClick={onConfirm} startIcon={<VerifiedIcon />}>Confirm Design Basis &amp; Calculate</Button>
+                    <Button variant="outlined" color="primary" onClick={onRequestChanges}>Request assumption changes</Button>
+                </Box>
+            </CardContent>
+        </Card>
+    );
+};
+
 // Info Request Card Component
 const InfoRequestCard = ({ data, onSubmitInfo }: { data: any, onSubmitInfo: (info: string) => void }) => {
     const [inputValue, setInputValue] = useState('');
@@ -1058,9 +1097,10 @@ interface ChatMessage {
     id: number;
     text?: string;
     sender: 'user' | 'ai';
-    type?: 'text' | 'design' | 'recommendations' | 'info_request';
+    type?: 'text' | 'design' | 'recommendations' | 'design_basis_proposal' | 'info_request';
     designData?: any;
     recommendationsData?: any;
+    designBasisData?: any;
     infoRequestData?: any;
 }
 
@@ -1255,6 +1295,19 @@ const UnifiedChatPage: React.FC = () => {
 
                     if (currentProject) {
                         addMessage(currentProject.id, { sender: 'ai', type: 'recommendations', recommendationsData: res.data });
+                    }
+                }
+                else if (responseType === 'design_basis_proposal') {
+                    const aiMsg = {
+                        id: Date.now() + 1,
+                        sender: 'ai' as const,
+                        type: 'design_basis_proposal' as const,
+                        designBasisData: res.data,
+                        timestamp: Date.now()
+                    };
+                    setMessages(p => [...p, aiMsg]);
+                    if (currentProject) {
+                        addMessage(currentProject.id, { sender: 'ai', type: 'design_basis_proposal', designBasisData: res.data });
                     }
                 }
                 else if (responseType === 'refrigerant_selection') {
@@ -1518,8 +1571,8 @@ const UnifiedChatPage: React.FC = () => {
                                             <Typography fontWeight="bold">✅ {m.designData?.project?.name || 'Design'}</Typography>
                                         </Box>
                                         <Typography variant="body2" color="textSecondary" mt={1}>
-                                            Total Load: {Math.round(m.designData?.summary?.totalCoolingLoad || 0)} kW<br />
-                                            Est. Cost: ${calculateEquipmentCost(m.designData?.equipment).toLocaleString()}
+                                            Calculated load: {m.designData?.summary?.totalCoolingLoad ?? 'review-required'} kW<br />
+                                            Procurement: {m.designData?.summary?.costStatus || 'supplier-quotation-required'}
                                         </Typography>
                                         <Typography variant="caption" color="primary" mt={1} display="block">
                                             👆 Click to view details →
@@ -1535,6 +1588,12 @@ const UnifiedChatPage: React.FC = () => {
                                     onModify={(what: string) => {
                                         void handleSend(`change ${what}`);
                                     }}
+                                />
+                            ) : m.type === 'design_basis_proposal' ? (
+                                <DesignBasisCard
+                                    data={m.designBasisData}
+                                    onConfirm={() => { void handleSend('confirm'); }}
+                                    onRequestChanges={() => { void handleSend('change design basis assumptions'); }}
                                 />
                             ) : m.type === 'info_request' ? (
                                 <InformationGatheringPanel

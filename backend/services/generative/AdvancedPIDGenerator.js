@@ -49,11 +49,11 @@ class AdvancedPIDGenerator {
         return 'reciprocating_compressor';
     }
 
-    _condenserLabel(type, selected, profile) {
-        if (selected?.model) return selected.model;
-        if (type === 'air_cooled_condenser') return 'Air-Cooled Condenser — model confirmation required';
-        if (type === 'gas_cooler') return 'CO₂ Gas Cooler — model confirmation required';
-        return profile.heatRejection?.model || 'Evaporative Condenser — model confirmation required';
+    _condenserLabel(type, selected) {
+        if (selected?.model && selected?.selectionStatus === 'verified-candidate') return selected.model;
+        if (type === 'air_cooled_condenser') return 'Air-Cooled Condenser — manufacturer map required';
+        if (type === 'gas_cooler') return 'CO₂ Gas Cooler — manufacturer map required';
+        return 'Evaporative Condenser — manufacturer map required';
     }
 
     async generate(results = {}, project = {}) {
@@ -73,12 +73,17 @@ class AdvancedPIDGenerator {
         const totalLoad = Number(results?.summary?.totalCoolingLoad || calculations?.totalCoolingLoad || 0);
 
         const rawCompressors = Array.isArray(calculations.compressors) && calculations.compressors.length
-            ? calculations.compressors : [{ model: profile.compressor.model, type: compressorFamily, manufacturer: profile.compressor.manufacturer }];
+            ? calculations.compressors : [{ type: compressorFamily, selectionStatus: 'manufacturer-model-and-map-required' }];
         const requestedCount = Number(project?.designIntent?.compressorCount);
         const compressorCount = Number.isFinite(requestedCount) && requestedCount > 0 ? requestedCount : rawCompressors.length;
-        const compressors = Array.from({ length: compressorCount }, (_, index) => {
+        const compressors = Array.from({ length: Math.max(1, compressorCount) }, (_, index) => {
             const source = rawCompressors[index] || rawCompressors[index % rawCompressors.length] || {};
-            return { ...source, tag: source.tag || `COMP-${String(index + 1).padStart(2, '0')}`, model: source.model || profile.compressor.model };
+            return {
+                ...source,
+                tag: source.tag || `COMP-${String(index + 1).padStart(2, '0')}`,
+                model: source.model || 'Compressor train — manufacturer model/map required',
+                selectionStatus: source.selectionStatus || 'manufacturer-model-and-map-required'
+            };
         });
 
         const rooms = Array.isArray(project.rooms) && project.rooms.length ? project.rooms : [];
@@ -132,6 +137,7 @@ class AdvancedPIDGenerator {
         const addNode = ({ x, y, label, componentType, tag, details = {}, roomId, roomName, mounting, elevation }) => {
             const id = `node-${nodeNumber++}`;
             const connectionPorts = resolvePreviewPorts(details);
+            const declaredElevation = Number(project?.plantLayout?.equipment?.[tag]?.elevationM ?? project?.plantLayout?.equipment?.[tag]?.centerlineElevationM);
             nodes.push({
                 id,
                 type: 'industrial',
@@ -139,23 +145,29 @@ class AdvancedPIDGenerator {
                 data: {
                     label, componentType, tag,
                     details: { ...details, connectionPorts, portEvidenceStatus: details.connectionPorts?.length ? 'catalogue-or-source-record' : 'review-required' },
-                    roomId, roomName, mounting, elevation, refrigerant
+                    roomId, roomName, mounting,
+                    elevation: Number.isFinite(declaredElevation) ? declaredElevation : null,
+                    elevationStatus: Number.isFinite(declaredElevation) ? 'declared-layout-input' : 'layout-input-required',
+                    refrigerant
                 }
             });
             return id;
         };
         const connect = (source, target, service, nominalDiameter, label, extra = {}) => {
             const id = `edge-${edgeNumber++}`;
+            const lineId = `L-${String(edgeNumber - 1).padStart(3, '0')}`;
             const dnValue = Number.isFinite(Number(nominalDiameter)) && Number(nominalDiameter) > 0 ? Math.round(Number(nominalDiameter)) : null;
-            const resolvedLabel = String(label || `${refrigerant} ${service} ${dnValue ? `DN${dnValue}` : 'DN REVIEW'}`)
-                .replace(/DN(?:null|undefined|NaN)/gi, 'DN REVIEW')
-                .replace(/\bDN\d+\b/gi, dnValue ? `DN${dnValue}` : 'DN REVIEW');
+            const description = String(label || `${refrigerant} ${service}`)
+                .replace(/\s*DN(?:null|undefined|NaN|\d+)\b/gi, '')
+                .replace(/\s*DN REVIEW/gi, '')
+                .trim();
+            const resolvedLabel = `${lineId} · ${description || `${refrigerant} ${service}`} · ${dnValue ? `DN${dnValue}` : 'DN pending hydraulic sizing'}`;
             edges.push({
                 id, source, target, type: 'smoothstep', label: resolvedLabel,
                 service, dn: dnValue,
                 data: {
-                    service, dn: dnValue, nominalDiameter: dnValue, medium: refrigerant,
-                    sizingStatus: dnValue ? 'traceable-input-or-calculation' : 'review-required',
+                    lineId, service, dn: dnValue, nominalDiameter: dnValue, medium: refrigerant,
+                    sizingStatus: dnValue ? 'traceable-input-or-calculation' : 'hydraulic-sizing-required',
                     sourcePortId: extra.sourcePortId || 'outlet',
                     targetPortId: extra.targetPortId || 'inlet',
                     portValidationStatus: extra.portValidationStatus || 'review-required',
@@ -169,9 +181,9 @@ class AdvancedPIDGenerator {
 
         const selectedCondenser = this._first(calculations.condensers);
         const condenserId = addNode({
-            x: 700, y: 110, label: this._condenserLabel(condenserType, selectedCondenser, profile),
-            componentType: condenserType, tag: selectedCondenser.tag || 'COND-01', mounting: 'roof', elevation: 7.3,
-            details: { capacity: selectedCondenser.capacity || selectedCondenser.heatRejection || null, refrigerant, semanticSource: semantic.source || 'inferred' }
+            x: 700, y: 110, label: this._condenserLabel(condenserType, selectedCondenser),
+            componentType: condenserType, tag: selectedCondenser.tag || 'COND-01', mounting: 'roof',
+            details: { heatRejectionDutyKw: selectedCondenser.heatRejection || null, refrigerant, semanticSource: semantic.source || 'inferred', selectionStatus: selectedCondenser.selectionStatus || 'manufacturer-map-required' }
         });
         const receiverId = equipmentPolicy.includeHighPressureReceiver !== false ? addNode({
             x: 700, y: 270, label: profile.liquidManagement.receiver, componentType: 'horizontal_vessel',
@@ -183,8 +195,8 @@ class AdvancedPIDGenerator {
             details: { function: 'discharge oil separation', refrigerant }
         }) : null;
         const lowPressureSeparatorId = equipmentPolicy.includeLowPressureSeparator ? addNode({
-            x: 760, y: 570, label: 'Low-Pressure Suction Separator', componentType: 'horizontal_vessel', tag: 'SEP-LP-01',
-            details: { function: 'ammonia surge drum / wet-return separation', refrigerant, feedMethod }
+            x: 760, y: 545, label: 'Low-Pressure Suction Separator', componentType: 'horizontal_vessel', tag: 'SEP-LP-01',
+            details: { function: 'ammonia surge drum / wet-return separation', refrigerant, feedMethod, elevationContract: 'declared separator elevation must exceed each connected compressor suction centreline; no automatic set-out' }
         }) : addNode({
             x: 465, y: 650, label: profile.liquidManagement.accumulator, componentType: 'horizontal_vessel', tag: 'HDR-SUC-01',
             details: { function: 'common suction header / liquid protection', refrigerant, feedMethod }
@@ -194,7 +206,7 @@ class AdvancedPIDGenerator {
             const y = 440 + index * 175;
             const compressorId = addNode({
                 x: 225, y, label: compressor.model, componentType: this._compressorComponentType(compressorFamily), tag: compressor.tag,
-                details: { capacity: compressor.capacity || compressor.capacityKW || null, refrigerant, compressorFamily, selectionSource: semantic.source || 'inferred' }
+                details: { manufacturer: compressor.manufacturer || null, manufacturerModelKey: compressor.manufacturerModelKey || null, capacityKw: null, motorRatedKw: null, refrigerant, compressorFamily, selectionStatus: compressor.selectionStatus || 'manufacturer-map-required', selectionSource: semantic.source || 'inferred' }
             });
             const dischargeCheckId = addNode({ x: 350, y: y - 35, label: 'Discharge Check Valve', componentType: 'check_valve', tag: `CV-DIS-${String(index + 1).padStart(2, '0')}`, details: { service: 'discharge', refrigerant } });
             const suctionStrainerId = addNode({ x: 350, y: y + 50, label: 'Suction Strainer', componentType: 'strainer', tag: `STR-SUC-${String(index + 1).padStart(2, '0')}`, details: { service: 'suction', refrigerant } });
@@ -224,10 +236,10 @@ class AdvancedPIDGenerator {
                 details: { function: 'HP receiver to LP separator feed control', refrigerant, feedMethod }
             });
             const liquidPumpId = addNode({
-                x: 900, y: 560, label: 'Ammonia Liquid Recirculation Pump', componentType: 'centrifugal_pump', tag: 'PMP-LIQ-01',
-                details: { function: 'pumped liquid feed', refrigerant, feedMethod }
+                x: 760, y: 705, label: 'Ammonia Liquid Recirculation Pump', componentType: 'centrifugal_pump', tag: 'PMP-LIQ-01',
+                details: { function: 'pumped liquid feed', refrigerant, feedMethod, elevationContract: 'declared pump suction centreline and vendor NPSHr/suction-loss inputs required; P&ID position is not an elevation claim' }
             });
-            liquidHeaderId = addNode({ x: 1020, y: 500, label: 'Liquid Recirculation Header', componentType: 'horizontal_vessel', tag: 'HDR-LIQ-01', details: { function: 'pumped liquid distribution', refrigerant } });
+            liquidHeaderId = addNode({ x: 1020, y: 640, label: 'Liquid Recirculation Header', componentType: 'horizontal_vessel', tag: 'HDR-LIQ-01', details: { function: 'pumped liquid distribution', refrigerant } });
             if (receiverId) connect(receiverId, feedRegulatorId, 'liquid', dn.liquid, `${refrigerant} HP liquid DN${dn.liquid}`);
             connect(feedRegulatorId, lowPressureSeparatorId, 'liquid', dn.liquid, `${refrigerant} LP feed DN${dn.liquid}`);
             connect(lowPressureSeparatorId, liquidPumpId, 'liquid', dn.liquid, `${refrigerant} pump suction DN${dn.liquid}`);
@@ -238,13 +250,25 @@ class AdvancedPIDGenerator {
         }
 
         const thermosiphonId = equipmentPolicy.includeThermosiphon ? addNode({
-            x: 505, y: 235, label: 'Thermosiphon Oil Cooler Vessel', componentType: 'thermosiphon_vessel', tag: 'TS-OC-01',
-            details: { function: 'screw-compressor oil cooling', refrigerant, oilCooling: 'thermosiphon' }
+            x: 505, y: 235, label: 'Thermosiphon Supply Vessel', componentType: 'thermosiphon_vessel', tag: 'TS-OC-01',
+            details: { function: 'screw-compressor oil-cooler refrigerant supply', refrigerant, oilCooling: 'thermosiphon', elevationContract: 'declared source liquid level, oil-cooler elevation and loop-loss calculation are required; no static head is claimed from drawing coordinates' }
         }) : null;
-        if (thermosiphonId && receiverId) connect(receiverId, thermosiphonId, 'liquid', dn.branchLiquid, `${refrigerant} thermosiphon supply DN${dn.branchLiquid}`);
-        if (oilSeparatorId && thermosiphonId) connect(oilSeparatorId, thermosiphonId, 'oil', dn.oil, 'Oil separator return DN25');
-        if (thermosiphonId && compressorTrain[0]) connect(thermosiphonId, compressorTrain[0].compressorId, 'oil', dn.oil, 'Thermosiphon oil return DN25');
-        else if (oilSeparatorId && compressorTrain[0]) connect(oilSeparatorId, compressorTrain[0].compressorId, 'oil', dn.oil, 'Oil return DN25');
+        if (thermosiphonId && receiverId) connect(receiverId, thermosiphonId, 'liquid', dn.branchLiquid, `${refrigerant} thermosiphon liquid supply DN${dn.branchLiquid}`, { thermosiphonLoop: 'supply' });
+        if (thermosiphonId) {
+            compressorTrain.forEach((train, index) => {
+                const oilCoolerId = addNode({
+                    x: 470, y: 420 + index * 175,
+                    label: `Compressor ${index + 1} Oil Cooler — map/layout required`,
+                    componentType: 'oil_cooler',
+                    tag: `OC-${String(index + 1).padStart(2, '0')}`,
+                    details: { function: 'thermosiphon-cooled compressor oil cooler', refrigerant, compressorTag: compressors[index]?.tag || null, elevationContract: 'oil-cooler connection elevation and thermosiphon loop loss required' }
+                });
+                connect(thermosiphonId, oilCoolerId, 'liquid', dn.branchLiquid, `${refrigerant} thermosiphon downcomer DN${dn.branchLiquid}`, { thermosiphonLoop: 'downcomer', compressorBranch: index + 1 });
+                connect(oilCoolerId, thermosiphonId, 'suction', dn.branchSuction, `${refrigerant} thermosiphon two-phase return DN${dn.branchSuction}`, { thermosiphonLoop: 'two-phase-return', compressorBranch: index + 1 });
+            });
+        } else if (oilSeparatorId) {
+            compressorTrain.forEach((train, index) => connect(oilSeparatorId, train.compressorId, 'oil', dn.oil, `Oil return to compressor ${index + 1} DN${dn.oil}`, { compressorBranch: index + 1 }));
+        }
 
         evaporators.forEach((evaporator, index) => {
             const column = Math.floor(index / 3);
@@ -255,7 +279,7 @@ class AdvancedPIDGenerator {
             const evaporatorId = addNode({
                 x, y, label: evaporator.model, componentType: isIqf ? 'iqf_tunnel_evaporator' : 'evaporator', tag: evaporator.tag,
                 roomId: evaporator.roomId, roomName: evaporator.roomName,
-                details: { capacity: evaporator.capacity, temperature: evaporator.temperature, refrigerant, processType: evaporator.roomType }
+                details: { designDutyKw: evaporator.designDuty?.requiredCoolingLoadKw || evaporator.capacity || null, temperature: evaporator.temperature, refrigerant, processType: evaporator.roomType, selectionStatus: evaporator.selectionStatus || 'manufacturer-map-required' }
             });
             if (!liquidHeaderId) return;
             if (isAmmonia && feedMethod === 'pumped_recirculated') {
@@ -305,7 +329,8 @@ class AdvancedPIDGenerator {
                 assemblyTitle: `${refrigerant} P&ID TO BIM ASSEMBLY`, semanticCycle: semantic,
                 profile: { id: profile.id, family: profile.family, safetyClass: profile.safetyClass, componentPolicy: profile.componentPolicy, safeguards: profile.safeguards, pipingMaterial: profile.piping.material },
                 jointPolicy: profile.piping.policy,
-                sizingStatus: 'Preliminary DN values are retained only when verified pressure-drop inputs are absent; final sizing requires project inputs and engineering review.',
+                sizingStatus: 'Every line without a finite DN is explicitly marked hydraulic-sizing-required. No placeholder DN is issued.',
+                elevationStatus: project?.plantLayout ? 'declared-layout-input-present-review-required' : 'layout-input-required',
                 totalLoad
             }
         };

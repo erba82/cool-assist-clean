@@ -31,7 +31,7 @@ class ReportGenerator {
         const report = {
             metadata: this._generateMetadata(project),
             summary: this._generateSummary(results, project),
-            calculations: this._generateCalculations(results),
+            calculations: this._generateCalculations(results, project),
             equipment: this._generateBOM(results, project),
             energy: this._generateEnergyReport(results),
             standards: this._generateStandardsReport(results, project),
@@ -54,7 +54,7 @@ class ReportGenerator {
             engineer: 'Cool-Assist GFDDE',
             version: this.version,
             refrigerant: project.refrigerant,
-            standards: ['ISO 5149', 'EN 378', 'ASHRAE']
+            standards: ['Compliance review required — no standard conformance is asserted by this preliminary report']
         };
     }
 
@@ -65,9 +65,9 @@ class ReportGenerator {
         return {
             title: 'Executive Summary',
             totalLoad: {
-                value: results.summary?.totalCoolingLoad || 0,
+                value: Number.isFinite(Number(results.summary?.totalCoolingLoad)) ? Number(results.summary.totalCoolingLoad) : null,
                 unit: 'kW',
-                valueTR: results.summary?.totalCoolingLoadTR || 0
+                valueTR: Number.isFinite(Number(results.summary?.totalCoolingLoadTR)) ? Number(results.summary.totalCoolingLoadTR) : null
             },
             roomCount: project.rooms?.length || 0,
             temperatureLevels: results.summary?.temperatureLevels || [],
@@ -77,10 +77,11 @@ class ReportGenerator {
                 safetyClass: this._getRefrigerantSafety(project.refrigerant)
             },
             equipment: {
-                evaporators: results.calculations?.evaporators?.length || 0,
-                compressors: results.calculations?.compressors?.length || 0,
-                condensers: 1,
-                vessels: results.calculations?.separators?.length || 0
+                evaporatorCandidates: Array.isArray(results.calculations?.evaporators) ? results.calculations.evaporators.length : 0,
+                compressorCandidates: Array.isArray(results.calculations?.compressors) ? results.calculations.compressors.length : 0,
+                condenserCandidates: Array.isArray(results.calculations?.condensers) ? results.calculations.condensers.length : 0,
+                vesselRecords: Array.isArray(results.calculations?.separators) ? results.calculations.separators.length : 0,
+                selectionStatus: 'manufacturer-performance-map-and-engineering-review-required'
             },
             procurementStatus: 'Supplier quotation required; no estimated cost or lead time is generated.',
             estimatedCost: null,
@@ -91,8 +92,19 @@ class ReportGenerator {
     /**
      * Generate detailed calculations section
      */
-    _generateCalculations(results) {
+    _generateCalculations(results, project = {}) {
         const sections = [];
+        const designBasis = project.designBasis || null;
+        if (designBasis) {
+            sections.push({
+                title: '0. Approved Design Basis and Assumption Register',
+                status: designBasis.status || 'review-required',
+                statement: designBasis.statement || 'No final equipment selection, pipe DN, BIM set-out or procurement is authorised by this report.',
+                parsedFacts: designBasis.parsedFacts || {},
+                assumptions: Array.isArray(designBasis.assumptions) ? designBasis.assumptions : [],
+                gates: designBasis.gates || {}
+            });
+        }
 
         // 1. Load Calculations
         if (results.calculations?.loads) {
@@ -147,52 +159,44 @@ class ReportGenerator {
             });
         }
 
-        // 2. Equipment Selection
+        // 2. Equipment Selection: candidates are never procurement selections
+        // until performance maps, envelope, motor data and design review are attached.
         sections.push({
-            title: '2. Equipment Selection',
+            title: '2. Equipment Candidate Dossiers and Selection Gates',
+            issueStatus: 'manufacturer-performance-map-and-engineering-review-required',
             subsections: [
-                {
-                    title: '2.1 Evaporators',
-                    items: (results.calculations?.evaporators || []).map(e => ({
-                        tag: e.tag,
-                        model: e.model,
-                        capacity: e.capacityPerUnit,
-                        count: e.count,
-                        selection_criteria: {
-                            throw_distance: e.throwDistance,
-                            dt: e.dt,
-                            evap_temp: e.evaporatingTemp
-                        }
-                    }))
-                },
-                {
-                    title: '2.2 Compressors',
-                    items: (results.calculations?.compressors || []).map(c => ({
-                        tag: c.tag,
-                        model: c.model,
-                        type: c.type,
-                        capacity: c.designLoad,
-                        selection_criteria: {
-                            suction_pressure: c.suctionPressure,
-                            discharge_pressure: c.dischargePressure,
-                            compression_ratio: c.compressionRatio,
-                            cop: c.cop
-                        }
-                    }))
-                },
-                {
-                    title: '2.3 Condensers',
-                    items: results.calculations?.condensers ? [{
-                        tag: results.calculations.condensers.tag,
-                        model: results.calculations.condensers.model,
-                        type: results.calculations.condensers.type,
-                        capacity: results.calculations.condensers.totalCapacity
-                    }] : []
-                }
+                { title: '2.1 Evaporators', items: (results.calculations?.evaporators || []).map((item) => this._equipmentDossier(item, 'evaporator')) },
+                { title: '2.2 Compressors', items: (results.calculations?.compressors || []).map((item) => this._equipmentDossier(item, 'compressor')) },
+                { title: '2.3 Condensers', items: (Array.isArray(results.calculations?.condensers) ? results.calculations.condensers : (results.calculations?.condensers ? [results.calculations.condensers] : [])).map((item) => this._equipmentDossier(item, 'condenser')) },
+                { title: '2.4 Vessels and Pumps', items: [ ...(results.calculations?.separators || []), ...(results.calculations?.pumps || []), ...(results.calculations?.receiver ? [results.calculations.receiver] : []) ].map((item) => this._equipmentDossier(item, 'vessel-or-pump')) }
             ]
         });
 
         return sections;
+    }
+
+    _equipmentDossier(item = {}, category) {
+        const selected = item.manufacturerSelection?.selectedModel || null;
+        const verifiedIdentity = item.selectionStatus === 'verified-selection' && selected?.manufacturer && selected?.model;
+        const cycle = item.thermophysicalCycle?.performance || null;
+        return {
+            category,
+            tag: item.tag || item.id || null,
+            selectionStatus: item.selectionStatus || 'manufacturer-map-required',
+            manufacturer: verifiedIdentity ? selected.manufacturer : null,
+            model: verifiedIdentity ? selected.model : null,
+            thermophysicalPreliminary: cycle ? {
+                coolingDutyKw: cycle.coolingLoadKw ?? null,
+                compressorPowerKw: cycle.compressorPowerKw ?? null,
+                cop: cycle.cop ?? null,
+                provenance: item.thermophysicalCycle?.provenance || null
+            } : null,
+            operatingPoint: item.operatingPoint || null,
+            evidence: item.manufacturerSelection?.evidence || item.evidence || null,
+            blockingReasons: item.blockingReasons || item.issues || ['Manufacturer performance map, operating envelope, motor data, connection data and engineering review are required before selection.'],
+            quantity: verifiedIdentity && Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : null,
+            procurementAuthorised: false
+        };
     }
 
     /**

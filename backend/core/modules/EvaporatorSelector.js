@@ -1,294 +1,138 @@
+'use strict';
+
 /**
- * EvaporatorSelector Module
- * 
- * Selects optimal evaporators based on:
- * - Required cooling capacity
- * - Room dimensions (throw distance)
- * - Temperature difference (TD) - optimized per application
- * - Defrost requirements
- * - Fin spacing for frost management
- * 
- * TD Optimization (from reference manual):
- * - Low TD (3-5K): Above zero storage → High humidity preservation
- * - High TD (8-12K): Below zero storage → Cost reduction
- * 
- * Fin Spacing (from reference manual):
- * - Above zero: 4-6 mm
- * - -18°C: 8-10 mm
- * - -30°C: 10-16 mm
- * 
- * @author GFDDE AI Engine
- * @version 3.0.0
+ * EvaporatorSelector
+ *
+ * Builds a room-side evaporator duty brief.  It may propose process constraints
+ * from declared room data, but it never manufactures a model performance point,
+ * fan/motor rating, coil surface, refrigerant connection or price.
  */
 
+const finite = (value) => Number.isFinite(Number(value));
+const rounded = (value, digits = 2) => finite(value) ? Math.round(Number(value) * (10 ** digits)) / (10 ** digits) : null;
+
 class EvaporatorSelector {
-    constructor(engine) {
-        this.engine = engine;
+  constructor(engine) {
+    this.engine = engine;
+  }
 
-        // Standard evaporator series (based on major manufacturers)
-        this.evaporatorSeries = {
-            // Ceiling mounted unit coolers
-            'DD': { // Dual Discharge
-                minCapacity: 2,
-                maxCapacity: 50,
-                fanCounts: [1, 2, 3, 4],
-                airFlow: 2500,   // m³/h per fan
-                throw: 15        // meters
-            },
-            'DJ': { // Industrial
-                minCapacity: 20,
-                maxCapacity: 150,
-                fanCounts: [2, 3, 4, 6],
-                airFlow: 4500,
-                throw: 25
-            },
-            'DL': { // Large Industrial
-                minCapacity: 50,
-                maxCapacity: 500,
-                fanCounts: [4, 6, 8],
-                airFlow: 8000,
-                throw: 35
-            }
-        };
+  async select(load = {}, project = {}) {
+    const room = load.room || {};
+    const roomType = this._roomType(room);
+    const requiredCapacityKw = Number(load.total);
+    const roomTemperatureC = Number(room.temperature);
+    const declaredTd = Number(room.dt ?? project?.designBasis?.evaporatorTdK);
+    const proposedTd = this._proposeTd(roomType, roomTemperatureC);
+    const td = finite(declaredTd) && declaredTd > 0 ? declaredTd : proposedTd.value;
+    const assumptions = [];
+    if (!(finite(declaredTd) && declaredTd > 0)) assumptions.push({
+      field: 'evaporatorTdK', proposedValue: td, unit: 'K', status: 'assumption-proposed', rationale: proposedTd.rationale
+    });
 
-        // TD recommendations by application (from reference manual)
-        this.tdRecommendations = {
-            'chilling': { min: 3, max: 5, recommended: 4, reason: 'High humidity preservation' },
-            'storage': { min: 5, max: 8, recommended: 6, reason: 'Balance humidity and efficiency' },
-            'processing': { min: 6, max: 10, recommended: 8, reason: 'Processing efficiency' },
-            'freezer': { min: 8, max: 12, recommended: 10, reason: 'Cost reduction acceptable' },
-            'blast': { min: 10, max: 15, recommended: 12, reason: 'Speed priority' },
-            'tunnel': { min: 12, max: 18, recommended: 15, reason: 'Maximum speed' }
-        };
+    const roomDimensions = this._roomDimensions(room);
+    const issues = [];
+    if (!finite(requiredCapacityKw) || requiredCapacityKw <= 0) issues.push('A positive calculated room cooling load is required before evaporator duty can be prepared.');
+    if (!finite(roomTemperatureC)) issues.push('A declared room temperature is required.');
+    if (!roomDimensions.valid) issues.push('Room length, width and height are required before air-distribution and unit-count review.');
 
-        // Fin spacing recommendations (from reference manual)
-        this.finSpacingRecommendations = {
-            aboveZero: { spacing: 5, range: '4-6 mm', reason: 'No frost concern' },
-            minus10: { spacing: 7, range: '6-8 mm', reason: 'Light frost' },
-            minus18: { spacing: 9, range: '8-10 mm', reason: 'Moderate frost' },
-            minus25: { spacing: 12, range: '10-14 mm', reason: 'Heavy frost' },
-            minus30: { spacing: 14, range: '12-16 mm', reason: 'Very heavy frost' }
-        };
-    }
+    const candidateFamily = this._candidateFamily(roomType, roomTemperatureC);
+    return {
+      category: 'evaporator',
+      selectionStatus: issues.length ? 'inputs-required' : 'manufacturer-map-required',
+      finalSelectionAllowed: false,
+      roomName: room.name || null,
+      roomId: room.id || room.name || null,
+      roomType,
+      applicationType: roomType,
+      model: null,
+      manufacturer: null,
+      manufacturerModelKey: null,
+      candidateFamily,
+      designDuty: {
+        requiredCoolingLoadKw: rounded(requiredCapacityKw),
+        roomTemperatureC: rounded(roomTemperatureC),
+        proposedEvaporatingTemperatureC: finite(roomTemperatureC) ? rounded(roomTemperatureC - td) : null,
+        tdK: rounded(td),
+        tdSource: finite(declaredTd) && declaredTd > 0 ? 'user-declared' : 'assumption-proposed-not-approved'
+      },
+      layoutReview: {
+        roomDimensionsM: roomDimensions.values,
+        airDistributionStatus: roomDimensions.valid ? 'manufacturer-air-throw-data-required' : 'room-geometry-required',
+        unitCount: null,
+        reason: 'Unit count, air throw, fan quantity, fin spacing and fan motor power require the selected manufacturer coil performance/airflow data and room layout review.'
+      },
+      defrost: {
+        recommendedProcess: this._proposeDefrost(roomType, roomTemperatureC),
+        finalDefrostSelectionStatus: 'process-and-manufacturer-review-required'
+      },
+      manufacturerEvidence: {
+        mapStatus: 'manufacturer-performance-map-required',
+        requiredInputs: ['air-on temperature and humidity', 'refrigerant feed method/overfeed ratio', 'coil TD and frost duty', 'fan selection', 'defrost schedule', 'selected manufacturer performance map revision']
+      },
+      procurement: {
+        priceStatus: 'supplier-quotation-required',
+        unitPrice: null,
+        totalPrice: null,
+        currency: null
+      },
+      technicalSpecs: {
+        finSpacingMm: null,
+        airflowM3h: null,
+        fanCount: null,
+        fanMotorPowerKw: null,
+        refrigerantConnections: null,
+        dimensionsMm: null,
+        status: 'manufacturer-document-required'
+      },
+      tag: `EVAP-${String(room.name || room.id || 'ROOM').replace(/[^0-9A-Za-z]+/g, '-').toUpperCase()}`,
+      assumptions,
+      issues,
+      blockingReasons: [
+        ...(issues.length ? issues : []),
+        'Manufacturer evaporator performance map and selected fan/defrost data are required before final equipment issue.'
+      ]
+    };
+  }
 
-    /**
-     * Select evaporator for a room
-     * @param {Object} load - Room load data from LoadCalculator
-     * @param {Object} project - Project context
-     * @returns {Object} Evaporator selection
-     */
-    async select(load, project) {
-        const room = load.room;
-        const requiredCapacity = load.total;
+  _roomType(room) {
+    const text = String(room.processType || room.type || room.applicationType || room.name || '').toLowerCase();
+    if (/iqf|spiral|tunnel|blast/.test(text)) return 'tunnel';
+    if (/processing|process|pack/.test(text)) return 'processing';
+    if (/chilling|chill|precool/.test(text)) return 'chilling';
+    if (/storage|store/.test(text)) return 'storage';
+    const temperature = Number(room.temperature);
+    if (finite(temperature) && temperature <= -25) return 'freezer';
+    return 'storage';
+  }
 
-        // Determine TD with optimization
-        const roomType = this._getRoomType(room);
-        const tdConfig = this.tdRecommendations[roomType];
-        const dt = room.dt || tdConfig.recommended;
+  _roomDimensions(room) {
+    const length = Number(room.length);
+    const width = Number(room.width);
+    const height = Number(room.height);
+    return {
+      valid: [length, width, height].every((value) => finite(value) && value > 0),
+      values: { length: rounded(length), width: rounded(width), height: rounded(height), volume: [length, width, height].every((value) => finite(value) && value > 0) ? rounded(length * width * height) : null }
+    };
+  }
 
-        // Validate TD is within recommended range
-        const tdStatus = dt >= tdConfig.min && dt <= tdConfig.max ? 'OK' : 'WARNING';
-        const tdRecommendation = tdStatus === 'WARNING' ?
-            `Recommended: ${tdConfig.min}-${tdConfig.max}K (${tdConfig.reason})` : null;
+  _proposeTd(roomType, temperatureC) {
+    if (roomType === 'tunnel') return { value: 12, rationale: 'A tunnel/blast process requires a separate product pull-down and coil performance review; 12 K is only a proposed initial TD.' };
+    if (roomType === 'chilling') return { value: 4, rationale: 'Low TD is proposed to protect humidity; confirm against product and coil map.' };
+    if (roomType === 'processing') return { value: 8, rationale: 'An initial process-room TD proposal; confirm against product and required humidity.' };
+    if (finite(temperatureC) && temperatureC <= -25) return { value: 10, rationale: 'A low-temperature storage TD proposal; confirm frost/defrost duty with manufacturer data.' };
+    return { value: 6, rationale: 'An initial storage TD proposal; confirm product humidity, frost and coil map.' };
+  }
 
-        // Calculate evaporating temperature
-        const evapTemp = room.temperature - dt;
+  _candidateFamily(roomType, temperatureC) {
+    if (roomType === 'tunnel') return 'industrial blast/IQF air-unit bank — manufacturer selection required';
+    if (finite(temperatureC) && temperatureC <= -25) return 'industrial low-temperature unit cooler — manufacturer selection required';
+    return 'industrial cold-room unit cooler — manufacturer selection required';
+  }
 
-        // Determine fin spacing based on temperature
-        const finSpacing = this._getFinSpacing(room.temperature);
-
-        // Determine number of evaporators based on room size
-        const { count, throwRequired } = this._determineCount(room);
-
-        // Capacity per evaporator
-        const capacityPerUnit = requiredCapacity / count;
-
-        // Select appropriate series and model
-        const selection = this._selectModel(capacityPerUnit, throwRequired, evapTemp);
-
-        // Calculate air circulation
-        const roomVolume = room.length * room.width * room.height;
-        const airChangesPerHour = (selection.airFlow * selection.fanCount * count) / roomVolume;
-
-        return {
-            count: count,
-            roomType: roomType,
-            applicationType: roomType,
-            roomName: room.name || null,
-            roomId: room.id || room.name || null,
-            model: selection.model,
-            series: selection.series,
-            capacityPerUnit: Math.round(capacityPerUnit * 100) / 100,
-            totalCapacity: Math.round(requiredCapacity * 100) / 100,
-            fanCount: selection.fanCount,
-            fanDiameter: selection.fanDiameter,
-            airFlow: selection.airFlow,
-            throwDistance: selection.throw,
-            defrostType: this._getDefrostType(room.temperature),
-            evaporatingTemp: evapTemp,
-            dt: dt,
-            airChangesPerHour: Math.round(airChangesPerHour),
-            motorPower: selection.motorPower,
-            tag: `EVAP-${room.name?.replace(/\s+/g, '-').toUpperCase() || 'ROOM'}`,
-
-            // Detailed Technical Specs
-            technicalSpecs: {
-                surfaceArea: Math.round(capacityPerUnit * 8), // m2
-                finSpacing: finSpacing.spacing, // mm
-                finSpacingRange: finSpacing.range,
-                finSpacingReason: finSpacing.reason,
-                tubeVolume: Math.round(capacityPerUnit * 1.5), // L
-                connections: {
-                    inlet: capacityPerUnit > 20 ? 'DN25' : 'DN20',
-                    outlet: capacityPerUnit > 20 ? 'DN50' : 'DN40',
-                    drain: 'DN40'
-                },
-                dimensions: {
-                    length: Math.round(1500 + (selection.fanCount * 800)),
-                    width: 800,
-                    height: 800,
-                    weight: Math.round(capacityPerUnit * 12)
-                }
-            },
-
-            // Electrical Details
-            electrical: {
-                fans: {
-                    voltage: '400V 3Ph 50Hz',
-                    power: `${selection.fanCount} x ${selection.motorPower} kW`,
-                    current: `${Math.round(selection.fanCount * selection.motorPower * 2.2)} A`
-                },
-                defrost: {
-                    type: this._getDefrostType(room.temperature),
-                    power: Math.round(capacityPerUnit * 0.75), // kW for electric defrost
-                    voltage: '400V 3Ph 50Hz'
-                }
-            },
-
-            procurement: {
-                priceStatus: 'supplier-quotation-required',
-                unitPrice: null,
-                totalPrice: null,
-                currency: null
-            },
-            manufacturer: 'LU-VE',
-
-            parameters: {
-                roomType: roomType,
-                roomVolume: roomVolume,
-                requiredThrow: throwRequired,
-                tdOptimization: {
-                    value: dt,
-                    min: tdConfig.min,
-                    max: tdConfig.max,
-                    recommended: tdConfig.recommended,
-                    status: tdStatus,
-                    reason: tdConfig.reason,
-                    recommendation: tdRecommendation
-                }
-            }
-        };
-    }
-
-    /**
-     * Get fin spacing based on temperature (from reference manual)
-     */
-    _getFinSpacing(temperature) {
-        if (temperature >= 0) return this.finSpacingRecommendations.aboveZero;
-        if (temperature >= -10) return this.finSpacingRecommendations.minus10;
-        if (temperature >= -18) return this.finSpacingRecommendations.minus18;
-        if (temperature >= -25) return this.finSpacingRecommendations.minus25;
-        return this.finSpacingRecommendations.minus30;
-    }
-
-    _getRoomType(room) {
-        // Preserve explicit process semantics from the project/P&ID contract.
-        // Temperature remains a sizing input; it must not erase IQF/tunnel identity.
-        const explicit = String(room.processType || room.type || room.applicationType || room.name || '').toLowerCase();
-        if (/iqf/.test(explicit)) return 'tunnel';
-        if (/spiral/.test(explicit)) return 'tunnel';
-        if (/tunnel|blast/.test(explicit)) return 'tunnel';
-        if (/processing|process|pack/.test(explicit)) return 'processing';
-        if (/chilling|chill|precool/.test(explicit)) return 'chilling';
-        if (/storage|store/.test(explicit)) return 'storage';
-        const temp = room.temperature;
-        if (temp >= 0) return 'chilling';
-        if (temp >= -10) return 'processing';
-        if (temp >= -25) return 'storage';
-        if (temp >= -35) return 'freezer';
-        return 'blast';
-    }
-
-    _determineCount(room) {
-        const length = room.length;
-        const width = room.width;
-        const maxDim = Math.max(length, width);
-
-        // Determine required throw distance
-        let throwRequired;
-        if (maxDim <= 10) throwRequired = maxDim;
-        else if (maxDim <= 20) throwRequired = maxDim / 2 + 5;
-        else throwRequired = 15;  // Multiple units needed
-
-        // Determine count based on room size
-        let count;
-        const area = length * width;
-        if (area <= 50) count = 1;
-        else if (area <= 150) count = 2;
-        else if (area <= 300) count = Math.ceil(area / 150);
-        else count = Math.ceil(area / 200);
-
-        // Adjust for room shape
-        if (length / width > 3 || width / length > 3) {
-            count = Math.ceil(count * 1.5);  // Long rooms need more units
-        }
-
-        return { count, throwRequired };
-    }
-
-    _selectModel(capacity, throwRequired, evapTemp) {
-        // Find appropriate series
-        let selectedSeries = 'DD';
-        for (const [series, specs] of Object.entries(this.evaporatorSeries)) {
-            if (capacity >= specs.minCapacity &&
-                capacity <= specs.maxCapacity &&
-                specs.throw >= throwRequired) {
-                selectedSeries = series;
-                break;
-            }
-        }
-
-        const specs = this.evaporatorSeries[selectedSeries];
-
-        // Determine fan count
-        let fanCount = 2;
-        if (capacity <= specs.minCapacity * 1.5) fanCount = specs.fanCounts[0];
-        else if (capacity <= specs.maxCapacity * 0.5) fanCount = specs.fanCounts[1];
-        else fanCount = specs.fanCounts[specs.fanCounts.length - 1];
-
-        // Calculate fan diameter and motor power
-        const fanDiameter = selectedSeries === 'DL' ? 800 :
-            selectedSeries === 'DJ' ? 630 : 450;
-        const motorPower = fanDiameter === 800 ? 1.5 :
-            fanDiameter === 630 ? 0.75 : 0.37;
-
-        return {
-            series: selectedSeries,
-            model: `${selectedSeries}-${Math.round(capacity)}-${fanCount}`,
-            fanCount: fanCount,
-            fanDiameter: fanDiameter,
-            airFlow: specs.airFlow,
-            throw: specs.throw,
-            motorPower: motorPower
-        };
-    }
-
-    _getDefrostType(temp) {
-        if (temp > 0) return 'off-cycle';        // Above freezing - natural defrost
-        if (temp > -10) return 'electric';       // Mild cold - electric
-        if (temp > -25) return 'electric';       // Cold storage - electric
-        return 'hot-gas';                         // Low temp - hot gas defrost
-    }
+  _proposeDefrost(roomType, temperatureC) {
+    if (roomType === 'tunnel' || (finite(temperatureC) && temperatureC <= -25)) return 'hot-gas defrost candidate; validate piping, oil management, defrost schedule and manufacturer approval';
+    return 'defrost method must be selected from humidity, operating temperature and manufacturer coil data';
+  }
 }
 
 module.exports = EvaporatorSelector;

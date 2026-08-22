@@ -23,6 +23,7 @@ const { evaluatePilotReadiness } = require('../core/pilot/PilotReadinessEvaluato
 const { readinessFor, listReadiness } = require('../core/engineering/MultiRefrigerantReadinessService');
 const { disciplineFor, listDisciplines } = require('../core/engineering/DisciplineCapabilityRegistry');
 const { evaluateEngineeringSystem } = require('../core/engineering/EngineeringReviewGate');
+const { evaluateChangeImpact } = require('../core/engineering/ChangeImpactMocGate');
 
 // Initialize orchestrator
 let orchestrator = null;
@@ -545,6 +546,21 @@ router.post('/review-gates/evaluate', (req, res) => {
         success: !unknownDiscipline,
         evaluation,
         reviewRequired: true
+    });
+});
+
+/**
+ * POST /api/core/change-impact/evaluate
+ * Read-only design digital-thread comparison. It identifies potentially affected
+ * engineering artifacts and review gates; it never approves MOC, PSSR or final issue.
+ */
+router.post('/change-impact/evaluate', (req, res) => {
+    const evaluation = evaluateChangeImpact(req.body || {});
+    const blocked = evaluation.status === 'blocked';
+    return res.status(blocked ? 422 : 200).json({
+        success: !blocked,
+        evaluation,
+        reviewRequired: evaluation.status === 'review-required'
     });
 });
 

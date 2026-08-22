@@ -149,6 +149,29 @@ function now() {
     await take('07_compliance_tab.png');
     diagnostics.checks.complianceRendered = true;
 
+    // Capture an explicit baseline, make a visible procurement change, then
+    // validate that the compliance panel produces a review-gated MOC impact record.
+    const captureBaseline = page.getByRole('button', { name: 'Capture Active Design as Baseline', exact: true });
+    await captureBaseline.scrollIntoViewIfNeeded();
+    await captureBaseline.waitFor({ state: 'visible', timeout: 30000 });
+    await captureBaseline.click();
+    await calculationTab.click();
+    await procurementHeading.scrollIntoViewIfNeeded();
+    await budget.click();
+    await page.waitForTimeout(700);
+    await complianceTab.click();
+    const evaluateChangeImpact = page.getByRole('button', { name: 'Evaluate Change Impact', exact: true });
+    await evaluateChangeImpact.scrollIntoViewIfNeeded();
+    await evaluateChangeImpact.waitFor({ state: 'visible', timeout: 30000 });
+    await evaluateChangeImpact.click();
+    const procurementTierChange = page.getByText('procurement:selectedTier', { exact: true });
+    await procurementTierChange.waitFor({ state: 'visible', timeout: 30000 });
+    await procurementTierChange.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    diagnostics.checks.changeImpactMocRendered = true;
+    diagnostics.checks.changeImpactProcurementTierDetected = true;
+    await take('08_change_impact_moc_tab.png');
+
     // A real general-chat smoke test is intentionally performed in its own fresh
     // session. It must use the visible mode toggle so the governed general router
     // is tested rather than the deterministic design-state-machine fallback.
@@ -161,7 +184,7 @@ function now() {
     await generalInput.press('Enter');
     await page.getByText('Calculating...', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
     await page.getByText('Calculating...', { exact: true }).waitFor({ state: 'hidden', timeout: 180000 });
-    await take('08_general_chat_response.png');
+    await take('09_general_chat_response.png');
     diagnostics.checks.generalChatCompleted = true;
 
     diagnostics.completedAt = now();

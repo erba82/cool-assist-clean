@@ -26,8 +26,9 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import axios from 'axios';
+import ChangeImpactMocPanel from './ChangeImpactMocPanel';
 
-const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refrigerant?: string }) => {
+const ComplianceSection = ({ compliance, refrigerant, design }: { compliance?: any; refrigerant?: string; design?: any }) => {
   const declared = Array.isArray(compliance?.checks) ? compliance.checks : (Array.isArray(compliance?.standards) ? compliance.standards : []);
   const isAmmonia = /717|ammonia|nh3/i.test(String(refrigerant || ''));
   const checks = declared.length ? declared : [
@@ -43,6 +44,7 @@ const ComplianceSection = ({ compliance, refrigerant }: { compliance?: any; refr
     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}><Typography variant="h6" color="primary">Industrial Compliance Review</Typography><Chip label={overallStatus} color={chipColor} size="small" /></Box>
     <Alert severity={allPassed ? 'success' : 'warning'} sx={{ mb: 2 }}>{allPassed ? 'Only the checks returned by the active design are displayed as reviewed.' : 'This page does not imply compliance. Complete the listed engineering reviews before issue for construction.'}</Alert>
     <Table size="small"><TableHead><TableRow><TableCell><b>Standard</b></TableCell><TableCell><b>Status</b></TableCell><TableCell><b>Review Note</b></TableCell></TableRow></TableHead><TableBody>{checks.map((check: any, index: number) => { const status = check.status || 'REVIEW REQUIRED'; const color: 'success' | 'warning' | 'error' = /fail|non.?compliant|action/i.test(status) ? 'error' : /pass|approved|compliant/i.test(status) ? 'success' : 'warning'; return <TableRow key={check.standard || check.code || index}><TableCell>{check.standard || check.code || 'Standard'}</TableCell><TableCell><Chip label={status} color={color} variant="outlined" size="small" /></TableCell><TableCell>{check.note || check.details || 'No review narrative was returned by the calculation engine.'}</TableCell></TableRow>; })}</TableBody></Table>
+    {design && <ChangeImpactMocPanel design={design} />}
   </Box>;
 };
 // Lazy load 3D component to prevent react-three-fiber from crashing on initial load
@@ -1727,7 +1729,7 @@ const UnifiedChatPage: React.FC = () => {
                                 </Box>
                             )}
                             {previewTab === 6 && <Suspense fallback={<HeavyPanelFallback label="Loading energy management..." />}><EnergyManagementHub data={activeDesign} /></Suspense>}
-                            {previewTab === 7 && <ComplianceSection compliance={activeDesign.compliance} refrigerant={activeDesign.project?.refrigerant || activeDesign.projectInfo?.refrigerant} />}
+                            {previewTab === 7 && <ComplianceSection compliance={activeDesign.compliance} refrigerant={activeDesign.project?.refrigerant || activeDesign.projectInfo?.refrigerant} design={activeDesign} />}
                         </Box>
                     </>
                 ) : (

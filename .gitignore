@@ -65,6 +65,8 @@ cdp_runtime.log
 # ==========================================
 # Standalone test files
 test_*.js
+# Keep the committed deterministic regression test for the MOC digital-thread gate.
+!backend/core/test_change_impact_moc_gate.js
 *_test.js
 test-*.js
 e2e_*.js

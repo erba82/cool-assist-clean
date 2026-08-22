@@ -1,0 +1,103 @@
+{
+  "schema": "cool-assist.change-impact.v1",
+  "status": "review-required",
+  "finalIssueAllowed": false,
+  "mocAssessment": "review-required",
+  "pssrReviewRequired": false,
+  "changeContext": {
+    "reason": null,
+    "replacementInKind": false,
+    "finalIssueRequested": false
+  },
+  "baseline": {
+    "hash": "7c140e8323c1f714e677d3707af642c768dcc05c3e5cd0d18205dc5919d4d7c3",
+    "discipline": "refrigeration",
+    "schema": "cool-assist.design-snapshot.v1"
+  },
+  "proposed": {
+    "hash": "1020b0d882f50b7d292d0575e775e29c0faf30af4fdb9be005f8343933cbdcf8",
+    "discipline": "refrigeration",
+    "schema": "cool-assist.design-snapshot.v1"
+  },
+  "changeCount": 2,
+  "overallSeverity": "medium",
+  "changes": [
+    {
+      "id": "procurement:COMP-01.selectedTier",
+      "domain": "procurement",
+      "key": "COMP-01.selectedTier",
+      "before": "premium",
+      "after": "budget",
+      "severity": "medium",
+      "impactedGates": [
+        "bim",
+        "delivery",
+        "procurement"
+      ],
+      "evidenceRequired": [
+        "BIM/P&ID label review",
+        "supplier source"
+      ],
+      "description": "procurement record COMP-01 changed field selectedTier."
+    },
+    {
+      "id": "procurement:selectedTier",
+      "domain": "procurement",
+      "key": "selectedTier",
+      "before": "premium",
+      "after": "budget",
+      "severity": "medium",
+      "impactedGates": [
+        "bim",
+        "delivery",
+        "procurement",
+        "selection"
+      ],
+      "evidenceRequired": [
+        "BIM/P&ID label review",
+        "brand/model compatibility",
+        "supplier source"
+      ],
+      "description": "Procurement tier changed."
+    }
+  ],
+  "impactMatrix": [
+    {
+      "domain": "procurement",
+      "severity": "medium",
+      "changes": 2,
+      "impactedGates": [
+        "bim",
+        "delivery",
+        "procurement",
+        "selection"
+      ],
+      "evidenceRequired": [
+        "BIM/P&ID label review",
+        "brand/model compatibility",
+        "supplier source"
+      ]
+    }
+  ],
+  "affectedGates": [
+    "bim",
+    "delivery",
+    "procurement",
+    "selection"
+  ],
+  "evidenceRequired": [
+    "BIM/P&ID label review",
+    "brand/model compatibility",
+    "supplier source"
+  ],
+  "mocChecklist": [
+    "Confirm the change reason, scope, owner and effective revision in the site MOC process.",
+    "Determine whether the proposed change is replacement-in-kind under the site and jurisdictional procedure.",
+    "Review every impacted calculation, P&ID/BIM/BOM artifact and manufacturer evidence listed by this evaluation.",
+    "Obtain independent engineering and process-safety review before any construction, procurement, safety or regulatory issue."
+  ],
+  "blockers": [
+    "Change-impact evaluation is review-required; no automatic MOC/PSSR approval or final issue is available."
+  ],
+  "note": "This read-only evaluator identifies potential change impact only. It does not replace MOC, PSSR, PHA/HAZOP, qualified engineering review, construction approval, procurement approval or regulatory compliance."
+}

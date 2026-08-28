@@ -5,7 +5,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 import axios from 'axios';
 
 // Dashboard shell and feature pages are loaded only for their matching routes.
-const DashboardLayout = lazy(() => import('./pages/DashboardLayout'));
+// Dashboard shell is used by every authenticated route; import it eagerly so routes have a single lazy boundary.
+import DashboardLayout from './pages/DashboardLayout';
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Welcome = lazy(() => import('./pages/Welcome'));

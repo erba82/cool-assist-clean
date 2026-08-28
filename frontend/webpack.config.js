@@ -32,12 +32,14 @@ module.exports = (_env, argv = {}) => {
     parallelism: 2,
     devServer: {
       static: { directory: path.join(__dirname, 'public') },
+      host: '0.0.0.0',
+      allowedHosts: 'all',
       port: process.env.PORT || 3001,
       open: true,
       hot: true,
       compress: true,
       historyApiFallback: true,
-      proxy: [{ context: ['/api'], target: 'http://127.0.0.1:5000', secure: false, changeOrigin: true, logLevel: 'debug' }],
+      proxy: [{ context: ['/api'], target: 'http://127.0.0.1:8001', secure: false, changeOrigin: true, logLevel: 'debug' }],
       client: { overlay: { errors: true, warnings: false } }
     },
     optimization: {

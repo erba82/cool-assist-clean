@@ -32,7 +32,7 @@ def health_check():
     """Health check endpoint"""
     try:
         version = getattr(CP, '__version__', CP.get_global_param_string('version'))
-    except:
+    except Exception:
         version = '7.2.0 (detected)'
     
     return jsonify({
@@ -100,7 +100,7 @@ def calculate_properties():
             phase = CP.PropsSI('Phase', input_pair[0], input1, input_pair[1], input2, coolprop_fluid)
             results['Phase'] = int(phase)
             results['PhaseDescription'] = get_phase_description(phase)
-        except:
+        except Exception:
             pass
         
         return jsonify({
@@ -415,7 +415,7 @@ if __name__ == '__main__':
         # CoolProp 6.x has __version__, 7.x might not
         version = getattr(CP, '__version__', CP.get_global_param_string('version'))
         print(f"CoolProp Version: {version}")
-    except:
+    except Exception:
         print("CoolProp Version: Unknown (but installed)")
     print(f"Supported Refrigerants: {list(SUPPORTED_REFRIGERANTS.keys())}")
     print("="*50)

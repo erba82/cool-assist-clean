@@ -1,201 +1,114 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactFlow, {
-  addEdge, Background, Connection, Controls, Edge, Handle, MarkerType, Node, NodeProps,
-  Panel, Position, ReactFlowProvider, useEdgesState, useNodesState, useReactFlow
-} from 'reactflow';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ReactFlow, { addEdge, Background, Connection, Controls, Edge, Handle, MarkerType, Node, NodeProps, Panel, Position, ReactFlowProvider, useEdgesState, useNodesState, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import {
-  ScrewCompressorSymbol, ReciprocatingCompressorSymbol, HorizontalVesselSymbol,
-  VerticalVesselSymbol, EvaporatorSymbol, EvaporativeCondenserSymbol, GlobeValveSymbol,
-  CheckValveSymbol, SolenoidValveSymbol, ReliefValveSymbol, PumpSymbol
-} from './symbols/PIDSymbols';
+import { ScrewCompressorSymbol, ReciprocatingCompressorSymbol, HorizontalVesselSymbol, VerticalVesselSymbol, EvaporatorSymbol, EvaporativeCondenserSymbol, GlobeValveSymbol, CheckValveSymbol, SolenoidValveSymbol, ReliefValveSymbol, PumpSymbol } from './symbols/PIDSymbols';
 
-export interface PidDraftChange {
-  type: 'layout-preview' | 'connection-candidate';
-  nodes: Node[];
-  edges: Edge[];
-  reviewRequired: true;
-  issues: string[];
-}
-
-interface PIDDrawingEngineProps {
-  nodes: Node[];
-  edges: Edge[];
-  onDraftChange?: (draft: PidDraftChange) => void;
-}
-
-const sideToPosition = (side?: string) => {
-  if (side === 'top') return Position.Top;
-  if (side === 'bottom') return Position.Bottom;
-  if (side === 'right') return Position.Right;
-  return Position.Left;
+export interface PidDraftChange { type: 'layout-preview' | 'connection-candidate'; nodes: Node[]; edges: Edge[]; reviewRequired: true; issues: string[]; }
+interface PIDDrawingEngineProps { nodes: Node[]; edges: Edge[]; onDraftChange?: (draft: PidDraftChange) => void; }
+// Missing port declarations must not silently become invented inlet/outlet ports.
+export const declaredPorts = (node: any): any[] => Array.isArray(node?.data?.details?.connectionPorts) ? node.data.details.connectionPorts : [];
+export const resolveEndpoint = (edge: any, side: 'source' | 'target'): string | undefined => {
+  const values = side === 'source' ? [edge.sourceHandle, edge.sourcePort, edge.data?.sourcePortId, edge.data?.sourcePort, edge.data?.fromPort] : [edge.targetHandle, edge.targetPort, edge.data?.targetPortId, edge.data?.targetPort, edge.data?.toPort];
+  return values.find(value => typeof value === 'string' && value.trim().length > 0);
 };
-
-const defaultPorts = [
-  { id: 'inlet', direction: 'in', side: 'left', evidenceStatus: 'review-required' },
-  { id: 'outlet', direction: 'out', side: 'right', evidenceStatus: 'review-required' }
-];
-
+export const connectionIssues = (connection: any, nodes: Node[]): string[] => {
+  const issues: string[] = [];
+  for (const side of ['source', 'target'] as const) {
+    const node = nodes.find(item => item.id === connection[side]);
+    const handle = resolveEndpoint(connection, side);
+    if (!node) { issues.push(`${side}: equipment is missing.`); continue; }
+    const ports = declaredPorts(node).filter(port => port.id === handle);
+    if (!handle || ports.length !== 1) { issues.push(`${side}: select one uniquely declared port.`); continue; }
+    if (ports[0].direction !== (side === 'source' ? 'out' : 'in') && ports[0].direction !== 'bidirectional') issues.push(`${side}: incompatible or undeclared port direction.`);
+  }
+  return issues;
+};
+export const pipeLabel = (edge: any): string => {
+  const raw = edge.data?.dn ?? edge.data?.nominalDiameter ?? edge.dn;
+  const value = String(raw ?? '').trim();
+  const diameter = /^(?:DN\s*)?\d+(?:\.\d+)?$/i.test(value) ? Number(value.replace(/^DN\s*/i, '')) : NaN;
+  const dn = Number.isFinite(diameter) && diameter > 0 ? `DN${diameter}` : 'DN REVIEW';
+  const label = typeof edge.label === 'string' ? edge.label.trim() : '';
+  const service = String(edge.data?.service || edge.service || edge.data?.lineService || '');
+  return [label, service && !label.toLowerCase().includes(service.toLowerCase()) ? service : '', !label.split(/\s|\|/).includes(dn) ? dn : ''].filter(Boolean).join(' | ');
+};
+export const normalizeNodes = (nodes: Node[] = []) => nodes.map(node => ({ ...node, type: 'industrial', data: { ...node.data, details: { ...(node.data?.details || {}), connectionPorts: declaredPorts(node), portEvidenceStatus: node.data?.details?.portEvidenceStatus || 'review-required' } } }));
+export const normalizeEdges = (edges: Edge[] = [], nodes: Node[] = []) => edges.map(edge => {
+  const issues = connectionIssues(edge, nodes);
+  return { ...edge, sourceHandle: resolveEndpoint(edge, 'source'), targetHandle: resolveEndpoint(edge, 'target'), type: 'smoothstep', label: pipeLabel(edge), markerEnd: { type: MarkerType.ArrowClosed, color: issues.length ? '#b91c1c' : edge.style?.stroke || '#334155' }, style: { ...edge.style, ...(issues.length ? { stroke: '#b91c1c', strokeDasharray: '5 4' } : {}) }, labelStyle: { fontSize: 10, fill: '#172b3a' }, data: { ...(edge.data || {}), sourcePortId: resolveEndpoint(edge, 'source'), targetPortId: resolveEndpoint(edge, 'target'), validationIssues: issues, portValidationStatus: issues.length ? 'invalid' : edge.data?.portValidationStatus || 'review-required' } };
+});
+const positionFor = (side: string) => side === 'top' ? Position.Top : side === 'bottom' ? Position.Bottom : side === 'right' ? Position.Right : Position.Left;
 const IndustrialNode: React.FC<NodeProps> = ({ data, selected }) => {
-  const componentType = String(data?.componentType || 'equipment');
-  const ports = Array.isArray(data?.details?.connectionPorts) && data.details.connectionPorts.length
-    ? data.details.connectionPorts : defaultPorts;
+  const type = String(data?.componentType || 'equipment');
+  const ports = declaredPorts({ data });
   const tag = data?.tag || data?.label || 'UNSPECIFIED';
-  const status = data?.details?.portEvidenceStatus || 'review-required';
-  let symbol: React.ReactNode = <rect x="14" y="12" width="72" height="45" fill="#f8fafc" stroke="#334155" strokeWidth="1.5" />;
-  let width = 100;
-  let height = 90;
-
-  if (/screw/i.test(componentType)) symbol = <foreignObject x="20" y="2" width="60" height="60"><ScrewCompressorSymbol size={60} /></foreignObject>;
-  else if (/recip|piston/i.test(componentType)) symbol = <foreignObject x="20" y="2" width="60" height="60"><ReciprocatingCompressorSymbol size={60} /></foreignObject>;
-  else if (/condenser|gas_cooler/i.test(componentType)) { width = 110; height = 95; symbol = <foreignObject x="25" y="2" width="60" height="60"><EvaporativeCondenserSymbol width={60} height={60} /></foreignObject>; }
-  else if (/evaporator|air_cooler|iqf|tunnel/i.test(componentType)) symbol = <foreignObject x="20" y="4" width="60" height="50"><EvaporatorSymbol width={60} height={50} /></foreignObject>;
-  else if (/horizontal|thermosiphon/i.test(componentType)) { width = 120; symbol = <foreignObject x="20" y="7" width="80" height="48"><HorizontalVesselSymbol width={80} height={48} /></foreignObject>; }
-  else if (/vessel|receiver|separator|surge|accumulator/i.test(componentType)) symbol = <foreignObject x="30" y="0" width="40" height="60"><VerticalVesselSymbol width={40} height={60} /></foreignObject>;
-  else if (/pump|circulator/i.test(componentType)) symbol = <foreignObject x="25" y="4" width="50" height="50"><PumpSymbol size={50} /></foreignObject>;
-  else if (/check/i.test(componentType)) symbol = <foreignObject x="32" y="10" width="32" height="32"><CheckValveSymbol size={32} /></foreignObject>;
-  else if (/solenoid|tev|evra|expansion/i.test(componentType)) symbol = <foreignObject x="30" y="8" width="36" height="36"><SolenoidValveSymbol size={36} /></foreignObject>;
-  else if (/relief|psv|safety/i.test(componentType)) symbol = <foreignObject x="30" y="8" width="36" height="36"><ReliefValveSymbol size={36} /></foreignObject>;
-  else if (/valve/i.test(componentType)) symbol = <foreignObject x="32" y="10" width="32" height="32"><GlobeValveSymbol size={32} /></foreignObject>;
-
-  return <div style={{ width, height, position: 'relative', border: selected ? '2px solid #0f6cbd' : '1px solid transparent', borderRadius: 4, background: 'white' }}>
-    {ports.map((port: any) => {
-      const isInput = port.direction === 'in';
-      return <Handle key={`${port.id}-${port.direction}`} id={port.id} type={isInput ? 'target' : 'source'} position={sideToPosition(port.side)}
-        title={`${port.id} · ${port.evidenceStatus || status}`} style={{ width: 9, height: 9, background: isInput ? '#0f766e' : '#b91c1c', border: '1px solid white' }} />;
+  let symbol: React.ReactNode = <rect x="25" y="12" width="70" height="44" fill="#f8fafc" stroke="#334155" strokeWidth="1.5" />;
+  if (/screw/i.test(type)) symbol = <foreignObject x="30" y="2" width="60" height="60"><ScrewCompressorSymbol size={60} /></foreignObject>;
+  else if (/recip|piston/i.test(type)) symbol = <foreignObject x="30" y="2" width="60" height="60"><ReciprocatingCompressorSymbol size={60} /></foreignObject>;
+  else if (/evaporative.*condenser/i.test(type)) symbol = <foreignObject x="30" y="2" width="60" height="60"><EvaporativeCondenserSymbol width={60} height={60} /></foreignObject>;
+  else if (/evaporator|air_cooler|iqf|tunnel/i.test(type)) symbol = <foreignObject x="30" y="4" width="60" height="50"><EvaporatorSymbol width={60} height={50} /></foreignObject>;
+  else if (/horizontal|thermosiphon/i.test(type)) symbol = <foreignObject x="20" y="7" width="80" height="48"><HorizontalVesselSymbol width={80} height={48} /></foreignObject>;
+  else if (/vertical/i.test(type)) symbol = <foreignObject x="40" y="0" width="40" height="60"><VerticalVesselSymbol width={40} height={60} /></foreignObject>;
+  else if (/pump|circulator/i.test(type)) symbol = <foreignObject x="35" y="4" width="50" height="50"><PumpSymbol size={50} /></foreignObject>;
+  else if (/check/i.test(type)) symbol = <foreignObject x="44" y="10" width="32" height="32"><CheckValveSymbol size={32} /></foreignObject>;
+  else if (/solenoid|evra/i.test(type)) symbol = <foreignObject x="42" y="8" width="36" height="36"><SolenoidValveSymbol size={36} /></foreignObject>;
+  else if (/relief_valve|psv/i.test(type)) symbol = <foreignObject x="42" y="8" width="36" height="36"><ReliefValveSymbol size={36} /></foreignObject>;
+  else if (/globe|shut.?off/i.test(type)) symbol = <foreignObject x="44" y="10" width="32" height="32"><GlobeValveSymbol size={32} /></foreignObject>;
+  // Unmapped types stay generic, not falsely represented as another device.
+  return <div style={{ width: 120, minHeight: 102, position: 'relative', border: selected ? '2px solid #0f6cbd' : '1px solid transparent', background: 'oklch(99% 0.005 210)' }}>
+    {ports.map((port: any, index: number) => {
+      const side = port.side || 'left';
+      const siblings = ports.filter(item => (item.side || 'left') === side);
+      const offset = `${100 * (siblings.indexOf(port) + 1) / (siblings.length + 1)}%`;
+      const style = { width: 7, height: 7, background: '#526b78', ...(side === 'top' || side === 'bottom' ? { left: offset } : { top: offset }) };
+      const types: ('source' | 'target')[] = port.direction === 'bidirectional' ? ['source', 'target'] : port.direction === 'out' ? ['source'] : port.direction === 'in' ? ['target'] : [];
+      return types.map(kind => <Handle key={`${index}-${kind}`} id={port.id} type={kind} position={positionFor(side)} title={`${port.id} | ${port.evidenceStatus || 'review-required'}`} style={style} />);
     })}
-    <svg width={width} height={height} aria-label={`${tag} ${componentType}`}>{symbol}<text x={width / 2} y={70} textAnchor="middle" fontSize="10" fontFamily="Arial" fontWeight="bold">{tag}</text><text x={width / 2} y={83} textAnchor="middle" fontSize="8" fontFamily="Arial" fill="#475569">{componentType.replace(/_/g, ' ')}</text></svg>
-    <span style={{ position: 'absolute', right: 2, top: 2, fontSize: 7, color: status === 'catalogue-or-source-record' ? '#15803d' : '#a16207' }}>{status === 'catalogue-or-source-record' ? 'source' : 'review'}</span>
+    <svg width="120" height="67" aria-label={`${tag} ${type}`}>{symbol}</svg>
+    <div style={{ font: 'bold 10px Arial', textAlign: 'center', overflowWrap: 'anywhere', padding: '0 5px' }}>{tag}</div>
+    <div style={{ font: '9px Arial', textAlign: 'center', color: '#475569', overflowWrap: 'anywhere', padding: '3px 5px' }}>{type.replace(/_/g, ' ')}</div>
+    {!ports.length && <div style={{ fontSize: 8, textAlign: 'center', color: '#b91c1c' }}>PORT INPUT REQUIRED</div>}
   </div>;
 };
-
 const nodeTypes = { industrial: IndustrialNode };
-
-const normalizeNodes = (nodes: Node[] = []) => nodes.map((node) => ({
-  ...node,
-  type: 'industrial',
-  data: {
-    ...node.data,
-    details: {
-      ...(node.data?.details || {}),
-      connectionPorts: node.data?.details?.connectionPorts || defaultPorts,
-      portEvidenceStatus: node.data?.details?.portEvidenceStatus || 'review-required'
-    }
-  }
-}));
-
-const normalizeEdges = (edges: Edge[] = []) => edges.map((edge) => ({
-  ...edge,
-  type: 'smoothstep',
-  markerEnd: { type: MarkerType.ArrowClosed, color: edge.style?.stroke || '#475569' },
-  data: {
-    ...(edge.data || {}),
-    sourcePortId: edge.data?.sourcePortId || edge.sourceHandle || 'outlet',
-    targetPortId: edge.data?.targetPortId || edge.targetHandle || 'inlet',
-    portValidationStatus: edge.data?.portValidationStatus || 'review-required'
-  }
-}));
-
-const isSafetyOrAuxiliaryNode = (node: Node) => {
-  const descriptor = `${node.data?.tag || ''} ${node.data?.componentType || ''} ${node.data?.label || ''}`.toLowerCase();
-  return /(^|\s)safe-|gas_detector|ventilation_fan|emergency_shutdown|safety_control|pressure relief|relief_valve/.test(descriptor);
-};
-
-/**
- * The complete topology remains available in the Overview preset. For the first
- * viewport we focus on process equipment so tag labels stay readable on a normal
- * screen; isolated safety/control nodes are never removed or hidden from the model.
- */
+// Safety/control nodes are never removed or hidden from the model.
 const PidViewportPresets: React.FC<{ nodes: Node[] }> = ({ nodes }) => {
   const { fitView } = useReactFlow();
-  const processNodes = useMemo(() => nodes.filter((node) => !isSafetyOrAuxiliaryNode(node)), [nodes]);
-  const topologySignature = useMemo(() => nodes.map((node) => node.id).sort().join('|'), [nodes]);
-  const framedTopologySignature = useRef('');
-
-  const frameProcess = useCallback(() => {
-    const targetNodes = processNodes.length ? processNodes : nodes;
-    fitView({ nodes: targetNodes, padding: 0.18, minZoom: 0.46, maxZoom: 1.3, duration: 180 });
-  }, [fitView, nodes, processNodes]);
-
-  const frameOverview = useCallback(() => {
-    fitView({ nodes, padding: 0.1, minZoom: 0.3, maxZoom: 1.1, duration: 180 });
-  }, [fitView, nodes]);
-
-  useEffect(() => {
-    if (!topologySignature || framedTopologySignature.current === topologySignature) return undefined;
-    framedTopologySignature.current = topologySignature;
-    const frame = window.requestAnimationFrame(frameProcess);
-    return () => window.cancelAnimationFrame(frame);
-  }, [frameProcess, topologySignature]);
-
-  return <Panel position="top-left">
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(255,255,255,.96)', border: '1px solid #cbd5e1', borderRadius: 4, padding: '6px 8px', fontSize: 11 }}>
-      <strong style={{ color: '#0b2942' }}>Viewport</strong>
-      <button type="button" onClick={frameProcess} style={{ border: '1px solid #0f6cbd', borderRadius: 3, background: '#eff6ff', color: '#0f4c81', padding: '3px 6px', cursor: 'pointer' }}>Readable cycle</button>
-      <button type="button" onClick={frameOverview} style={{ border: '1px solid #64748b', borderRadius: 3, background: '#fff', color: '#334155', padding: '3px 6px', cursor: 'pointer' }}>Full topology</button>
-    </div>
-  </Panel>;
+  return <Panel position="top-left"><div style={{ display: 'flex', gap: 6, background: 'oklch(99% 0.005 210)', padding: 6 }}>
+    <button type="button" onClick={() => fitView({ nodes: nodes.filter(node => !/gas_detector|ventilation_fan|emergency_shutdown|safety_control|relief_valve/i.test(String(node.data?.componentType || ''))), padding: .18, minZoom: .02, maxZoom: 1.3 })}>Readable cycle</button>
+    <button type="button" onClick={() => fitView({ nodes, padding: .12, minZoom: .02, maxZoom: 1 })}>Full topology</button>
+  </div></Panel>;
 };
-
 const PIDDrawingEngineInner: React.FC<PIDDrawingEngineProps> = ({ nodes: initialNodes, edges: initialEdges, onDraftChange }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(normalizeNodes(initialNodes));
-  const [edges, setEdges, onEdgesChange] = useEdgesState(normalizeEdges(initialEdges));
+  const [edges, setEdges, onEdgesChange] = useEdgesState(normalizeEdges(initialEdges, initialNodes));
   const [issues, setIssues] = useState<string[]>([]);
-
-  useEffect(() => { setNodes(normalizeNodes(initialNodes)); }, [initialNodes, setNodes]);
-  useEffect(() => { setEdges(normalizeEdges(initialEdges)); }, [initialEdges, setEdges]);
-
-  const publish = useCallback((type: PidDraftChange['type'], nextNodes: Node[], nextEdges: Edge[], nextIssues: string[]) => {
-    onDraftChange?.({ type, nodes: nextNodes, edges: nextEdges, reviewRequired: true, issues: nextIssues });
-  }, [onDraftChange]);
-
+  useEffect(() => { setNodes(normalizeNodes(initialNodes)); setEdges(normalizeEdges(initialEdges, initialNodes)); setIssues([]); }, [initialNodes, initialEdges, setNodes, setEdges]);
   const onNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    const nextNodes = nodes.map((current) => current.id === node.id ? { ...current, position: node.position, data: { ...current.data, layoutStatus: 'preview-edited' } } : current);
-    setNodes(nextNodes);
-    const nextIssues = ['Layout change is preview-only. Review equipment clearance, ports and 3D placement before applying to the engineering model.'];
-    setIssues(nextIssues);
-    publish('layout-preview', nextNodes, edges, nextIssues);
-  }, [nodes, edges, publish, setNodes]);
-
+    const nextNodes = nodes.map(current => current.id === node.id ? { ...current, position: node.position } : current);
+    const nextIssues = ['Layout preview only: review clearance and 3D placement before applying.'];
+    setNodes(nextNodes); setIssues(nextIssues);
+    onDraftChange?.({ type: 'layout-preview', nodes: nextNodes, edges, reviewRequired: true, issues: nextIssues });
+  }, [nodes, edges, onDraftChange, setNodes]);
   const onConnect = useCallback((connection: Connection) => {
-    const source = nodes.find((node) => node.id === connection.source);
-    const target = nodes.find((node) => node.id === connection.target);
-    const sourcePort = source?.data?.details?.connectionPorts?.find((port: any) => port.id === connection.sourceHandle);
-    const targetPort = target?.data?.details?.connectionPorts?.find((port: any) => port.id === connection.targetHandle);
-    const nextIssues: string[] = [];
-    if (!source || !target) nextIssues.push('Both endpoints must be declared P&ID equipment.');
-    if (!connection.sourceHandle || !connection.targetHandle) nextIssues.push('Select declared source and target ports; equipment-centre connections are not valid.');
-    if (sourcePort?.direction && sourcePort.direction !== 'out') nextIssues.push(`Source port ${connection.sourceHandle} is not declared as an outlet.`);
-    if (targetPort?.direction && targetPort.direction !== 'in') nextIssues.push(`Target port ${connection.targetHandle} is not declared as an inlet.`);
-    const candidate: Edge = {
-      id: `draft-${Date.now()}`,
-      source: connection.source || '', target: connection.target || '', sourceHandle: connection.sourceHandle, targetHandle: connection.targetHandle,
-      type: 'smoothstep', label: 'SERVICE / DN REVIEW', markerEnd: { type: MarkerType.ArrowClosed, color: '#b45309' },
-      style: { stroke: '#b45309', strokeWidth: 2 },
-      data: { sourcePortId: connection.sourceHandle, targetPortId: connection.targetHandle, service: null, dn: null, jointPolicy: null, portValidationStatus: nextIssues.length ? 'invalid' : 'review-required', sizingStatus: 'review-required' }
-    };
-    const nextEdges = addEdge(candidate, edges);
-    setEdges(nextEdges);
-    const resolvedIssues = nextIssues.length ? nextIssues : ['New connection is a review-required candidate. Assign service, DN, joint policy and validate the semantic cycle before applying it.'];
-    setIssues(resolvedIssues);
-    publish('connection-candidate', nodes, nextEdges, resolvedIssues);
-  }, [nodes, edges, publish, setEdges]);
-
-  const summary = useMemo(() => ({ sourcePorts: nodes.reduce((sum, node) => sum + (node.data?.details?.connectionPorts || []).filter((port: any) => port.direction === 'out').length, 0), edges: edges.length }), [nodes, edges]);
-
-  return <div style={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', background: '#f8fafc', border: '1px solid #cbd5e1' }}>
-    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeDragStop={onNodeDragStop} fitView fitViewOptions={{ padding: 0.08, minZoom: 0.36, maxZoom: 1.1 }} minZoom={0.25} maxZoom={2} onlyRenderVisibleElements defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }} attributionPosition="bottom-right">
-      <Background color="#cbd5e1" gap={20} size={1} />
-      <PidViewportPresets nodes={nodes} />
-      <Controls showInteractive={false} />
+    const invalid = connectionIssues(connection, nodes);
+    if (invalid.length) { setIssues(invalid); return; }
+    const candidate: Edge = { id: `draft-${Date.now()}`, source: connection.source!, target: connection.target!, sourceHandle: connection.sourceHandle, targetHandle: connection.targetHandle, data: { service: null, dn: null, portValidationStatus: 'review-required' } };
+    const nextEdges = addEdge(normalizeEdges([candidate], nodes)[0], edges);
+    const nextIssues = ['Connection candidate only: service, DN, safety and semantic-cycle review required.'];
+    setEdges(nextEdges); setIssues(nextIssues);
+    onDraftChange?.({ type: 'connection-candidate', nodes, edges: nextEdges, reviewRequired: true, issues: nextIssues });
+  }, [nodes, edges, onDraftChange, setEdges]);
+  const invalid = useMemo(() => edges.filter(edge => edge.data?.portValidationStatus === 'invalid'), [edges]);
+  return <div data-engine="pid-port-aware-2d" data-equipment-count={nodes.length} data-line-count={edges.length} data-invalid-lines={invalid.length} style={{ width: '100%', height: '100%', minHeight: 620, position: 'relative', background: '#f8fafc', border: '1px solid #cbd5e1' }}>
+    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeDragStop={onNodeDragStop} fitView fitViewOptions={{ padding: .12, minZoom: .02, maxZoom: 1.1 }} minZoom={.02} maxZoom={4} onlyRenderVisibleElements={false} attributionPosition="bottom-right">
+      <Background color="#d8e0e5" gap={20} size={1} /><PidViewportPresets nodes={nodes} /><Controls showInteractive={false} />
     </ReactFlow>
-    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(255,255,255,.96)', padding: '8px 10px', borderRadius: 4, fontSize: 12, maxWidth: 330 }}>
-      <strong>Editable P&amp;ID preview</strong><br />{nodes.length} equipment · {summary.sourcePorts} declared drawing outlets · {summary.edges} lines<br /><span style={{ color: '#0f4c81' }}>Readable cycle focuses process equipment; Full topology restores safeguards and auxiliaries.</span><br /><span style={{ color: '#a16207' }}>Drag = layout preview; connect handles = review-required candidate.</span>
+    <div style={{ position: 'absolute', top: 48, right: 10, background: 'oklch(99% 0.005 210)', padding: 8, fontSize: 11, maxWidth: 300 }}><strong>Editable P&amp;ID preview</strong><br />{nodes.length} equipment | {edges.length} lines<br />Engineering review required. No automatic standards certification.
+      {invalid.length > 0 && <div role="alert" style={{ color: '#b91c1c' }}>{invalid.length} invalid connections retained in the register. Resolve missing ports; do not guess.</div>}
     </div>
-    {issues.length > 0 && <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 10, background: '#fffbeb', border: '1px solid #f59e0b', color: '#78350f', padding: '8px 10px', borderRadius: 4, fontSize: 12, maxWidth: 500 }}>{issues[0]}</div>}
+    {issues.length > 0 && <div role="alert" style={{ position: 'absolute', bottom: 10, left: 10, background: '#fff7ed', padding: 10, fontSize: 12, maxWidth: 480 }}>{issues.join(' ')}</div>}
   </div>;
 };
-
-const PIDDrawingEngine: React.FC<PIDDrawingEngineProps> = (props) => <ReactFlowProvider><PIDDrawingEngineInner {...props} /></ReactFlowProvider>;
-
+const PIDDrawingEngine: React.FC<PIDDrawingEngineProps> = props => <ReactFlowProvider><PIDDrawingEngineInner {...props} /></ReactFlowProvider>;
 export default PIDDrawingEngine;

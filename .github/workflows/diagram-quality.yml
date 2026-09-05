@@ -1,0 +1,70 @@
+name: Diagram quality evidence
+on:
+  push:
+    branches: [main, 'improve/diagram-quality-*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: diagram-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install locked application dependencies
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix frontend
+      - name: Test production P&ID port handling
+        run: node frontend/scripts/diagramQuality.cjs
+      - name: Backend engineering contract tests
+        run: npm test --prefix backend
+      - name: Frontend catalogue and governance tests
+        if: ${{ !cancelled() }}
+        run: npm test --prefix frontend
+      - name: Build the actual frontend
+        id: build
+        if: ${{ !cancelled() }}
+        run: npm run build --prefix frontend
+      - name: Install isolated browser test tools
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          npm install --prefix "$RUNNER_TEMP/diagram-tools" --no-package-lock --no-save playwright@1.56.1 pngjs@7.0.0
+          "$RUNNER_TEMP/diagram-tools/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Run live application and capture diagram evidence
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          CI: 'true'
+        run: |
+          mkdir -p frontend/e2e-artifacts/diagram-quality
+          node backend/server.js > frontend/e2e-artifacts/diagram-quality/backend.log 2>&1 &
+          BACKEND=$!
+          (cd frontend && ./node_modules/.bin/webpack serve --mode development --host 0.0.0.0 --port 3001) > frontend/e2e-artifacts/diagram-quality/frontend.log 2>&1 &
+          FRONTEND=$!
+          trap 'kill "$BACKEND" "$FRONTEND" 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:3001/chat >/dev/null; then READY=1; break; fi
+            sleep 2
+          done
+          test "$READY" = 1
+          NODE_PATH="$RUNNER_TEMP/diagram-tools/node_modules" node frontend/scripts/diagramQuality.cjs --browser
+      - name: Upload evidence even when a check fails
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagram-quality-${{ github.sha }}
+          path: frontend/e2e-artifacts/diagram-quality/
+          if-no-files-found: warn
+          retention-days: 14
